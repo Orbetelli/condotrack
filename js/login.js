@@ -3,16 +3,10 @@
 // ============================================================
 
 const ROTAS = {
-<<<<<<< HEAD
-  morador:  'morador.html',
-  porteiro: 'porteiro.html',
-  admin:    'superadmin.html',
-=======
   superadmin: 'superadmin.html',
   admin:      'admin.html',
   porteiro:   'porteiro.html',
   morador:    'morador.html',
->>>>>>> 68b0e0d (atualização)
 }
 
 let perfilSelecionado = 'morador'

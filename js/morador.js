@@ -1,86 +1,4 @@
 // ============================================================
-<<<<<<< HEAD
-//  morador.js — painel do morador · CondoTrack
-// ============================================================
-
-// ── Dados simulados (substituir por Supabase no tópico 2) ────
-const MORADOR = {
-  nome:  'Maria Costa',
-  apto:  '204-B',
-  bloco: 'Bloco A',
-  condo: 'Res. das Palmeiras',
-}
-
-const ENTREGAS = [
-  {
-    id: 'e001',
-    trans:    'Mercado Livre',
-    data:     '24/04',
-    hora:     '10:45',
-    volumes:  2,
-    obs:      '2 caixas grandes — portaria principal',
-    status:   'aguardando',
-  },
-  {
-    id: 'e002',
-    trans:    'Correios',
-    data:     '24/04',
-    hora:     '08:30',
-    volumes:  1,
-    obs:      '',
-    status:   'aguardando',
-  },
-  {
-    id: 'e003',
-    trans:    'Amazon',
-    data:     '22/04',
-    hora:     '14:20',
-    volumes:  1,
-    obs:      '',
-    status:   'retirado',
-    retiradoEm: '23/04 às 09:10',
-  },
-  {
-    id: 'e004',
-    trans:    'Shopee',
-    data:     '20/04',
-    hora:     '11:05',
-    volumes:  3,
-    obs:      '',
-    status:   'retirado',
-    retiradoEm: '20/04 às 18:30',
-  },
-  {
-    id: 'e005',
-    trans:    'Shein',
-    data:     '15/04',
-    hora:     '09:00',
-    volumes:  1,
-    obs:      '',
-    status:   'expirado',
-  },
-]
-
-const STATUS_CFG = {
-  aguardando: { label: 'Aguardando',  bg: '#FEF3C7', color: '#92400E', dot: '#F59E0B' },
-  retirado:   { label: 'Retirado',    bg: '#F0FDF4', color: '#166534', dot: '#34D399' },
-  expirado:   { label: 'Expirado',    bg: '#FEF2F2', color: '#991B1B', dot: '#F87171' },
-}
-
-// ── Estado ───────────────────────────────────────────────────
-let tabAtiva          = 'pendentes'
-let entregaConfirmar  = null
-
-// ── Init ─────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  renderHeader()
-  renderStats()
-  renderTab('pendentes')
-  bindEvents()
-})
-
-// ── Header ───────────────────────────────────────────────────
-=======
 //  morador.js — painel do morador com Supabase real
 // ============================================================
 
@@ -113,30 +31,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     .subscribe()
 })
 
->>>>>>> 68b0e0d (atualização)
 function renderHeader() {
   const hora = new Date().getHours()
   const saud = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite'
   document.getElementById('header-greeting').textContent = saud + ','
-<<<<<<< HEAD
-  document.getElementById('header-name').textContent     = MORADOR.nome
-  document.getElementById('header-apto').textContent     = `Apto ${MORADOR.apto} · ${MORADOR.bloco}`
-  document.getElementById('header-condo').textContent    = MORADOR.condo
-}
-
-// ── Stats ─────────────────────────────────────────────────────
-function renderStats() {
-  const pendentes = ENTREGAS.filter(e => e.status === 'aguardando').length
-  const retiradas = ENTREGAS.filter(e => e.status === 'retirado').length
-  const total     = ENTREGAS.length
-
-  document.getElementById('stat-pendentes').textContent = pendentes
-  document.getElementById('stat-retiradas').textContent = retiradas
-  document.getElementById('stat-total').textContent     = total
-}
-
-// ── Tabs ─────────────────────────────────────────────────────
-=======
   document.getElementById('header-name').textContent     = usuarioLogado.nome
   const apto = usuarioLogado.apartamentos
   document.getElementById('header-apto').textContent     =
@@ -179,7 +77,6 @@ function renderStats() {
   document.getElementById('stat-total').textContent     = todasEntregas.length
 }
 
->>>>>>> 68b0e0d (atualização)
 function mudarTab(tab) {
   tabAtiva = tab
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'))
@@ -194,21 +91,6 @@ function renderTab(tab) {
   if (tab === 'perfil')    renderPerfil(body)
 }
 
-<<<<<<< HEAD
-// ── Pendentes ─────────────────────────────────────────────────
-function renderPendentes(container) {
-  const lista = ENTREGAS.filter(e => e.status === 'aguardando' || e.status === 'expirado')
-  container.innerHTML = ''
-
-  if (lista.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">
-          <svg viewBox="0 0 24 24" stroke-width="2">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-          </svg>
-        </div>
-=======
 function renderPendentes(container) {
   const lista = todasEntregas.filter(e => e.status === 'aguardando' || e.status === 'expirado')
   container.innerHTML = ''
@@ -216,16 +98,11 @@ function renderPendentes(container) {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
->>>>>>> 68b0e0d (atualização)
         <div class="empty-title">Nenhuma entrega pendente</div>
         <div class="empty-sub">Suas próximas encomendas aparecerão aqui</div>
       </div>`
     return
   }
-<<<<<<< HEAD
-
-=======
->>>>>>> 68b0e0d (atualização)
   lista.forEach(e => {
     const cfg  = STATUS_CFG[e.status]
     const card = document.createElement('div')
@@ -245,24 +122,6 @@ function renderPendentes(container) {
           ${e.volumes} volume${e.volumes > 1 ? 's' : ''}
         </div>
       </div>
-<<<<<<< HEAD
-      ${e.obs ? `
-        <div class="entrega-obs">
-          <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          ${e.obs}
-        </div>` : ''}
-      ${e.status === 'aguardando' ? `
-        <button class="btn-confirmar" onclick="abrirConfirmar('${e.id}')">
-          <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-          Confirmar retirada
-        </button>` : `
-        <div style="font-size:12px;color:var(--c-danger);font-weight:600;display:flex;align-items:center;gap:5px">
-          <svg viewBox="0 0 24 24" stroke-width="2" style="width:13px;height:13px;stroke:currentColor;fill:none"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          Prazo de retirada expirado — entre em contato com a portaria
-        </div>`}
-=======
       ${e.obs ? `<div class="entrega-obs"><svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>${e.obs}</div>` : ''}
       ${e.status === 'aguardando'
         ? `<button class="btn-confirmar" onclick="abrirConfirmar('${e.id}')">
@@ -270,24 +129,11 @@ function renderPendentes(container) {
              Confirmar retirada
            </button>`
         : `<div style="font-size:12px;color:var(--c-danger);font-weight:600">Prazo expirado — contate a portaria</div>`}
->>>>>>> 68b0e0d (atualização)
     `
     container.appendChild(card)
   })
 }
 
-<<<<<<< HEAD
-// ── Histórico ─────────────────────────────────────────────────
-function renderHistorico(container) {
-  const lista = ENTREGAS.filter(e => e.status === 'retirado' || e.status === 'expirado')
-  container.innerHTML = `<div class="sec-title">Histórico de entregas</div>`
-
-  if (lista.length === 0) {
-    container.innerHTML += `
-      <div class="empty-state">
-        <div class="empty-icon"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-        <div class="empty-title">Nenhum histórico ainda</div>
-=======
 function renderHistorico(container) {
   const lista = todasEntregas.filter(e => e.status === 'retirado' || e.status === 'expirado')
   container.innerHTML = '<div class="sec-title">Histórico de entregas</div>'
@@ -296,20 +142,12 @@ function renderHistorico(container) {
       <div class="empty-state">
         <div class="empty-icon"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
         <div class="empty-title">Nenhum histórico</div>
->>>>>>> 68b0e0d (atualização)
         <div class="empty-sub">Suas entregas retiradas aparecerão aqui</div>
       </div>`
     return
   }
-<<<<<<< HEAD
-
   const wrap = document.createElement('div')
   wrap.style.cssText = 'background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);padding:4px 16px;'
-
-=======
-  const wrap = document.createElement('div')
-  wrap.style.cssText = 'background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);padding:4px 16px;'
->>>>>>> 68b0e0d (atualização)
   lista.forEach(e => {
     const cfg  = STATUS_CFG[e.status]
     const item = document.createElement('div')
@@ -324,18 +162,6 @@ function renderHistorico(container) {
           · ${e.volumes} volume${e.volumes > 1 ? 's' : ''}
         </div>
       </div>
-<<<<<<< HEAD
-      <span class="hist-badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>
-    `
-    wrap.appendChild(item)
-  })
-
-  container.appendChild(wrap)
-}
-
-// ── Perfil ────────────────────────────────────────────────────
-function renderPerfil(container) {
-=======
       <span class="hist-badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>`
     wrap.appendChild(item)
   })
@@ -344,49 +170,11 @@ function renderPerfil(container) {
 
 function renderPerfil(container) {
   const apto = usuarioLogado.apartamentos
->>>>>>> 68b0e0d (atualização)
   container.innerHTML = `
     <div class="sec-title">Meus dados</div>
     <div style="background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:14px">
       <div style="padding:14px 16px;border-bottom:1px solid var(--n-100);display:flex;align-items:center;gap:12px">
         <div style="width:44px;height:44px;border-radius:50%;background:var(--p-100);color:var(--p-700);font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-<<<<<<< HEAD
-          ${MORADOR.nome.split(' ').map(n => n[0]).slice(0,2).join('')}
-        </div>
-        <div>
-          <div style="font-size:15px;font-weight:700;color:var(--n-900)">${MORADOR.nome}</div>
-          <div style="font-size:12px;color:var(--n-500)">${MORADOR.condo}</div>
-        </div>
-      </div>
-      ${[
-        ['Apartamento', `${MORADOR.apto} · ${MORADOR.bloco}`],
-        ['Condomínio',  MORADOR.condo],
-        ['E-mail',      'maria.costa@email.com'],
-        ['Telefone',    '(11) 99999-8888'],
-      ].map(([label, valor]) => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 16px;border-bottom:1px solid var(--n-100)">
-          <span style="font-size:13px;color:var(--n-500)">${label}</span>
-          <span style="font-size:13px;font-weight:600;color:var(--n-900)">${valor}</span>
-        </div>
-      `).join('')}
-    </div>
-    <button onclick="sair()" style="width:100%;padding:11px;background:var(--n-50);border:1px solid var(--n-200);border-radius:var(--radius-md);font-size:13px;font-weight:600;color:var(--n-600);cursor:pointer;font-family:var(--font-sans);display:flex;align-items:center;justify-content:center;gap:7px">
-      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:15px;height:15px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-      Sair da conta
-    </button>
-  `
-}
-
-// ── Modal de confirmação ──────────────────────────────────────
-function abrirConfirmar(id) {
-  const e = ENTREGAS.find(x => x.id === id)
-  if (!e) return
-  entregaConfirmar = id
-
-  document.getElementById('conf-trans').textContent  = e.trans
-  document.getElementById('conf-data').textContent   = `${e.data} às ${e.hora}`
-  document.getElementById('conf-vol').textContent    = `${e.volumes} volume${e.volumes > 1 ? 's' : ''}`
-=======
           ${usuarioLogado.nome.split(' ').map(n=>n[0]).slice(0,2).join('')}
         </div>
         <div>
@@ -417,61 +205,18 @@ function abrirConfirmar(id) {
   document.getElementById('conf-trans').textContent = e.trans
   document.getElementById('conf-data').textContent  = `${e.data} às ${e.hora}`
   document.getElementById('conf-vol').textContent   = `${e.volumes} volume${e.volumes > 1 ? 's' : ''}`
->>>>>>> 68b0e0d (atualização)
   document.getElementById('modal-confirmar').classList.add('open')
 }
 
 function fecharModal() {
   document.getElementById('modal-confirmar').classList.remove('open')
-<<<<<<< HEAD
-  // Esconde tela de sucesso e mostra form novamente
-  setTimeout(() => {
-    document.getElementById('modal-form').style.display  = 'block'
-=======
   setTimeout(() => {
     document.getElementById('modal-form').style.display     = 'block'
->>>>>>> 68b0e0d (atualização)
     document.getElementById('confirm-success').style.display = 'none'
     entregaConfirmar = null
   }, 300)
 }
 
-<<<<<<< HEAD
-function confirmarRetirada() {
-  if (!entregaConfirmar) return
-  const e = ENTREGAS.find(x => x.id === entregaConfirmar)
-  if (e) {
-    e.status = 'retirado'
-    e.retiradoEm = new Date().toLocaleDateString('pt-BR') + ' às ' +
-      new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-  }
-
-  // Mostra sucesso no modal
-  document.getElementById('modal-form').style.display     = 'none'
-  document.getElementById('confirm-success').style.display = 'block'
-
-  // Atualiza stats e cards após fechar
-  setTimeout(() => {
-    fecharModal()
-    renderStats()
-    renderTab(tabAtiva)
-  }, 1800)
-}
-
-function sair() {
-  encerrarSessao()
-}
-
-// ── Bind ──────────────────────────────────────────────────────
-function bindEvents() {
-  document.getElementById('modal-confirmar')?.addEventListener('click', function(e) {
-    if (e.target === this) fecharModal()
-  })
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') fecharModal()
-  })
-}
-=======
 async function confirmarRetirada() {
   if (!entregaConfirmar) return
 
@@ -495,4 +240,3 @@ function bindEvents() {
   })
   document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal() })
 }
->>>>>>> 68b0e0d (atualização)

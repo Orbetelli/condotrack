@@ -1,69 +1,4 @@
 // ============================================================
-<<<<<<< HEAD
-//  superadmin.js — painel do Super Admin · CondoTrack
-//  E-mail do SA: admin@condotrack.com.br (conta criada no tópico 2)
-// ============================================================
-
-// ── Dados simulados (substituir por Supabase no tópico 2) ────
-const CONDOMINIOS = [
-  {
-    id: 'c001',
-    nome: 'Res. das Palmeiras',
-    endereco: 'Av. Paulista, 1000',
-    cidade: 'São Paulo', uf: 'SP',
-    blocos: 2, aptos: 80,
-    moradores: 64, porteiros: 3, entregas: 24,
-    status: 'ativo',
-    sindico: 'João da Silva',
-    sindicoEmail: 'joao@palmeiras.com',
-    criadoEm: '10/01/2025',
-  },
-  {
-    id: 'c002',
-    nome: 'Ed. Central Park',
-    endereco: 'Rua Augusta, 500',
-    cidade: 'São Paulo', uf: 'SP',
-    blocos: 3, aptos: 120,
-    moradores: 98, porteiros: 4, entregas: 41,
-    status: 'ativo',
-    sindico: 'Maria Oliveira',
-    sindicoEmail: 'maria@centralpark.com',
-    criadoEm: '15/02/2025',
-  },
-  {
-    id: 'c003',
-    nome: 'Cond. Vila Nova',
-    endereco: 'Rua das Flores, 200',
-    cidade: 'Rio de Janeiro', uf: 'RJ',
-    blocos: 1, aptos: 40,
-    moradores: 0, porteiros: 0, entregas: 0,
-    status: 'pendente',
-    sindico: 'Pedro Rocha',
-    sindicoEmail: 'pedro@vilanova.com',
-    criadoEm: '20/04/2025',
-  },
-  {
-    id: 'c004',
-    nome: 'Res. Jardim Europa',
-    endereco: 'Al. Santos, 800',
-    cidade: 'São Paulo', uf: 'SP',
-    blocos: 4, aptos: 160,
-    moradores: 150, porteiros: 6, entregas: 89,
-    status: 'ativo',
-    sindico: 'Ana Costa',
-    sindicoEmail: 'ana@jardimeuropa.com',
-    criadoEm: '05/03/2025',
-  },
-]
-
-// ── Estado ───────────────────────────────────────────────────
-let condominioEditando = null
-
-// ── Init ─────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  renderStats()
-  renderCondominios()
-=======
 //  superadmin.js — painel completo do Super Admin
 //  Todas as abas integradas com Supabase
 // ============================================================
@@ -84,41 +19,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('header-user').textContent  = usuarioLogado.nome
 
   mudarTab('dashboard')
->>>>>>> 68b0e0d (atualização)
   aplicarMascaraCEP()
   bindEvents()
 })
 
-<<<<<<< HEAD
-// ── Stats globais ─────────────────────────────────────────────
-function renderStats() {
-  const ativos    = CONDOMINIOS.filter(c => c.status === 'ativo').length
-  const moradores = CONDOMINIOS.reduce((s, c) => s + c.moradores, 0)
-  const entregas  = CONDOMINIOS.reduce((s, c) => s + c.entregas, 0)
-  const total     = CONDOMINIOS.length
-
-  document.getElementById('stat-condominios').textContent = total
-  document.getElementById('stat-moradores').textContent   = moradores
-  document.getElementById('stat-entregas').textContent    = entregas
-  document.getElementById('stat-ativos').textContent      = ativos
-}
-
-// ── Renderiza cards de condomínios ───────────────────────────
-function renderCondominios(filtro = '') {
-  const grid = document.getElementById('condo-grid')
-  if (!grid) return
-
-  const lista = filtro
-    ? CONDOMINIOS.filter(c =>
-        c.nome.toLowerCase().includes(filtro.toLowerCase()) ||
-        c.cidade.toLowerCase().includes(filtro.toLowerCase()))
-    : CONDOMINIOS
-
-  // Remove cards anteriores (mantém o card de adicionar)
-  grid.querySelectorAll('.condo-card').forEach(el => el.remove())
-
-  // Insere antes do card de adicionar
-=======
 // ── Navegação entre abas ──────────────────────────────────────
 async function mudarTab(tab) {
   tabAtiva = tab
@@ -265,7 +169,6 @@ async function carregarCondominios(filtro = '') {
   const meta     = document.getElementById('condo-meta')
   if (meta) meta.textContent = `${lista.length} total · ${ativos} ativo${ativos !== 1 ? 's' : ''} · ${pend} pendente${pend !== 1 ? 's' : ''}`
 
->>>>>>> 68b0e0d (atualização)
   const addCard = grid.querySelector('.condo-card-add')
 
   lista.forEach(c => {
@@ -280,51 +183,6 @@ async function carregarCondominios(filtro = '') {
         <span class="status-pill s-${c.status}">${statusLabel(c.status)}</span>
       </div>
       <div class="condo-stats">
-<<<<<<< HEAD
-        <div class="condo-stat">
-          <svg viewBox="0 0 24 24" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-          <strong>${c.moradores}</strong> moradores
-        </div>
-        <div class="condo-stat">
-          <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-          <strong>${c.entregas}</strong> entregas
-        </div>
-        <div class="condo-stat">
-          <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <strong>${c.porteiros}</strong> porteiros
-        </div>
-      </div>
-      <div style="font-size:11px;color:var(--n-500);margin-bottom:10px">
-        Síndico: <strong style="color:var(--n-700)">${c.sindico}</strong>
-        ${c.status === 'pendente'
-          ? ' <span style="color:#92400E;font-weight:600">· Aguardando convite</span>'
-          : ''}
-      </div>
-      <div class="condo-footer">
-        <button class="mini-btn" onclick="abrirDetalhe('${c.id}')">Detalhes</button>
-        ${c.status === 'pendente'
-          ? `<button class="mini-btn primary" onclick="reenviarConvite('${c.id}')">Reenviar convite</button>`
-          : `<button class="mini-btn" onclick="editarCondo('${c.id}')">Editar</button>
-             <button class="mini-btn primary" onclick="acessarPainel('${c.id}')">Acessar painel</button>`
-        }
-      </div>
-    `
-    grid.insertBefore(card, addCard)
-  })
-
-  // Atualiza meta
-  const ativos   = lista.filter(c => c.status === 'ativo').length
-  const pend     = lista.filter(c => c.status === 'pendente').length
-  const meta     = document.getElementById('condo-meta')
-  if (meta) meta.textContent = `${lista.length} total · ${ativos} ativo${ativos !== 1 ? 's' : ''} · ${pend} pendente${pend !== 1 ? 's' : ''}`
-}
-
-function statusLabel(s) {
-  return { ativo: 'Ativo', pendente: 'Pendente', inativo: 'Inativo' }[s] || s
-}
-
-// ── Modal: novo condomínio ────────────────────────────────────
-=======
         <div class="condo-stat">${iconAptos()} <strong>${c.total_aptos}</strong> aptos</div>
         <div class="condo-stat">${iconRelogio()} Criado: ${new Date(c.criado_em).toLocaleDateString('pt-BR')}</div>
       </div>
@@ -608,7 +466,6 @@ async function salvarSuperAdmin(e) {
 }
 
 // ── Modal: novo/editar condomínio ─────────────────────────────
->>>>>>> 68b0e0d (atualização)
 function abrirModalNovo() {
   condominioEditando = null
   document.getElementById('modal-title').textContent = 'Novo condomínio'
@@ -617,106 +474,6 @@ function abrirModalNovo() {
   document.getElementById('modal-condo').classList.add('open')
 }
 
-<<<<<<< HEAD
-function editarCondo(id) {
-  const c = CONDOMINIOS.find(x => x.id === id)
-  if (!c) return
-  condominioEditando = id
-  document.getElementById('modal-title').textContent = 'Editar condomínio'
-  document.getElementById('c-nome').value    = c.nome
-  document.getElementById('c-end').value     = c.endereco
-  document.getElementById('c-cidade').value  = c.cidade
-  document.getElementById('c-uf').value      = c.uf
-  document.getElementById('c-blocos').value  = c.blocos
-  document.getElementById('c-aptos').value   = c.aptos
-  document.getElementById('c-sindico').value = c.sindico
-  document.getElementById('c-email-s').value = c.sindicoEmail
-  document.getElementById('modal-condo').classList.add('open')
-}
-
-function fecharModal() {
-  document.getElementById('modal-condo').classList.remove('open')
-  document.getElementById('modal-detalhe').classList.remove('open')
-}
-
-function salvarCondo(e) {
-  e.preventDefault()
-  limparTodosErros('err-nome-c','err-end-c','err-sindico','err-email-s')
-
-  const nome    = document.getElementById('c-nome').value.trim()
-  const end     = document.getElementById('c-end').value.trim()
-  const cidade  = document.getElementById('c-cidade').value.trim()
-  const uf      = document.getElementById('c-uf').value.trim()
-  const blocos  = parseInt(document.getElementById('c-blocos').value) || 1
-  const aptos   = parseInt(document.getElementById('c-aptos').value) || 0
-  const sindico = document.getElementById('c-sindico').value.trim()
-  const emailS  = document.getElementById('c-email-s').value.trim()
-
-  let ok = true
-  if (!nome)             { mostrarErro('err-nome-c',  'Informe o nome.'); ok = false }
-  if (!end)              { mostrarErro('err-end-c',   'Informe o endereço.'); ok = false }
-  if (!sindico)          { mostrarErro('err-sindico', 'Informe o nome do síndico.'); ok = false }
-  if (!isEmailValido(emailS)) { mostrarErro('err-email-s', 'Informe um e-mail válido.'); ok = false }
-  if (!ok) return
-
-  if (condominioEditando) {
-    const c = CONDOMINIOS.find(x => x.id === condominioEditando)
-    if (c) {
-      c.nome = nome; c.endereco = end; c.cidade = cidade; c.uf = uf
-      c.blocos = blocos; c.aptos = aptos; c.sindico = sindico; c.sindicoEmail = emailS
-    }
-  } else {
-    CONDOMINIOS.push({
-      id: 'c' + Date.now(),
-      nome, endereco: end, cidade, uf,
-      blocos, aptos,
-      moradores: 0, porteiros: 0, entregas: 0,
-      status: 'pendente',
-      sindico, sindicoEmail: emailS,
-      criadoEm: new Date().toLocaleDateString('pt-BR'),
-    })
-  }
-
-  fecharModal()
-  renderStats()
-  renderCondominios()
-  // TODO (tópico 2): salvar no Supabase + disparar convite por e-mail
-}
-
-// ── Detalhe do condomínio ────────────────────────────────────
-function abrirDetalhe(id) {
-  const c = CONDOMINIOS.find(x => x.id === id)
-  if (!c) return
-
-  document.getElementById('det-nome').textContent    = c.nome
-  document.getElementById('det-end').textContent     = `${c.endereco}, ${c.cidade} — ${c.uf}`
-  document.getElementById('det-sindico').textContent = c.sindico
-  document.getElementById('det-email').textContent   = c.sindicoEmail
-  document.getElementById('det-blocos').textContent  = c.blocos
-  document.getElementById('det-aptos').textContent   = c.aptos
-  document.getElementById('det-mord').textContent    = c.moradores
-  document.getElementById('det-port').textContent    = c.porteiros
-  document.getElementById('det-criado').textContent  = c.criadoEm
-  document.getElementById('det-status').textContent  = statusLabel(c.status)
-  document.getElementById('det-status').className    = `status-pill s-${c.status}`
-  document.getElementById('modal-detalhe').classList.add('open')
-}
-
-// ── Ações rápidas ─────────────────────────────────────────────
-function reenviarConvite(id) {
-  const c = CONDOMINIOS.find(x => x.id === id)
-  if (!c) return
-  alert(`Convite reenviado para ${c.sindicoEmail}\n\n(Funcionalidade real no tópico 2 — notificações por e-mail)`)
-  // TODO (tópico 2): disparar e-mail via Supabase Edge Functions + Resend
-}
-
-function acessarPainel(id) {
-  // TODO (tópico 2): redirecionar para o painel do condomínio com o condominio_id
-  alert('Acesso ao painel do condomínio será habilitado após integração com o banco de dados (tópico 2).')
-}
-
-// ── Sidebar ───────────────────────────────────────────────────
-=======
 async function editarCondo(id) {
   const { data } = await db.from('condominios').select('*').eq('id', id).single()
   if (!data) return
@@ -835,60 +592,11 @@ function iconAlerta()  { return `<svg viewBox="0 0 24 24" stroke="#991B1B" strok
 function iconAptos()   { return `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" style="width:12px;height:12px"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>` }
 function iconRelogio() { return `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>` }
 
->>>>>>> 68b0e0d (atualização)
 function ativarSidebar(item) {
   document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'))
   item.classList.add('active')
 }
 
-<<<<<<< HEAD
-// ── Busca ─────────────────────────────────────────────────────
-function bindEvents() {
-  document.getElementById('busca-condo')?.addEventListener('input', function () {
-    renderCondominios(this.value)
-  })
-
-  document.getElementById('modal-condo')?.addEventListener('click', function (e) {
-    if (e.target === this) fecharModal()
-  })
-  document.getElementById('modal-detalhe')?.addEventListener('click', function (e) {
-    if (e.target === this) fecharModal()
-  })
-
-  document.getElementById('form-condo')?.addEventListener('submit', salvarCondo)
-
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') fecharModal()
-  })
-}
-
-// ── Máscara CEP ───────────────────────────────────────────────
-function aplicarMascaraCEP() {
-  const input = document.getElementById('c-cep')
-  if (!input) return
-  input.addEventListener('input', function () {
-    let v = this.value.replace(/\D/g, '').slice(0, 8)
-    if (v.length > 5) v = v.slice(0, 5) + '-' + v.slice(5)
-    this.value = v
-  })
-  input.addEventListener('blur', async function () {
-    const cep = this.value.replace(/\D/g, '')
-    if (cep.length !== 8) return
-    try {
-      const res  = await fetch(`https://viacep.com.br/ws/${cep}/json/`)
-      const data = await res.json()
-      if (!data.erro) {
-        const end = document.getElementById('c-end')
-        const cid = document.getElementById('c-cidade')
-        const uf  = document.getElementById('c-uf')
-        if (end && !end.value) end.value = data.logradouro || ''
-        if (cid) cid.value = data.localidade || ''
-        if (uf)  uf.value  = data.uf || ''
-      }
-    } catch (_) {}
-  })
-}
-=======
 // ── Máscara CEP ───────────────────────────────────────────────
 function aplicarMascaraCEP() {
   document.addEventListener('input', async function(e) {
@@ -921,4 +629,3 @@ function bindEvents() {
   document.getElementById('form-condo')?.addEventListener('submit', salvarCondo)
   document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal() })
 }
->>>>>>> 68b0e0d (atualização)

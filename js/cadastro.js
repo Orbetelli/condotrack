@@ -195,32 +195,4 @@ async function finalizar() {
 
 function alternarSenha(inputId, iconId) {
   toggleSenha(inputId, iconId)
-<<<<<<< HEAD
 }
-
-function finalizar() {
-  limparTodosErros('senha-err', 'confirma-err')
-  const senha    = document.getElementById('senha').value
-  const confirma = document.getElementById('confirma').value
-  let valido = true
-  if (senha.length < 6)   { mostrarErro('senha-err',    'Mínimo 6 caracteres.'); valido = false }
-  if (senha !== confirma) { mostrarErro('confirma-err', 'As senhas não coincidem.'); valido = false }
-  if (!valido) return
-
-  // TODO (tópico 2): chamar Supabase aqui
-  const nome = document.getElementById('nome').value
-  document.getElementById('step-2').style.display   = 'none'
-  document.getElementById('stepper').style.display  = 'none'
-  document.getElementById('success-msg').innerHTML  =
-    'Sua conta foi criada para o <strong>Apto ' + estado.aptoSelecionado + '</strong>, ' + nome + '.<br>Agora é só fazer o login e acompanhar suas entregas.'
-  document.getElementById('success-screen').style.display = 'block'
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  renderizarGradeAptos()
-  aplicarMascaraCPF('cpf')
-  aplicarMascaraTelefone('tel')
-})
-=======
-}
->>>>>>> 68b0e0d (atualização)
