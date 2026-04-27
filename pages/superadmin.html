@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CondoTrack — Super Admin</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/superadmin.css" />
+<<<<<<< HEAD
+=======
+  <style>
+    /* Componentes extras das novas abas */
+    .panel-card-sa { background:var(--n-0); border:1px solid var(--n-200); border-radius:var(--radius-lg); overflow:hidden; margin-bottom:14px; }
+    .panel-card-sa-head { padding:11px 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--n-100); }
+    .panel-card-sa-title { font-size:11px; font-weight:700; color:var(--n-500); text-transform:uppercase; letter-spacing:.06em; }
+    .panel-row-sa { display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid var(--n-100); transition:background .1s; }
+    .panel-row-sa:last-child { border-bottom:none; }
+    .panel-row-sa:hover { background:var(--p-50); }
+    .panel-avatar-sa { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0; }
+    .panel-row-info-sa { flex:1; min-width:0; }
+    .panel-row-name-sa { font-size:13px; font-weight:600; color:var(--n-900); }
+    .panel-row-sub-sa  { font-size:11px; color:var(--n-500); margin-top:1px; }
+    .panel-row-badge-sa { font-size:10px; font-weight:600; padding:3px 8px; border-radius:99px; white-space:nowrap; }
+    .panel-empty-sa { padding:20px; text-align:center; font-size:13px; color:var(--n-400); }
+  </style>
+>>>>>>> 68b0e0d (atualização)
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sb-logo">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+    </div>
+    <nav class="sb-nav">
+<<<<<<< HEAD
+      <button class="sb-item active" data-tip="Dashboard" onclick="ativarSidebar(this)">
+        <svg viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      </button>
+      <button class="sb-item" data-tip="Condomínios" onclick="ativarSidebar(this)">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </button>
+      <button class="sb-item" data-tip="Usuários" onclick="ativarSidebar(this)">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </button>
+      <button class="sb-item" data-tip="Relatórios" onclick="ativarSidebar(this)">
+        <svg viewBox="0 0 24 24" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </button>
+      <div class="sb-divider"></div>
+      <button class="sb-item" data-tip="Configurações" onclick="ativarSidebar(this)">
+        <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      </button>
+    </nav>
+    <div class="sb-avatar" title="Super Admin · admin@condotrack.com.br">SA</div>
+=======
+      <button class="sb-item active" data-tip="Dashboard"    onclick="ativarSidebar(this);mudarTab('dashboard')">
+        <svg viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      </button>
+      <button class="sb-item" data-tip="Condomínios"  onclick="ativarSidebar(this);mudarTab('condominios')">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </button>
+      <button class="sb-item" data-tip="Usuários"     onclick="ativarSidebar(this);mudarTab('usuarios')">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </button>
+      <button class="sb-item" data-tip="Relatórios"   onclick="ativarSidebar(this);mudarTab('relatorios')">
+        <svg viewBox="0 0 24 24" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </button>
+      <button class="sb-item" data-tip="Equipe interna" onclick="ativarSidebar(this);mudarTab('equipe')">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </button>
+      <div class="sb-divider"></div>
+      <button class="sb-item" data-tip="Sair" onclick="logout()">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </nav>
+    <div class="sb-avatar" id="sb-avatar">SA</div>
+>>>>>>> 68b0e0d (atualização)
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="main">
+<<<<<<< HEAD
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <div class="header-title">Painel de Controle</div>
+        <div class="header-sub">CondoTrack · Visão global do sistema</div>
+      </div>
+      <div class="header-right">
+        <span class="header-badge">Super Admin</span>
+        <button class="btn-novo" id="btn-novo-condo" onclick="abrirModalNovo()">
+          <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Novo condomínio
+        </button>
+      </div>
+    </header>
+
+    <!-- Abas -->
+    <nav class="nav-tabs">
+      <div class="nav-tab active">
+        <svg viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-tab">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        Condomínios
+      </div>
+      <div class="nav-tab">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Usuários
+      </div>
+      <div class="nav-tab">
+        <svg viewBox="0 0 24 24" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Relatórios
+      </div>
+    </nav>
+
+    <!-- Body -->
+    <main class="body">
+
+      <!-- Stats globais -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-top">
+            <div class="stat-num" id="stat-condominios">—</div>
+            <div class="stat-icon" style="background:#EDE9FE">
+              <svg viewBox="0 0 24 24" stroke="#5B21B6" stroke-width="2" fill="none">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="stat-label">Condomínios</div>
+          <span class="stat-badge" style="background:#EDE9FE;color:#5B21B6">Total</span>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top">
+            <div class="stat-num" id="stat-moradores">—</div>
+            <div class="stat-icon" style="background:#EFF6FF">
+              <svg viewBox="0 0 24 24" stroke="#1D4ED8" stroke-width="2" fill="none">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              </svg>
+            </div>
+          </div>
+          <div class="stat-label">Moradores cadastrados</div>
+          <span class="stat-badge" style="background:#EFF6FF;color:#1D4ED8">Geral</span>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top">
+            <div class="stat-num" id="stat-entregas">—</div>
+            <div class="stat-icon" style="background:#FEF3C7">
+              <svg viewBox="0 0 24 24" stroke="#92400E" stroke-width="2" fill="none">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="stat-label">Entregas este mês</div>
+          <span class="stat-badge" style="background:#FEF3C7;color:#92400E">Global</span>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top">
+            <div class="stat-num" id="stat-ativos">—</div>
+            <div class="stat-icon" style="background:#F0FDF4">
+              <svg viewBox="0 0 24 24" stroke="#166534" stroke-width="2.5" fill="none">
+                <polyline points="20 6 9 17 4 12" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </div>
+          <div class="stat-label">Condomínios ativos</div>
+          <span class="stat-badge" style="background:#F0FDF4;color:#166534">Online</span>
+        </div>
+      </div>
+
+      <!-- Busca -->
+      <div style="margin-bottom:14px">
+        <input class="search-box" type="text" id="busca-condo"
+               placeholder="Buscar condomínio por nome ou cidade..." />
+      </div>
+
+      <!-- Cabeçalho da seção -->
+      <div class="sec-header">
+        <div class="sec-title">Condomínios cadastrados</div>
+        <div class="sec-meta" id="condo-meta"></div>
+      </div>
+
+      <!-- Grid de condomínios -->
+      <div class="condo-grid" id="condo-grid">
+        <!-- Cards renderizados via JS -->
+        <div class="condo-card-add" onclick="abrirModalNovo()">
+          <div class="add-icon">
+            <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </div>
+          <div class="add-label">Novo condomínio</div>
+        </div>
+      </div>
+
+    </main>
+=======
+    <header class="header">
+      <div class="header-left">
+        <div class="header-title">Painel de Controle</div>
+        <div class="header-sub">CondoTrack · <span id="header-user">Super Admin</span></div>
+      </div>
+      <div class="header-right">
+        <span class="header-badge">Super Admin</span>
+        <button class="btn-novo" id="btn-acao" style="display:none"></button>
+      </div>
+    </header>
+
+    <nav class="nav-tabs">
+      <div class="nav-tab active" data-tab="dashboard"   onclick="mudarTab('dashboard')">
+        <svg viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-tab" data-tab="condominios"  onclick="mudarTab('condominios')">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        Condomínios
+      </div>
+      <div class="nav-tab" data-tab="usuarios"     onclick="mudarTab('usuarios')">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Usuários
+      </div>
+      <div class="nav-tab" data-tab="relatorios"   onclick="mudarTab('relatorios')">
+        <svg viewBox="0 0 24 24" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Relatórios
+      </div>
+      <div class="nav-tab" data-tab="equipe"       onclick="mudarTab('equipe')">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Equipe interna
+      </div>
+    </nav>
+
+    <!-- Conteúdo dinâmico -->
+    <main class="body" id="tab-body"></main>
+>>>>>>> 68b0e0d (atualização)
+  </div>
+</div>
+
+<!-- ── Modal: novo / editar condomínio ── -->
+<div class="modal-overlay" id="modal-condo">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">Novo condomínio</div>
+      <button class="modal-close" onclick="fecharModal()">
+<<<<<<< HEAD
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <form id="form-condo" novalidate>
+
+=======
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="form-condo" novalidate>
+>>>>>>> 68b0e0d (atualização)
+      <div class="modal-field">
+        <label class="ct-label" for="c-nome">Nome do condomínio</label>
+        <input class="ct-input" type="text" id="c-nome" placeholder="Ex: Residencial das Palmeiras" />
+        <div class="ct-error" id="err-nome-c" style="display:none"></div>
+      </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 68b0e0d (atualização)
+      <div class="modal-grid">
+        <div class="modal-field">
+          <label class="ct-label" for="c-cep">CEP</label>
+          <input class="ct-input" type="text" id="c-cep" placeholder="00000-000" maxlength="9" />
+        </div>
+        <div class="modal-field">
+          <label class="ct-label" for="c-cidade">Cidade</label>
+          <input class="ct-input" type="text" id="c-cidade" placeholder="São Paulo" />
+        </div>
+      </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 68b0e0d (atualização)
+      <div class="modal-field">
+        <label class="ct-label" for="c-end">Endereço</label>
+        <input class="ct-input" type="text" id="c-end" placeholder="Rua, número, bairro" />
+        <div class="ct-error" id="err-end-c" style="display:none"></div>
+      </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 68b0e0d (atualização)
+      <div class="modal-grid">
+        <div class="modal-field">
+          <label class="ct-label" for="c-uf">UF</label>
+          <input class="ct-input" type="text" id="c-uf" placeholder="SP" maxlength="2" style="text-transform:uppercase" />
+        </div>
+        <div class="modal-field">
+          <label class="ct-label" for="c-blocos">Nº de blocos</label>
+          <input class="ct-input" type="number" id="c-blocos" placeholder="1" min="1" max="26" value="1" />
+        </div>
+      </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 68b0e0d (atualização)
+      <div class="modal-field">
+        <label class="ct-label" for="c-aptos">Total de apartamentos</label>
+        <input class="ct-input" type="number" id="c-aptos" placeholder="Ex: 80" min="1" />
+      </div>
+<<<<<<< HEAD
+
+      <div style="height:1px;background:var(--n-100);margin:16px 0"></div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--n-400);margin-bottom:12px">Síndico responsável</div>
+
+=======
+      <div style="height:1px;background:var(--n-100);margin:16px 0"></div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--n-400);margin-bottom:12px">Síndico responsável</div>
+>>>>>>> 68b0e0d (atualização)
+      <div class="modal-field">
+        <label class="ct-label" for="c-sindico">Nome do síndico</label>
+        <input class="ct-input" type="text" id="c-sindico" placeholder="Nome completo" />
+        <div class="ct-error" id="err-sindico" style="display:none"></div>
+      </div>
+<<<<<<< HEAD
+
+=======
+>>>>>>> 68b0e0d (atualização)
+      <div class="modal-field">
+        <label class="ct-label" for="c-email-s">E-mail do síndico</label>
+        <input class="ct-input" type="email" id="c-email-s" placeholder="sindico@email.com" />
+        <div class="ct-error" id="err-email-s" style="display:none"></div>
+<<<<<<< HEAD
+        <div style="font-size:11px;color:var(--n-400);margin-top:5px">
+          Um convite de acesso será enviado para este e-mail.
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>
+        <button type="submit" class="ct-btn-primary">
+          <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+               style="width:14px;height:14px" stroke-linecap="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+=======
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>
+        <button type="submit" class="ct-btn-primary">
+          <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor" style="width:14px;height:14px" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+>>>>>>> 68b0e0d (atualização)
+          Salvar condomínio
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Modal: detalhe do condomínio ── -->
+<div class="modal-overlay" id="modal-detalhe">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="det-nome">—</div>
+      <button class="modal-close" onclick="fecharModal()">
+<<<<<<< HEAD
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+=======
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+>>>>>>> 68b0e0d (atualização)
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px">
+      <span class="status-pill" id="det-status">—</span>
+      <span style="font-size:12px;color:var(--n-400)">Cadastrado em: <strong id="det-criado" style="color:var(--n-700)">—</strong></span>
+    </div>
+<<<<<<< HEAD
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+      <div style="padding:9px 0;border-bottom:1px solid var(--n-100)">
+        <div style="font-size:11px;color:var(--n-500)">Endereço</div>
+        <div style="font-size:13px;font-weight:600;color:var(--n-900);margin-top:2px" id="det-end">—</div>
+      </div>
+      <div style="padding:9px 0;border-bottom:1px solid var(--n-100);padding-left:16px">
+        <div style="font-size:11px;color:var(--n-500)">Síndico</div>
+        <div style="font-size:13px;font-weight:600;color:var(--n-900);margin-top:2px" id="det-sindico">—</div>
+      </div>
+      <div style="padding:9px 0;border-bottom:1px solid var(--n-100)">
+        <div style="font-size:11px;color:var(--n-500)">E-mail do síndico</div>
+        <div style="font-size:13px;font-weight:600;color:var(--p-600);margin-top:2px" id="det-email">—</div>
+      </div>
+      <div style="padding:9px 0;border-bottom:1px solid var(--n-100);padding-left:16px">
+        <div style="font-size:11px;color:var(--n-500)">Blocos / Aptos</div>
+        <div style="font-size:13px;font-weight:600;color:var(--n-900);margin-top:2px">
+          <span id="det-blocos">—</span> blocos · <span id="det-aptos">—</span> aptos
+        </div>
+      </div>
+      <div style="padding:9px 0">
+        <div style="font-size:11px;color:var(--n-500)">Moradores</div>
+        <div style="font-size:22px;font-weight:700;color:var(--p-600);margin-top:2px" id="det-mord">—</div>
+      </div>
+      <div style="padding:9px 0;padding-left:16px">
+        <div style="font-size:11px;color:var(--n-500)">Porteiros</div>
+        <div style="font-size:22px;font-weight:700;color:var(--n-900);margin-top:2px" id="det-port">—</div>
+      </div>
+    </div>
+
+    <div class="modal-actions" style="margin-top:20px">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Fechar</button>
+      <button type="button" class="ct-btn-primary" onclick="fecharModal()">
+        OK
+      </button>
+=======
+    <div style="display:grid;grid-template-columns:1fr 1fr">
+      <div style="padding:9px 0;border-bottom:1px solid var(--n-100)"><div style="font-size:11px;color:var(--n-500)">Endereço</div><div style="font-size:13px;font-weight:600;color:var(--n-900);margin-top:2px" id="det-end">—</div></div>
+      <div style="padding:9px 0 9px 16px;border-bottom:1px solid var(--n-100)"><div style="font-size:11px;color:var(--n-500)">Síndico</div><div style="font-size:13px;font-weight:600;color:var(--n-900);margin-top:2px" id="det-sindico">—</div></div>
+      <div style="padding:9px 0;border-bottom:1px solid var(--n-100)"><div style="font-size:11px;color:var(--n-500)">E-mail</div><div style="font-size:13px;font-weight:600;color:var(--p-600);margin-top:2px" id="det-email">—</div></div>
+      <div style="padding:9px 0 9px 16px;border-bottom:1px solid var(--n-100)"><div style="font-size:11px;color:var(--n-500)">Blocos / Aptos</div><div style="font-size:13px;font-weight:600;color:var(--n-900);margin-top:2px"><span id="det-blocos">—</span> · <span id="det-aptos">—</span></div></div>
+      <div style="padding:9px 0"><div style="font-size:11px;color:var(--n-500)">Moradores</div><div style="font-size:22px;font-weight:700;color:var(--p-600);margin-top:2px" id="det-mord">—</div></div>
+      <div style="padding:9px 0 9px 16px"><div style="font-size:11px;color:var(--n-500)">Porteiros</div><div style="font-size:22px;font-weight:700;color:var(--n-900);margin-top:2px" id="det-port">—</div></div>
+    </div>
+    <div class="modal-actions" style="margin-top:20px">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Fechar</button>
+      <button type="button" class="ct-btn-primary" onclick="fecharModal()">OK</button>
+>>>>>>> 68b0e0d (atualização)
+    </div>
+  </div>
+</div>
+
+<<<<<<< HEAD
+=======
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
+>>>>>>> 68b0e0d (atualização)
+<script src="../js/utils.js"></script>
+<script src="../js/superadmin.js"></script>
+</body>
+</html>

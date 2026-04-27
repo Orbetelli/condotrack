@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CondoTrack — Porteiro</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/porteiro.css" />
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ── Sidebar de ícones ── -->
+  <aside class="sidebar">
+    <div class="sb-logo">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+      </svg>
+    </div>
+
+    <nav class="sb-nav">
+      <button class="sb-item active" data-tip="Dashboard" onclick="ativarSidebar(this)">
+        <svg viewBox="0 0 24 24" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+          <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+        </svg>
+      </button>
+
+      <button class="sb-item" data-tip="Entregas" onclick="ativarSidebar(this)">
+        <svg viewBox="0 0 24 24" stroke-width="2">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+        </svg>
+        <div class="sb-badge"></div>
+      </button>
+
+      <button class="sb-item" data-tip="Moradores" onclick="ativarSidebar(this)">
+        <svg viewBox="0 0 24 24" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </button>
+
+      <button class="sb-item" data-tip="Histórico" onclick="ativarSidebar(this)">
+        <svg viewBox="0 0 24 24" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+      </button>
+
+      <div class="sb-divider"></div>
+
+      <button class="sb-item" data-tip="Notificações" onclick="ativarSidebar(this)">
+        <svg viewBox="0 0 24 24" stroke-width="2">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+      </button>
+
+      <button class="sb-item" data-tip="Configurações" onclick="ativarSidebar(this)">
+        <svg viewBox="0 0 24 24" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+        </svg>
+      </button>
+    </nav>
+
+    <div class="sb-avatar" data-tip="Carlos Porteiro" title="Carlos Porteiro">CP</div>
+  </aside>
+
+  <!-- ── Conteúdo principal ── -->
+  <div class="main">
+
+    <!-- Header roxo -->
+    <header class="header">
+      <div>
+        <div class="header-greeting">Bom dia, Carlos 👋</div>
+        <div class="header-sub">Res. das Palmeiras · Turno A</div>
+      </div>
+      <div class="header-actions">
+        <div class="header-notif">
+          <svg viewBox="0 0 24 24" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <div class="header-notif-dot"></div>
+        </div>
+        <button class="btn-nova-entrega" id="btn-nova-entrega">
+          <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Nova entrega
+        </button>
+      </div>
+    </header>
+
+    <!-- Abas -->
+    <nav class="nav-tabs">
+      <div class="nav-tab active">
+        <svg viewBox="0 0 24 24" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+          <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+        </svg>
+        Dashboard
+      </div>
+      <div class="nav-tab">
+        <svg viewBox="0 0 24 24" stroke-width="2">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+        </svg>
+        Entregas
+      </div>
+      <div class="nav-tab">
+        <svg viewBox="0 0 24 24" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+        </svg>
+        Moradores
+      </div>
+      <div class="nav-tab">
+        <svg viewBox="0 0 24 24" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+        Histórico
+      </div>
+    </nav>
+
+    <!-- Body -->
+    <main class="body">
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-top">
+            <div class="stat-num" id="stat-aguardando">—</div>
+            <div class="stat-icon" style="background:#FEF3C7">
+              <svg viewBox="0 0 24 24" stroke="#92400E" stroke-width="2" fill="none">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="stat-label">Aguardando retirada</div>
+          <span class="stat-badge" style="background:#FEF3C7;color:#92400E">Pendentes</span>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-top">
+            <div class="stat-num" id="stat-retirado">—</div>
+            <div class="stat-icon" style="background:#F0FDF4">
+              <svg viewBox="0 0 24 24" stroke="#166534" stroke-width="2.5" fill="none">
+                <polyline points="20 6 9 17 4 12" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </div>
+          <div class="stat-label">Retiradas hoje</div>
+          <span class="stat-badge" style="background:#F0FDF4;color:#166534">Concluído</span>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-top">
+            <div class="stat-num" id="stat-expirado">—</div>
+            <div class="stat-icon" style="background:#FEF2F2">
+              <svg viewBox="0 0 24 24" stroke="#991B1B" stroke-width="2" fill="none">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+            </div>
+          </div>
+          <div class="stat-label">Expiradas (+5 dias)</div>
+          <span class="stat-badge" style="background:#FEF2F2;color:#991B1B">Atenção</span>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-top">
+            <div class="stat-num" id="stat-total">—</div>
+            <div class="stat-icon" style="background:#EDE9FE">
+              <svg viewBox="0 0 24 24" stroke="#6D28D9" stroke-width="2" fill="none">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </div>
+          <div class="stat-label">Total registrado</div>
+          <span class="stat-badge" style="background:#EDE9FE;color:#5B21B6">Geral</span>
+        </div>
+      </div>
+
+      <!-- Busca e filtros -->
+      <div class="search-row">
+        <input class="search-box" type="text" id="busca"
+               placeholder="Buscar por apartamento, morador ou transportadora..." />
+        <span class="filter-chip active" onclick="ativarFiltro(this,'todos')">Todos</span>
+        <span class="filter-chip" onclick="ativarFiltro(this,'aguardando')">Aguardando</span>
+        <span class="filter-chip" onclick="ativarFiltro(this,'notificado')">Notificado</span>
+        <span class="filter-chip" onclick="ativarFiltro(this,'retirado')">Retirado</span>
+        <span class="filter-chip" onclick="ativarFiltro(this,'expirado')">Expirado</span>
+      </div>
+
+      <!-- Cards de status -->
+      <div class="cards-grid">
+
+        <!-- Pendentes -->
+        <div class="status-card">
+          <div class="status-card-head">
+            <div class="status-card-title">
+              <div class="status-dot" style="background:#F59E0B"></div>
+              Aguardando / Notificado
+            </div>
+            <span class="status-count" id="count-pendentes"
+                  style="background:#FEF3C7;color:#92400E">0</span>
+          </div>
+          <div id="card-pendentes"></div>
+        </div>
+
+        <!-- Retiradas -->
+        <div class="status-card">
+          <div class="status-card-head">
+            <div class="status-card-title">
+              <div class="status-dot" style="background:#34D399"></div>
+              Retiradas hoje
+            </div>
+            <span class="status-count" id="count-retiradas"
+                  style="background:#F0FDF4;color:#166534">0</span>
+          </div>
+          <div id="card-retiradas"></div>
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ── Modal: nova entrega ── -->
+<div class="modal-overlay" id="modal-nova">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Registrar nova entrega</div>
+      <button class="modal-close" onclick="fecharModalNova()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <form id="form-nova" novalidate>
+      <div class="modal-grid">
+        <div class="modal-field">
+          <label class="ct-label" for="nova-apto">Apartamento</label>
+          <input class="ct-input" type="text" id="nova-apto" placeholder="Ex: 204-B" />
+          <div class="ct-error" id="err-apto" style="display:none"></div>
+        </div>
+        <div class="modal-field">
+          <label class="ct-label" for="nova-volumes">Nº de volumes</label>
+          <input class="ct-input" type="number" id="nova-volumes" placeholder="1" min="1" />
+          <div class="ct-error" id="err-volumes" style="display:none"></div>
+        </div>
+      </div>
+
+      <div class="modal-field">
+        <label class="ct-label" for="nova-trans">Transportadora</label>
+        <input class="ct-input" type="text" id="nova-trans"
+               placeholder="Ex: Correios, Amazon, Mercado Livre..." />
+        <div class="ct-error" id="err-trans" style="display:none"></div>
+      </div>
+
+      <div class="modal-field">
+        <label class="ct-label" for="nova-obs">Observações (opcional)</label>
+        <input class="ct-input" type="text" id="nova-obs"
+               placeholder="Ex: Caixa frágil, 2 volumes grandes..." />
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="ct-btn-ghost" onclick="fecharModalNova()">Cancelar</button>
+        <button type="submit" class="ct-btn-primary" id="btn-nova-entrega-2">
+          <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+               style="width:15px;height:15px" stroke-linecap="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Registrar entrega
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Modal: detalhe da entrega ── -->
+<div class="modal-overlay" id="modal-detalhe">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="detalhe-titulo">Entrega #000</div>
+      <button class="modal-close" onclick="fecharDetalhe()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="detail-row">
+      <span class="detail-label">Apartamento</span>
+      <span class="detail-value" id="detalhe-apto">—</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Morador</span>
+      <span class="detail-value" id="detalhe-morador">—</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Transportadora</span>
+      <span class="detail-value" id="detalhe-trans">—</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Recebido em</span>
+      <span class="detail-value" id="detalhe-data">—</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Volumes</span>
+      <span class="detail-value" id="detalhe-volumes">—</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Observações</span>
+      <span class="detail-value" id="detalhe-obs">—</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Status</span>
+      <span class="detail-value entry-badge" id="detalhe-status">—</span>
+    </div>
+
+    <div class="modal-actions" style="margin-top:20px">
+      <button type="button" class="ct-btn-ghost" onclick="fecharDetalhe()">Fechar</button>
+      <button type="button" class="ct-btn-primary" id="btn-confirmar-retirada"
+              onclick="confirmarRetirada()" style="display:none">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+             style="width:15px;height:15px" stroke-linecap="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Confirmar retirada
+      </button>
+    </div>
+  </div>
+</div>
+
+<<<<<<< HEAD
+=======
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
+>>>>>>> 68b0e0d (atualização)
+<script src="../js/utils.js"></script>
+<script src="../js/porteiro.js"></script>
+</body>
+</html>
