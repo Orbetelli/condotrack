@@ -25,6 +25,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.querySelector('.header-greeting').textContent = `${saud}, ${usuarioLogado.nome.split(' ')[0]} 👋`
   document.querySelector('.header-sub').textContent      = `${usuarioLogado.condominios?.nome || 'Condomínio'} · Turno ${usuarioLogado.turno || 'A'}`
 
+  // Atualiza avatar da sidebar com iniciais
+  const iniciais = usuarioLogado.nome.split(' ').map(n => n[0]).slice(0, 2).join('')
+  const sbAvatar = document.getElementById('sb-avatar')
+  if (sbAvatar) sbAvatar.textContent = iniciais
+
   await carregarEntregas()
   bindEvents()
 

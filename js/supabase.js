@@ -6,7 +6,6 @@
 const SUPABASE_URL = 'https://ihaeqbtoylxcfwmdcjfg.supabase.co'
 const SUPABASE_KEY = 'sb_publishable_tkRXIWO0dgIArNRHZ9RyGw_ewcUlAzD'
 
-// Carrega o cliente via CDN (declarado no HTML antes deste script)
 const { createClient } = supabase
 const db = createClient(SUPABASE_URL, SUPABASE_KEY)
 
@@ -23,7 +22,11 @@ async function getUsuarioLogado() {
 
   const { data, error } = await db
     .from('usuarios')
-    .select('*, condominios(*)')
+    .select(`
+      *,
+      condominios (*),
+      apartamentos (*)
+    `)
     .eq('auth_id', session.user.id)
     .single()
 
@@ -51,4 +54,9 @@ async function requireAuth(perfilEsperado = null) {
   }
 
   return usuario
+}
+
+// ── Encerrar sessão ──────────────────────────────────────────
+function encerrarSessao() {
+  logout()
 }

@@ -13,7 +13,7 @@
 .sidebar {
   width: 56px;
   flex-shrink: 0;
-  background: #2E1065;
+  background: var(--p-900);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -101,7 +101,7 @@
 
 /* ── Header roxo ── */
 .header {
-  background: #4C1D95;
+  background: var(--p-800);
   padding: 0 20px;
   height: 54px;
   display: flex; align-items: center; justify-content: space-between;
@@ -126,7 +126,7 @@
 .header-notif-dot {
   position: absolute; top: 5px; right: 5px;
   width: 8px; height: 8px; border-radius: 50%;
-  background: #F59E0B; border: 1.5px solid #4C1D95;
+  background: #F59E0B; border: 1.5px solid var(--p-800);
 }
 
 .btn-nova-entrega {
@@ -145,7 +145,7 @@
 
 /* ── Abas de navegação ── */
 .nav-tabs {
-  background: #3B0764;
+  background: var(--p-800);
   display: flex;
   padding: 0 20px;
   flex-shrink: 0;
@@ -358,8 +358,4 @@
   .cards-grid { grid-template-columns: 1fr; }
   .sidebar { width: 48px; }
   .main { margin-left: 48px; }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 68b0e0d (atualização)

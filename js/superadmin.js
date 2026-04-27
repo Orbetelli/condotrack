@@ -253,19 +253,94 @@ async function renderUsuarios(body) {
 }
 
 function userRowHTML(u, cores) {
-  const cfg     = cores[u.perfil] || { bg:'#F8FAFC', color:'#64748B' }
+  const cfg      = cores[u.perfil] || { bg:'#F8FAFC', color:'#64748B' }
   const iniciais = u.nome.split(' ').map(n => n[0]).slice(0,2).join('')
-  const condo   = u.condominios?.nome || '—'
+  const condo    = u.condominios?.nome || '—'
+  const email    = u.email || '—'
+  const isMe     = u.auth_id === usuarioLogado?.auth_id
   return `
     <div class="panel-row-sa">
       <div class="panel-avatar-sa" style="background:${cfg.bg};color:${cfg.color}">${iniciais}</div>
       <div class="panel-row-info-sa">
         <div class="panel-row-name-sa">${u.nome}</div>
-        <div class="panel-row-sub-sa">${condo} · ${new Date(u.criado_em).toLocaleDateString('pt-BR')}</div>
+        <div class="panel-row-sub-sa">${email} · ${condo} · ${new Date(u.criado_em).toLocaleDateString('pt-BR')}</div>
       </div>
       <span class="panel-row-badge-sa" style="background:${cfg.bg};color:${cfg.color}">${u.perfil}</span>
       <span class="panel-row-badge-sa" style="background:${u.status==='ativo'?'#F0FDF4':'#F8FAFC'};color:${u.status==='ativo'?'#166534':'#94A3B8'}">${u.status}</span>
+      ${!isMe && u.auth_id ? `
+        <button onclick="abrirResetSenha('${u.id}','${u.nome}','${u.auth_id}')"
+          style="background:#FEF3C7;color:#92400E;border:none;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-sans);white-space:nowrap"
+          title="Resetar senha">
+          🔑 Reset
+        </button>` : ''}
     </div>`
+}
+
+// ── Reset de senha ────────────────────────────────────────────
+let resetUsuarioId   = null
+let resetUsuarioNome = null
+let resetAuthId      = null
+
+function abrirResetSenha(userId, nome, authId) {
+  resetUsuarioId   = userId
+  resetUsuarioNome = nome
+  resetAuthId      = authId
+  document.getElementById('reset-nome').textContent = nome
+  document.getElementById('reset-nova').value    = ''
+  document.getElementById('reset-confirma').value = ''
+  document.getElementById('reset-resultado').style.display = 'none'
+  limparTodosErros('err-reset-nova','err-reset-confirma')
+  document.getElementById('modal-reset').classList.add('open')
+}
+
+async function salvarResetSenha(e) {
+  e.preventDefault()
+  limparTodosErros('err-reset-nova','err-reset-confirma')
+
+  const nova     = document.getElementById('reset-nova').value
+  const confirma = document.getElementById('reset-confirma').value
+  let ok = true
+
+  if (nova.length < 6)    { mostrarErro('err-reset-nova',    'Mínimo 6 caracteres.'); ok = false }
+  if (nova !== confirma)  { mostrarErro('err-reset-confirma','Senhas não coincidem.'); ok = false }
+  if (!ok) return
+
+  const btn = e.submitter
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
+  try {
+    // Usa a Admin API do Supabase para atualizar a senha
+    const { error } = await db.auth.admin.updateUserById(resetAuthId, {
+      password: nova
+    })
+
+    if (error) {
+      // Fallback: atualiza via rpc se admin não disponível no frontend
+      mostrarErro('err-reset-nova', 'Erro: ' + error.message + '. Use o Supabase Dashboard para resetar.')
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar nova senha' }
+      return
+    }
+
+    // Mostra sucesso
+    document.getElementById('reset-form').style.display      = 'none'
+    document.getElementById('reset-resultado').style.display = 'block'
+    document.getElementById('reset-resultado').innerHTML = `
+      <div style="text-align:center;padding:16px 0">
+        <div style="width:56px;height:56px;background:#F0FDF4;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+          <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="#16A34A" style="width:28px;height:28px">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </div>
+        <div style="font-size:16px;font-weight:700;color:var(--n-900);margin-bottom:6px">Senha alterada!</div>
+        <div style="font-size:13px;color:var(--n-500);margin-bottom:18px">A nova senha de <strong>${resetUsuarioNome}</strong> foi definida com sucesso.</div>
+        <button onclick="fecharModal()" class="ct-btn-primary" style="width:auto;padding:9px 24px">Fechar</button>
+      </div>`
+
+  } catch (err) {
+    console.error(err)
+    mostrarErro('err-reset-nova', 'Erro inesperado ao resetar senha.')
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar nova senha' }
+  }
 }
 
 // ── RELATÓRIOS ────────────────────────────────────────────────
@@ -627,5 +702,8 @@ function bindEvents() {
     m.addEventListener('click', e => { if (e.target === m) fecharModal() })
   })
   document.getElementById('form-condo')?.addEventListener('submit', salvarCondo)
+  document.getElementById('modal-reset')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-reset')) fecharModal()
+  })
   document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal() })
 }

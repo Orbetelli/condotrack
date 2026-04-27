@@ -84,8 +84,4 @@ function obterSessao() {
   }
 }
 
-function encerrarSessao() {
-  sessionStorage.removeItem('ct_perfil')
-  sessionStorage.removeItem('ct_usuario')
-  window.location.href = 'login.html'
-}
+// encerrarSessao é definida em supabase.js (faz signOut + redireciona)
