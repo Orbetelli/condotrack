@@ -1,0 +1,245 @@
+/* ============================================================
+   morador.css — painel do morador · CondoTrack
+   ============================================================ */
+
+.shell {
+  min-height: 100vh;
+  background: var(--n-100);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header roxo ── */
+.header {
+  background: var(--p-800);
+  padding: 20px 24px 48px;
+  position: relative;
+  overflow: hidden;
+}
+.header::before {
+  content: '';
+  position: absolute;
+  width: 300px; height: 300px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.05);
+  top: -100px; right: -60px;
+  pointer-events: none;
+}
+.header::after {
+  content: '';
+  position: absolute;
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.04);
+  bottom: -80px; left: 20px;
+  pointer-events: none;
+}
+
+.header-top {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  position: relative; z-index: 1;
+}
+.header-logo { display: flex; align-items: center; gap: 9px; }
+.header-logo-icon {
+  width: 30px; height: 30px;
+  background: rgba(255,255,255,.15);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+}
+.header-logo-icon svg { width: 15px; height: 15px; stroke: #fff; fill: none; }
+.header-logo-name { font-size: 15px; font-weight: 700; color: #fff; }
+
+.header-actions { display: flex; align-items: center; gap: 8px; }
+.notif-btn {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(255,255,255,.12);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; position: relative;
+  transition: background .12s; border: none;
+}
+.notif-btn:hover { background: rgba(255,255,255,.2); }
+.notif-btn svg { width: 16px; height: 16px; stroke: #fff; fill: none; }
+.notif-dot {
+  position: absolute; top: 5px; right: 5px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #F59E0B; border: 1.5px solid var(--p-800);
+}
+
+.header-body { position: relative; z-index: 1; }
+.header-greeting { font-size: 13px; color: rgba(255,255,255,.6); margin-bottom: 3px; }
+.header-name     { font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -.3px; }
+.header-apto     {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 8px; background: rgba(255,255,255,.15);
+  color: rgba(255,255,255,.9); font-size: 12px; font-weight: 600;
+  padding: 4px 12px; border-radius: 99px;
+}
+.header-apto svg { width: 12px; height: 12px; stroke: currentColor; fill: none; }
+
+/* ── Cards flutuantes de stat ── */
+.stats-float {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: -28px 20px 0;
+  position: relative; z-index: 5;
+}
+.stat-float {
+  background: var(--n-0);
+  border: 1px solid var(--n-200);
+  border-radius: var(--radius-lg);
+  padding: 14px 12px;
+  text-align: center;
+  box-shadow: 0 4px 16px rgba(0,0,0,.08);
+}
+.stat-float-num   { font-size: 24px; font-weight: 700; color: var(--n-900); line-height: 1; }
+.stat-float-label { font-size: 11px; color: var(--n-500); margin-top: 4px; }
+
+/* ── Abas ── */
+.nav-tabs {
+  display: flex;
+  background: var(--n-0);
+  border-bottom: 1px solid var(--n-200);
+  padding: 0 20px;
+  margin-top: 20px;
+  flex-shrink: 0;
+}
+.nav-tab {
+  padding: 11px 14px;
+  font-size: 13px; font-weight: 500;
+  color: var(--n-400);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+  transition: color .12s, border-color .12s;
+  font-family: var(--font-sans);
+  white-space: nowrap;
+}
+.nav-tab svg { width: 14px; height: 14px; stroke: currentColor; fill: none; }
+.nav-tab:hover  { color: var(--n-700); }
+.nav-tab.active { color: var(--p-600); border-bottom-color: var(--p-600); font-weight: 600; }
+
+/* ── Body ── */
+.body { padding: 20px; flex: 1; }
+
+/* ── Seção ── */
+.sec-title { font-size: 13px; font-weight: 700; color: var(--n-900); margin-bottom: 12px; }
+
+/* ── Card de entrega ── */
+.entrega-card {
+  background: var(--n-0);
+  border: 1px solid var(--n-200);
+  border-left: 4px solid var(--p-500);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 10px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.entrega-card:hover { box-shadow: 0 4px 14px rgba(109,40,217,.08); }
+.entrega-card.retirado { border-left-color: #16A34A; opacity: .8; }
+.entrega-card.expirado { border-left-color: #DC2626; }
+
+.entrega-top {
+  display: flex; align-items: flex-start;
+  justify-content: space-between; margin-bottom: 8px;
+}
+.entrega-trans { font-size: 14px; font-weight: 700; color: var(--n-900); }
+.entrega-badge { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 99px; white-space: nowrap; }
+
+.entrega-info { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+.entrega-info-item {
+  font-size: 12px; color: var(--n-500);
+  display: flex; align-items: center; gap: 4px;
+}
+.entrega-info-item svg { width: 13px; height: 13px; stroke: currentColor; fill: none; flex-shrink: 0; }
+
+.entrega-obs {
+  font-size: 12px; color: var(--n-600);
+  background: var(--n-50); border-radius: 8px;
+  padding: 8px 12px; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 6px;
+}
+.entrega-obs svg { width: 13px; height: 13px; stroke: var(--n-400); fill: none; flex-shrink: 0; }
+
+.btn-confirmar {
+  width: 100%;
+  background: var(--p-600); color: #fff; border: none;
+  border-radius: var(--radius-md); padding: 10px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  transition: background .15s; font-family: var(--font-sans);
+}
+.btn-confirmar:hover { background: var(--p-700); }
+.btn-confirmar svg { width: 14px; height: 14px; stroke: #fff; fill: none; }
+
+/* ── Empty state ── */
+.empty-state {
+  text-align: center; padding: 40px 20px;
+  color: var(--n-400);
+}
+.empty-icon {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--n-100);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+}
+.empty-icon svg { width: 26px; height: 26px; stroke: var(--n-300); fill: none; }
+.empty-title { font-size: 14px; font-weight: 600; color: var(--n-600); margin-bottom: 4px; }
+.empty-sub   { font-size: 13px; color: var(--n-400); }
+
+/* ── Histórico ── */
+.hist-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 0; border-bottom: 1px solid var(--n-100);
+}
+.hist-item:last-child { border-bottom: none; }
+.hist-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.hist-info { flex: 1; min-width: 0; }
+.hist-trans { font-size: 13px; font-weight: 600; color: var(--n-900); }
+.hist-data  { font-size: 11px; color: var(--n-500); margin-top: 1px; }
+.hist-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+
+/* ── Modal confirmação ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.45); z-index: 50;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--n-0); border-radius: var(--radius-xl);
+  width: 100%; max-width: 400px; padding: 28px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  animation: modalIn .2s ease both; margin: 0 16px;
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(12px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.modal-title  { font-size: 16px; font-weight: 700; color: var(--n-900); }
+.modal-close  {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: var(--n-100); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-close svg { width: 14px; height: 14px; stroke: var(--n-500); fill: none; }
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+.modal-actions .ct-btn-primary { flex: 2; width: auto; }
+.modal-actions .ct-btn-ghost   { flex: 1; justify-content: center; }
+
+/* ── Sucesso de confirmação ── */
+.confirm-success { display: none; text-align: center; padding: 16px 0; }
+.confirm-success-icon {
+  width: 64px; height: 64px; background: #F0FDF4;
+  border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; margin: 0 auto 16px;
+}
+.confirm-success-icon svg { width: 32px; height: 32px; stroke: #16A34A; fill: none; }
+
+@media (max-width: 600px) {
+  .stats-float { grid-template-columns: repeat(3,1fr); gap: 8px; margin: -28px 14px 0; }
+  .body { padding: 16px 14px; }
+}

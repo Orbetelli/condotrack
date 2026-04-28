@@ -1,0 +1,149 @@
+/* ============================================================
+   admin-cadastro.css — tela de cadastro do admin · CondoTrack
+   ============================================================ */
+
+.reg-shell {
+  min-height: 100vh;
+  background: var(--n-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  position: relative;
+  overflow: hidden;
+}
+.reg-shell::before {
+  content: '';
+  position: fixed;
+  width: 500px; height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139,92,246,.10) 0%, transparent 70%);
+  top: -80px; right: -80px;
+  pointer-events: none;
+}
+.reg-shell::after {
+  content: '';
+  position: fixed;
+  width: 350px; height: 350px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(109,40,217,.07) 0%, transparent 70%);
+  bottom: -60px; left: -60px;
+  pointer-events: none;
+}
+
+.reg-container {
+  width: 100%;
+  max-width: 540px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Topo */
+.reg-top {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+/* Card principal */
+.reg-card { padding: 36px 32px; }
+
+.reg-header { margin-bottom: 28px; text-align: center; }
+.reg-header h2 {
+  font-size: 22px; font-weight: 700;
+  color: var(--n-900); letter-spacing: -.3px; margin-bottom: 4px;
+}
+.reg-header p { font-size: 13px; color: var(--n-500); }
+
+/* Stepper */
+.stepper { display: flex; align-items: flex-start; margin-bottom: 32px; }
+.step-item { display: flex; flex-direction: column; align-items: center; flex: 1; }
+.step-circle {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; transition: all .2s;
+}
+.step-circle.done   { background: var(--p-600); color: #fff; }
+.step-circle.active { background: var(--p-600); color: #fff; box-shadow: 0 0 0 5px var(--p-100); }
+.step-circle.idle   { background: var(--n-100); color: var(--n-400); border: 1.5px solid var(--n-200); }
+.step-label {
+  font-size: 10px; font-weight: 600;
+  margin-top: 6px; color: var(--n-400);
+  text-align: center; white-space: nowrap;
+}
+.step-label.active { color: var(--p-600); }
+.step-line {
+  flex: 1; height: 2px;
+  background: var(--n-200); margin-top: 14px;
+  transition: background .25s;
+}
+.step-line.done { background: var(--p-600); }
+
+/* Grids de campos */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.col-span-2 { grid-column: span 2; }
+.form-field { margin-bottom: 0; }
+
+/* Info box */
+.info-box {
+  background: var(--p-50);
+  border: 1.5px solid var(--p-200);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-size: 13px; color: var(--p-800);
+  margin-bottom: 18px; line-height: 1.6;
+}
+.info-box strong { font-weight: 700; color: var(--p-700); }
+
+/* Resumo (step 1 - senha) */
+.summary-box {
+  background: var(--p-50);
+  border: 1.5px solid var(--p-200);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--p-700);
+  line-height: 1.6;
+}
+
+/* Ações */
+.action-row { display: flex; gap: 10px; margin-top: 24px; }
+.action-row .ct-btn-primary { flex: 2; width: auto; }
+.action-row .ct-btn-ghost   { flex: 1; justify-content: center; }
+
+/* Tela de sucesso */
+.success-screen {
+  display: none; text-align: center; padding: 16px 0;
+}
+.success-icon {
+  width: 72px; height: 72px;
+  background: #F0FDF4; border-radius: 50%;
+  display: flex; align-items: center;
+  justify-content: center; margin: 0 auto 20px;
+}
+.success-icon svg { width: 36px; height: 36px; stroke: #16A34A; fill: none; }
+.success-screen h3 {
+  font-size: 22px; font-weight: 700;
+  color: var(--n-900); margin-bottom: 8px;
+  letter-spacing: -.3px;
+}
+.success-screen p {
+  font-size: 14px; color: var(--n-500);
+  line-height: 1.6; margin-bottom: 20px;
+}
+.success-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 10px; margin-bottom: 24px;
+}
+.success-stat {
+  background: var(--n-50); border: 1px solid var(--n-200);
+  border-radius: var(--radius-md); padding: 12px 8px;
+  text-align: center;
+}
+.success-stat-num {
+  font-size: 22px; font-weight: 700;
+  color: var(--p-600); margin-bottom: 2px;
+}
+.success-stat-label { font-size: 11px; color: var(--n-500); }
