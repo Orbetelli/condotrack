@@ -55,7 +55,7 @@
   position: absolute; top: 5px; right: 5px;
   width: 8px; height: 8px; border-radius: 50%;
   background: #F59E0B;
-  border: 1.5px solid #2E1065;
+  border: 1.5px solid var(--p-900);
 }
 
 .sb-divider {
@@ -80,7 +80,7 @@
   position: absolute;
   left: calc(100% + 10px);
   top: 50%; transform: translateY(-50%);
-  background: #1a1a2e;
+  background: var(--p-900);
   color: #fff;
   font-size: 11px; font-weight: 500;
   padding: 5px 9px;
@@ -164,7 +164,7 @@
 }
 .nav-tab svg { width: 12px; height: 12px; stroke: currentColor; fill: none; }
 .nav-tab:hover  { color: rgba(255,255,255,.75); }
-.nav-tab.active { color: #fff; border-bottom-color: #A78BFA; font-weight: 600; }
+.nav-tab.active { color: #fff; border-bottom-color: var(--p-400); font-weight: 600; }
 
 /* ── Body ── */
 .body { padding: 18px 20px; flex: 1; }

@@ -36,7 +36,7 @@ async function getUsuarioLogado() {
 
 async function logout() {
   await db.auth.signOut()
-  window.location.href = '../pages/login.html'
+  window.location.href = 'login.html'
 }
 
 // ── Guard: redireciona se não estiver logado ─────────────────

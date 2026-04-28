@@ -17,6 +17,26 @@ function selecionarPerfil(btn) {
   perfilSelecionado = btn.dataset.profile
 }
 
+async function esqueceuSenha() {
+  const email = document.getElementById('email').value.trim()
+  if (!email || !isEmailValido(email)) {
+    mostrarErro('email-error', 'Informe seu e-mail antes de recuperar a senha.')
+    return
+  }
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '/pages/login.html',
+  })
+  if (error) {
+    mostrarErro('form-error', 'Erro ao enviar e-mail de recuperação. Tente novamente.')
+  } else {
+    limparTodosErros('email-error', 'senha-error', 'form-error')
+    mostrarErro('form-error', '✓ E-mail de recuperação enviado! Verifique sua caixa de entrada.')
+    document.getElementById('form-error').style.background = '#F0FDF4'
+    document.getElementById('form-error').style.color = '#166534'
+    document.getElementById('form-error').style.borderColor = '#BBF7D0'
+  }
+}
+
 function alternarSenha() {
   toggleSenha('senha', 'eye-icon')
 }
@@ -94,7 +114,6 @@ async function handleLogin(e) {
     }
 
     // 4. Redireciona para o painel correto
-    salvarSessao(perfilReal, { email, perfil: perfilReal })
     window.location.href = ROTAS[perfilReal]
 
   } catch (err) {

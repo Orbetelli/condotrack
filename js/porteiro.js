@@ -25,11 +25,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.querySelector('.header-greeting').textContent = `${saud}, ${usuarioLogado.nome.split(' ')[0]} 👋`
   document.querySelector('.header-sub').textContent      = `${usuarioLogado.condominios?.nome || 'Condomínio'} · Turno ${usuarioLogado.turno || 'A'}`
 
-  // Atualiza avatar da sidebar com iniciais
-  const iniciais = usuarioLogado.nome.split(' ').map(n => n[0]).slice(0, 2).join('')
-  const sbAvatar = document.getElementById('sb-avatar')
-  if (sbAvatar) sbAvatar.textContent = iniciais
-
   await carregarEntregas()
   bindEvents()
 
@@ -175,7 +170,7 @@ async function salvarEntrega(e) {
     return
   }
 
-  const { error } = await db.from('entregas').insert({
+  const { data: novaEntrega, error } = await db.from('entregas').insert({
     condominio_id:  usuarioLogado.condominio_id,
     apartamento_id: aptoData.id,
     porteiro_id:    usuarioLogado.id,
@@ -183,9 +178,16 @@ async function salvarEntrega(e) {
     volumes,
     obs,
     status: 'aguardando',
-  })
+  }).select('id').single()
 
   if (error) { mostrarErro('err-trans', 'Erro ao registrar. Tente novamente.'); return }
+
+  // Dispara notificação por e-mail em background (não bloqueia a UI)
+  if (novaEntrega?.id) {
+    db.functions.invoke('notificar-entrega', {
+      body: { entrega_id: novaEntrega.id },
+    }).catch(err => console.warn('Notificação não enviada:', err))
+  }
 
   fecharModalNova()
   await carregarEntregas()
@@ -227,7 +229,10 @@ async function confirmarRetirada() {
     .update({ status: 'retirado', retirado_em: new Date().toISOString() })
     .eq('id', entregaDetalhe.id)
 
-  if (error) { alert('Erro ao confirmar retirada.'); return }
+  if (error) {
+    mostrarErro('detalhe-status', 'Erro ao confirmar retirada. Tente novamente.')
+    return
+  }
 
   fecharDetalhe()
   await carregarEntregas()

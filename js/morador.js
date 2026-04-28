@@ -225,7 +225,10 @@ async function confirmarRetirada() {
     .update({ status: 'retirado', retirado_em: new Date().toISOString() })
     .eq('id', entregaConfirmar)
 
-  if (error) { alert('Erro ao confirmar. Tente novamente.'); return }
+  if (error) {
+    mostrarErro('conf-vol', 'Erro ao confirmar. Tente novamente.')
+    return
+  }
 
   document.getElementById('modal-form').style.display      = 'none'
   document.getElementById('confirm-success').style.display = 'block'

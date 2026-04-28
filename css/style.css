@@ -198,12 +198,6 @@ body {
 .topbar-actions { display: flex; gap: 8px; align-items: center; }
 .page-body { padding: 24px; }
 
-/* ── Stats ── */
-.stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 24px; }
-.stat-card  { background: var(--n-0); border: 1.5px solid var(--n-200); border-radius: var(--radius-lg); padding: 16px 18px; }
-.stat-num   { font-size: 28px; font-weight: 700; color: var(--n-900); }
-.stat-label { font-size: 12px; color: var(--n-500); margin-top: 2px; }
-
 /* ── Tabela ── */
 .table-wrap { background: var(--n-0); border: 1.5px solid var(--n-200); border-radius: var(--radius-lg); overflow: hidden; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -227,14 +221,6 @@ tbody tr:hover td { background: var(--p-50); }
   background-repeat: no-repeat; background-position: 10px center;
 }
 .search-input:focus { border-color: var(--p-500); box-shadow: 0 0 0 3px var(--p-100); }
-
-.filter-chip {
-  padding: 7px 13px; border-radius: 99px; border: 1.5px solid var(--n-200);
-  font-size: 12px; font-weight: 600; color: var(--n-500); background: var(--n-0);
-  cursor: pointer; transition: all .12s; white-space: nowrap;
-}
-.filter-chip:hover  { border-color: var(--n-300); background: var(--n-50); }
-.filter-chip.active { background: var(--p-100); color: var(--p-700); border-color: var(--p-300); }
 
 @media (max-width: 900px) {
   .stats-grid   { grid-template-columns: repeat(2,1fr); }

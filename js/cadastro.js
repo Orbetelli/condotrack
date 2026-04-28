@@ -17,6 +17,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   aplicarMascaraCPF('cpf')
   aplicarMascaraTelefone('tel')
 
+  // Tenta buscar o nome do condomínio via query string
+  // Ex: cadastro.html?condo=UUID-DO-CONDOMINIO
+  const params  = new URLSearchParams(window.location.search)
+  const condoId = params.get('condo')
+  if (condoId) {
+    const { data } = await db
+      .from('condominios')
+      .select('nome')
+      .eq('id', condoId)
+      .single()
+    if (data) {
+      const subtitulo = document.getElementById('cadastro-subtitulo')
+      if (subtitulo) subtitulo.textContent = `${data.nome} · Cadastro de morador`
+    }
+  }
+
   // Carrega apartamentos disponíveis do banco
   await carregarApartamentos()
 })
@@ -155,9 +171,17 @@ async function finalizar() {
       return
     }
 
+    // Supabase retorna user:null quando confirmação de e-mail está ativa
+    const userId = authData.user?.id ?? authData.session?.user?.id
+    if (!userId) {
+      mostrarErro('senha-err', 'Confirme seu e-mail antes de continuar. Verifique sua caixa de entrada.')
+      setBtnCarregando('btn-finalizar', false)
+      return
+    }
+
     // 2. Insere na tabela usuarios
     const { error: userError } = await db.from('usuarios').insert({
-      auth_id:        authData.user.id,
+      auth_id:        userId,
       condominio_id:  estado.condominioId,
       apartamento_id: estado.aptoId,
       perfil:         'morador',

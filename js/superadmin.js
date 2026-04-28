@@ -506,13 +506,9 @@ async function salvarSuperAdmin(e) {
 
   try {
     // 1. Cria no Supabase Auth
-    const { data: authData, error: authError } = await db.auth.admin
-      ? await criarUsuarioAdmin(email, senha)
-      : await db.auth.signUp({ email, password: senha })
-
-    // Como não temos acesso admin direto no frontend, usamos signUp
     const { data: signUpData, error: signUpError } = await db.auth.signUp({
-      email, password: senha
+      email,
+      password: senha,
     })
 
     if (signUpError) {
@@ -522,13 +518,26 @@ async function salvarSuperAdmin(e) {
       return
     }
 
+    const userId = signUpData.user?.id ?? signUpData.session?.user?.id
+    if (!userId) {
+      mostrarErro('err-sa-email', 'Confirme o e-mail antes de continuar.')
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Criar Super Admin' }
+      return
+    }
+
     // 2. Insere na tabela usuarios como superadmin
-    await db.from('usuarios').insert({
-      auth_id: signUpData.user.id,
+    const { error: dbError } = await db.from('usuarios').insert({
+      auth_id: userId,
       perfil:  'superadmin',
       nome,
       status:  'ativo',
     })
+
+    if (dbError) {
+      mostrarErro('err-sa-nome', 'Erro ao salvar usuário: ' + dbError.message)
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Criar Super Admin' }
+      return
+    }
 
     // 3. Recarrega a aba
     await renderEquipe(document.getElementById('tab-body'))
