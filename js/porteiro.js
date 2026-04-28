@@ -25,6 +25,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.querySelector('.header-greeting').textContent = `${saud}, ${usuarioLogado.nome.split(' ')[0]} 👋`
   document.querySelector('.header-sub').textContent      = `${usuarioLogado.condominios?.nome || 'Condomínio'} · Turno ${usuarioLogado.turno || 'A'}`
 
+  // Atualiza avatar da sidebar com iniciais
+  const iniciais = usuarioLogado.nome.split(' ').map(n => n[0]).slice(0, 2).join('')
+  const sbAvatar = document.getElementById('sb-avatar')
+  if (sbAvatar) sbAvatar.textContent = iniciais
+
   await carregarEntregas()
   bindEvents()
 
@@ -35,6 +40,332 @@ document.addEventListener('DOMContentLoaded', async () => {
     })
     .subscribe()
 })
+
+// ── Navegação entre abas ──────────────────────────────────────
+let tabPorteiroAtiva = 'dashboard'
+
+function mudarTabPorteiro(tab) {
+  tabPorteiroAtiva = tab
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'))
+  document.querySelector(`[data-tab="${tab}"]`)?.classList.add('active')
+  renderTabPorteiro(tab)
+}
+
+function renderTabPorteiro(tab) {
+  const body = document.getElementById('tab-body-porteiro')
+  if (tab === 'dashboard') renderDashboard(body)
+  if (tab === 'entregas')  renderEntregas(body)
+  if (tab === 'moradores') renderMoradores(body)
+  if (tab === 'historico') renderHistorico(body)
+}
+
+function renderDashboard(body) {
+  body.innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-top">
+          <div class="stat-num" id="stat-aguardando">—</div>
+          <div class="stat-icon" style="background:#FEF3C7">
+            <svg viewBox="0 0 24 24" stroke="#92400E" stroke-width="2" fill="none">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-label">Aguardando retirada</div>
+        <span class="stat-badge" style="background:#FEF3C7;color:#92400E">Pendentes</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-top">
+          <div class="stat-num" id="stat-retirado">—</div>
+          <div class="stat-icon" style="background:#F0FDF4">
+            <svg viewBox="0 0 24 24" stroke="#166534" stroke-width="2.5" fill="none">
+              <polyline points="20 6 9 17 4 12" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-label">Retiradas hoje</div>
+        <span class="stat-badge" style="background:#F0FDF4;color:#166534">Concluído</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-top">
+          <div class="stat-num" id="stat-expirado">—</div>
+          <div class="stat-icon" style="background:#FEF2F2">
+            <svg viewBox="0 0 24 24" stroke="#991B1B" stroke-width="2" fill="none">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-label">Expiradas (+5 dias)</div>
+        <span class="stat-badge" style="background:#FEF2F2;color:#991B1B">Atenção</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-top">
+          <div class="stat-num" id="stat-total">—</div>
+          <div class="stat-icon" style="background:#EDE9FE">
+            <svg viewBox="0 0 24 24" stroke="#6D28D9" stroke-width="2" fill="none">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-label">Total registrado</div>
+        <span class="stat-badge" style="background:#EDE9FE;color:#5B21B6">Geral</span>
+      </div>
+    </div>
+    <div class="search-row">
+      <input class="search-box" type="text" id="busca"
+             placeholder="Buscar por apartamento, morador ou transportadora..." />
+      <span class="filter-chip active" onclick="ativarFiltro(this,'todos')">Todos</span>
+      <span class="filter-chip" onclick="ativarFiltro(this,'aguardando')">Aguardando</span>
+      <span class="filter-chip" onclick="ativarFiltro(this,'notificado')">Notificado</span>
+      <span class="filter-chip" onclick="ativarFiltro(this,'retirado')">Retirado</span>
+      <span class="filter-chip" onclick="ativarFiltro(this,'expirado')">Expirado</span>
+    </div>
+    <div class="cards-grid">
+      <div class="status-card">
+        <div class="status-card-head">
+          <div class="status-card-title">
+            <div class="status-dot" style="background:#F59E0B"></div>
+            Aguardando / Notificado
+          </div>
+          <span class="status-count" id="count-pendentes" style="background:#FEF3C7;color:#92400E">0</span>
+        </div>
+        <div id="card-pendentes"></div>
+      </div>
+      <div class="status-card">
+        <div class="status-card-head">
+          <div class="status-card-title">
+            <div class="status-dot" style="background:#34D399"></div>
+            Retiradas hoje
+          </div>
+          <span class="status-count" id="count-retiradas" style="background:#F0FDF4;color:#166534">0</span>
+        </div>
+        <div id="card-retiradas"></div>
+      </div>
+    </div>
+  `
+  // Re-bind busca após renderizar
+  document.getElementById('busca')?.addEventListener('input', function() {
+    buscaAtual = this.value
+    renderCards()
+  })
+  renderStats()
+  renderCards()
+}
+
+function renderEntregas(body) {
+  body.innerHTML = `
+    <div style="margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:var(--n-900);margin-bottom:12px">Todas as entregas</div>
+      <div class="search-row">
+        <input class="search-box" type="text" id="busca-entregas"
+               placeholder="Buscar por apartamento ou transportadora..." />
+        <span class="filter-chip active" onclick="ativarFiltroEntregas(this,'todos')">Todos</span>
+        <span class="filter-chip" onclick="ativarFiltroEntregas(this,'aguardando')">Aguardando</span>
+        <span class="filter-chip" onclick="ativarFiltroEntregas(this,'notificado')">Notificado</span>
+        <span class="filter-chip" onclick="ativarFiltroEntregas(this,'retirado')">Retirado</span>
+        <span class="filter-chip" onclick="ativarFiltroEntregas(this,'expirado')">Expirado</span>
+      </div>
+    </div>
+    <div class="status-card" id="lista-entregas"></div>
+  `
+  renderListaEntregas('todos', '')
+  document.getElementById('busca-entregas')?.addEventListener('input', function() {
+    const filtroAtivo = document.querySelector('#tab-body-porteiro .filter-chip.active')?.dataset?.filtro || 'todos'
+    renderListaEntregas(filtroAtivo, this.value)
+  })
+}
+
+let filtroEntregasAtivo = 'todos'
+
+function ativarFiltroEntregas(chip, status) {
+  document.querySelectorAll('#tab-body-porteiro .filter-chip').forEach(c => c.classList.remove('active'))
+  chip.classList.add('active')
+  chip.dataset.filtro = status
+  filtroEntregasAtivo = status
+  const busca = document.getElementById('busca-entregas')?.value || ''
+  renderListaEntregas(status, busca)
+}
+
+function renderListaEntregas(filtro, busca) {
+  const lista = todasEntregas.filter(e => {
+    const matchFiltro = filtro === 'todos' || e.status === filtro
+    const termo = busca.toLowerCase()
+    const matchBusca = !termo || e.apto.toLowerCase().includes(termo) || e.trans.toLowerCase().includes(termo)
+    return matchFiltro && matchBusca
+  })
+  const container = document.getElementById('lista-entregas')
+  if (!container) return
+  if (lista.length === 0) {
+    container.innerHTML = '<div class="entry-empty">Nenhuma entrega encontrada</div>'
+    return
+  }
+  container.innerHTML = lista.map(entryHTML).join('')
+  container.querySelectorAll('.entry-btn').forEach(btn => {
+    btn.addEventListener('click', () => abrirDetalhe(btn.dataset.id))
+  })
+}
+
+async function renderMoradores(body) {
+  body.innerHTML = `<div style="padding:40px;text-align:center"><div class="spinner" style="border-color:var(--p-200);border-top-color:var(--p-600);margin:0 auto"></div></div>`
+
+  const { data, error } = await db
+    .from('usuarios')
+    .select('id, nome, email, status, apartamentos(numero, bloco)')
+    .eq('condominio_id', usuarioLogado.condominio_id)
+    .eq('perfil', 'morador')
+    .order('nome')
+
+  if (error) { body.innerHTML = '<div class="entry-empty">Erro ao carregar moradores.</div>'; return }
+
+  const moradores = (data || []).map(m => ({
+    ...m,
+    apto: m.apartamentos ? `${m.apartamentos.bloco}-${m.apartamentos.numero}` : '—'
+  }))
+
+  body.innerHTML = `
+    <div style="margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:var(--n-900);margin-bottom:12px">
+        Moradores cadastrados · <span style="color:var(--n-400);font-weight:400">${moradores.length} no total</span>
+      </div>
+      <input class="search-box" type="text" id="busca-moradores" style="width:100%"
+             placeholder="Buscar por nome ou apartamento..." />
+    </div>
+    <div class="status-card" id="lista-moradores">
+      ${moradorRowsPorteiro(moradores)}
+    </div>
+  `
+  document.getElementById('busca-moradores')?.addEventListener('input', function() {
+    const q = this.value.toLowerCase()
+    const filtrado = moradores.filter(m =>
+      m.nome.toLowerCase().includes(q) || m.apto.toLowerCase().includes(q))
+    document.getElementById('lista-moradores').innerHTML = moradorRowsPorteiro(filtrado)
+  })
+}
+
+function moradorRowsPorteiro(lista) {
+  if (lista.length === 0) return '<div class="entry-empty">Nenhum morador encontrado</div>'
+  return lista.map(m => {
+    const ini = m.nome.split(' ').map(n => n[0]).slice(0, 2).join('')
+    const ativo = m.status === 'ativo'
+    return `
+      <div class="entry">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--p-100);color:var(--p-700);
+                    font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${ini}</div>
+        <div class="entry-info">
+          <div class="entry-apto">${m.nome}</div>
+          <div class="entry-sub">Apto ${m.apto} · ${m.email || 'Sem e-mail'}</div>
+        </div>
+        <span class="entry-badge" style="background:${ativo ? '#F0FDF4' : '#F5F5F5'};color:${ativo ? '#166534' : '#737373'}">
+          ${ativo ? 'Ativo' : 'Pendente'}
+        </span>
+      </div>`
+  }).join('')
+}
+
+function renderHistorico(body) {
+  body.innerHTML = `
+    <div style="font-size:13px;font-weight:700;color:var(--n-900);margin-bottom:12px">Histórico por apartamento</div>
+    <div style="background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);padding:20px;margin-bottom:14px">
+      <div style="font-size:12px;color:var(--n-500);margin-bottom:12px">
+        Informe o apartamento para consultar o histórico de entregas
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:100px">
+          <label class="ct-label">Bloco</label>
+          <input class="ct-input" type="text" id="hist-bloco" placeholder="Ex: A" maxlength="2"
+                 style="text-transform:uppercase" />
+        </div>
+        <div style="flex:2;min-width:120px">
+          <label class="ct-label">Número do Apto</label>
+          <input class="ct-input" type="text" id="hist-numero" placeholder="Ex: 101" />
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button class="ct-btn-primary" onclick="buscarHistorico()" style="width:auto;padding:10px 20px">
+            <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:14px;height:14px">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35" stroke-linecap="round"/>
+            </svg>
+            Consultar
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="resultado-historico"></div>
+  `
+}
+
+async function buscarHistorico() {
+  const bloco  = document.getElementById('hist-bloco').value.trim().toUpperCase()
+  const numero = document.getElementById('hist-numero').value.trim()
+  const result = document.getElementById('resultado-historico')
+
+  if (!bloco || !numero) {
+    result.innerHTML = '<div class="entry-empty">Informe o bloco e o número do apartamento.</div>'
+    return
+  }
+
+  result.innerHTML = '<div style="padding:20px;text-align:center"><div class="spinner" style="border-color:var(--p-200);border-top-color:var(--p-600);margin:0 auto"></div></div>'
+
+  // Busca o apartamento
+  const { data: aptoData } = await db
+    .from('apartamentos')
+    .select('id, numero, bloco')
+    .eq('condominio_id', usuarioLogado.condominio_id)
+    .eq('bloco', bloco)
+    .eq('numero', numero)
+    .single()
+
+  if (!aptoData) {
+    result.innerHTML = '<div class="entry-empty">Apartamento não encontrado.</div>'
+    return
+  }
+
+  // Busca histórico de entregas
+  const { data: entregas, error } = await db
+    .from('entregas')
+    .select('id, transportadora, volumes, status, obs, recebido_em, retirado_em')
+    .eq('apartamento_id', aptoData.id)
+    .order('recebido_em', { ascending: false })
+    .limit(50)
+
+  if (error || !entregas?.length) {
+    result.innerHTML = `
+      <div class="status-card">
+        <div class="entry-empty">Nenhuma entrega encontrada para o Apto ${bloco}-${numero}.</div>
+      </div>`
+    return
+  }
+
+  result.innerHTML = `
+    <div style="font-size:12px;color:var(--n-500);margin-bottom:8px">
+      <strong style="color:var(--n-900)">Apto ${bloco}-${numero}</strong> · ${entregas.length} entrega${entregas.length > 1 ? 's' : ''} encontrada${entregas.length > 1 ? 's' : ''}
+    </div>
+    <div class="status-card">
+      ${entregas.map(e => {
+        const cfg = STATUS_CONFIG[e.status] || STATUS_CONFIG.aguardando
+        const dataReceb = new Date(e.recebido_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit' })
+        const horaReceb = new Date(e.recebido_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })
+        const dataRetir = e.retirado_em
+          ? new Date(e.retirado_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit' })
+          : null
+        return `
+          <div class="entry">
+            <div class="entry-dot" style="background:${cfg.dot}"></div>
+            <div class="entry-info">
+              <div class="entry-apto">${e.transportadora} · ${e.volumes} volume${e.volumes > 1 ? 's' : ''}</div>
+              <div class="entry-sub">
+                Recebido: ${dataReceb} ${horaReceb}
+                ${dataRetir ? ` · Retirado: ${dataRetir}` : ''}
+                ${e.obs ? ` · ${e.obs}` : ''}
+              </div>
+            </div>
+            <span class="entry-badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>
+          </div>`
+      }).join('')}
+    </div>
+  `
+}
 
 // ── Carrega entregas do banco ─────────────────────────────────
 async function carregarEntregas() {
@@ -63,8 +394,13 @@ async function carregarEntregas() {
     obs:         e.obs || '',
   }))
 
-  renderStats()
-  renderCards()
+  // Renderiza a aba ativa
+  if (tabPorteiroAtiva === 'dashboard') {
+    renderDashboard(document.getElementById('tab-body-porteiro'))
+  } else {
+    renderStats()
+    renderCards()
+  }
 }
 
 // ── Stats ─────────────────────────────────────────────────────
@@ -229,10 +565,7 @@ async function confirmarRetirada() {
     .update({ status: 'retirado', retirado_em: new Date().toISOString() })
     .eq('id', entregaDetalhe.id)
 
-  if (error) {
-    mostrarErro('detalhe-status', 'Erro ao confirmar retirada. Tente novamente.')
-    return
-  }
+  if (error) { alert('Erro ao confirmar retirada.'); return }
 
   fecharDetalhe()
   await carregarEntregas()
