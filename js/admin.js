@@ -415,29 +415,33 @@ function abrirModalPorteiro(id = null) {
   document.getElementById('modal-port-title').textContent = editando ? 'Editar porteiro' : 'Novo porteiro'
   document.getElementById('p-nome').value    = editando?.nome    || ''
   document.getElementById('p-email').value   = editando?.email   || ''
+  document.getElementById('p-senha').value   = ''
   document.getElementById('p-turno').value   = editando?.turno   || 'A'
   document.getElementById('p-periodo').value = editando?.periodo || 'Manhã'
-  limparTodosErros('err-p-nome', 'err-p-email')
+  document.getElementById('credenciais-box').style.display = 'none'
+  limparTodosErros('err-p-nome', 'err-p-email', 'err-p-senha')
   document.getElementById('modal-porteiro').classList.add('open')
   document.getElementById('modal-porteiro').dataset.editId = id || ''
 }
 
 async function salvarPorteiro(e) {
   e.preventDefault()
-  limparTodosErros('err-p-nome', 'err-p-email')
+  limparTodosErros('err-p-nome', 'err-p-email', 'err-p-senha')
   const nome    = document.getElementById('p-nome').value.trim()
   const email   = document.getElementById('p-email').value.trim()
+  const senha   = document.getElementById('p-senha').value
   const turno   = document.getElementById('p-turno').value
   const periodo = document.getElementById('p-periodo').value
+  const editId  = document.getElementById('modal-porteiro').dataset.editId
   let ok = true
+
   if (!nome)                 { mostrarErro('err-p-nome',  'Informe o nome.'); ok = false }
   if (!isEmailValido(email)) { mostrarErro('err-p-email', 'Informe um e-mail válido.'); ok = false }
+  if (!editId && senha.length < 6) { mostrarErro('err-p-senha', 'Mínimo 6 caracteres.'); ok = false }
   if (!ok) return
 
   const btn = e.submitter
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
-
-  const editId = document.getElementById('modal-porteiro').dataset.editId
 
   if (editId) {
     const { error } = await db
@@ -449,11 +453,13 @@ async function salvarPorteiro(e) {
       if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar porteiro' }
       return
     }
+    cachePorteiros = []
+    fecharModal()
+    renderTab(tabAtiva)
   } else {
-    const senhaTemp = Math.random().toString(36).slice(-8) + 'Aa1!'
     const { data: authData, error: authError } = await db.auth.signUp({
       email,
-      password: senhaTemp,
+      password: senha,
     })
 
     if (authError) {
@@ -469,16 +475,33 @@ async function salvarPorteiro(e) {
       nome, email, turno, periodo,
       status:        'ativo',
     })
+
     if (dbError) {
       mostrarErro('err-p-nome', 'Erro ao salvar porteiro.')
       if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar porteiro' }
       return
     }
-  }
 
-  cachePorteiros = []
-  fecharModal()
-  renderTab(tabAtiva)
+    // Mostra credenciais para copiar
+    const saudacao = periodo === 'Manhã' ? 'bom dia' : periodo === 'Tarde' ? 'boa tarde' : 'boa noite'
+    const template = `Olá, ${nome.split(' ')[0]}! 👋\n\nSeja bem-vindo ao CondoTrack. Aqui estão suas credenciais de acesso:\n\n🌐 Link: ${window.location.origin}/pages/login.html\n📧 E-mail: ${email}\n🔑 Senha: ${senha}\n🕐 Turno ${turno} · ${periodo}\n\nAo entrar, selecione o perfil "Porteiro".\n\n${saudacao.charAt(0).toUpperCase() + saudacao.slice(1)} e bom trabalho! 😊`
+
+    document.getElementById('credenciais-texto').textContent = template
+    document.getElementById('credenciais-box').style.display = 'block'
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar porteiro' }
+
+    cachePorteiros = []
+    renderTab(tabAtiva)
+  }
+}
+
+function copiarCredenciais() {
+  const texto = document.getElementById('credenciais-texto').textContent
+  navigator.clipboard.writeText(texto).then(() => {
+    const btnTexto = document.getElementById('btn-copiar-texto')
+    btnTexto.textContent = '✓ Copiado!'
+    setTimeout(() => { btnTexto.textContent = 'Copiar credenciais' }, 2000)
+  })
 }
 
 // ── Modal morador (pré-cadastro) ──────────────────────────────

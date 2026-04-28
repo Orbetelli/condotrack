@@ -113,6 +113,20 @@
         <input class="ct-input" type="email" id="p-email" placeholder="porteiro@email.com" />
         <div class="ct-error" id="err-p-email" style="display:none"></div>
       </div>
+      <div class="modal-field">
+        <label class="ct-label" for="p-senha">Senha de acesso</label>
+        <div class="ct-input-wrap">
+          <input class="ct-input" type="password" id="p-senha" placeholder="Mínimo 6 caracteres" />
+          <button type="button" class="eye-btn" onclick="toggleSenha('p-senha','eye-p-senha')">
+            <svg id="eye-p-senha" viewBox="0 0 24 24" stroke-width="2" fill="none"
+                 stroke="currentColor" style="width:16px;height:16px">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+        <div class="ct-error" id="err-p-senha" style="display:none"></div>
+      </div>
       <div class="modal-grid">
         <div class="modal-field">
           <label class="ct-label" for="p-turno">Turno</label>
@@ -132,7 +146,26 @@
         </div>
       </div>
       <div style="font-size:12px;color:var(--n-400);margin-bottom:4px">
-        Uma senha temporária será enviada por e-mail ao porteiro.
+        Após salvar, use o botão abaixo para copiar as credenciais e enviar ao porteiro.
+      </div>
+
+      <!-- Área de credenciais — aparece após salvar -->
+      <div id="credenciais-box" style="display:none;background:var(--p-50);border:1.5px solid var(--p-200);
+           border-radius:var(--radius-md);padding:12px 16px;margin-bottom:4px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+                    color:var(--p-700);margin-bottom:8px">Credenciais geradas</div>
+        <pre id="credenciais-texto" style="font-size:12px;color:var(--p-800);white-space:pre-wrap;
+             font-family:var(--font-sans);line-height:1.6;margin:0"></pre>
+        <button type="button" onclick="copiarCredenciais()"
+                style="margin-top:10px;width:100%;padding:8px;background:var(--p-600);color:#fff;
+                       border:none;border-radius:var(--radius-md);font-size:12px;font-weight:600;
+                       cursor:pointer;font-family:var(--font-sans);display:flex;align-items:center;
+                       justify-content:center;gap:6px">
+          <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:13px;height:13px">
+            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          <span id="btn-copiar-texto">Copiar credenciais</span>
+        </button>
       </div>
       <div class="modal-actions">
         <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>
