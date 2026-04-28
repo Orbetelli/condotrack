@@ -23,7 +23,7 @@ const FROM_NAME      = 'CondoTrack'
 // FIX: CORS headers para compatibilidade com chamadas diretas do frontend
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Headers': 'authorization, content-type, x-client-info, apikey',
 }
 
 serve(async (req: Request) => {
