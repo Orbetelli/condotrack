@@ -326,10 +326,20 @@ async function confirmarRetirada() {
 
   const { error } = await db
     .from('entregas')
-    .update({ status: 'retirado', retirado_em: new Date().toISOString() })
+    .update({
+      status:      'retirado',
+      retirado_em: new Date().toISOString(),
+    })
     .eq('id', entregaConfirmar)
 
   if (error) { alert('Erro ao confirmar. Tente novamente.'); return }
+
+  // O Realtime do porteiro vai detectar a mudança automaticamente.
+  // Adicionalmente, dispara a Edge Function de notificação WhatsApp
+  // para avisar o porteiro (reaproveitando o mesmo canal)
+  db.functions.invoke('notificar-porteiro-retirada', {
+    body: { entrega_id: entregaConfirmar },
+  }).catch(err => console.warn('Notificação ao porteiro não enviada:', err))
 
   document.getElementById('modal-form').style.display      = 'none'
   document.getElementById('confirm-success').style.display = 'block'
