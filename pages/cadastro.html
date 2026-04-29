@@ -6,6 +6,43 @@
   <title>CondoTrack — Cadastro de Morador</title>
   <link rel="stylesheet" href="../css/style.css" />
   <link rel="stylesheet" href="../css/cadastro.css" />
+  <style>
+    .condo-search-wrap { position: relative; }
+    .lista-condos {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: var(--n-0); border: 1.5px solid var(--p-300);
+      border-radius: var(--radius-md); z-index: 10;
+      box-shadow: 0 8px 24px rgba(109,40,217,.12);
+      max-height: 240px; overflow-y: auto; display: none;
+    }
+    .condo-option {
+      padding: 11px 14px; cursor: pointer;
+      border-bottom: 1px solid var(--n-100);
+      transition: background .1s;
+    }
+    .condo-option:last-child { border-bottom: none; }
+    .condo-option:hover { background: var(--p-50); }
+    .condo-selecionado {
+      display: none; align-items: center; gap: 10px;
+      background: var(--p-50); border: 1.5px solid var(--p-200);
+      border-radius: var(--radius-md); padding: 10px 14px; margin-top: 8px;
+    }
+    .condo-selecionado-info { flex: 1; min-width: 0; }
+    .condo-selecionado-nome  { font-size: 13px; font-weight: 700; color: var(--p-800); }
+    .condo-selecionado-local { font-size: 11px; color: var(--p-600); margin-top: 2px; }
+    .condo-limpar {
+      background: none; border: none; cursor: pointer;
+      color: var(--p-400); padding: 4px; display: flex;
+      align-items: center; transition: color .12s;
+    }
+    .condo-limpar:hover { color: var(--p-700); }
+    .busca-apto-wrap { margin-bottom: 12px; position: relative; }
+    .busca-apto-wrap input {
+      padding-left: 34px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23A1A1AA' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: 10px center;
+    }
+  </style>
 </head>
 <body>
 
@@ -23,8 +60,7 @@
         <span class="ct-logo-name">CondoTrack</span>
       </div>
       <a href="login.html" class="ct-btn-ghost">
-        <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
-             style="width:14px;height:14px">
+        <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:14px;height:14px">
           <path d="M19 12H5M12 5l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         Voltar ao login
@@ -36,29 +72,74 @@
 
       <div class="reg-header">
         <h2>Criar sua conta</h2>
-        <p id="cadastro-subtitulo">Cadastro de morador</p>
+        <p>Cadastro de morador · CondoTrack</p>
       </div>
 
-      <!-- Stepper -->
+      <!-- Stepper 4 passos -->
       <div class="stepper" id="stepper">
         <div class="step-item">
           <div class="step-circle active" id="dot-0">1</div>
-          <div class="step-label active"  id="lbl-0">Seus dados</div>
+          <div class="step-label active" id="lbl-0">Condomínio</div>
         </div>
         <div class="step-line" id="line-0"></div>
         <div class="step-item">
           <div class="step-circle idle" id="dot-1">2</div>
-          <div class="step-label"      id="lbl-1">Apartamento</div>
+          <div class="step-label" id="lbl-1">Seus dados</div>
         </div>
         <div class="step-line" id="line-1"></div>
         <div class="step-item">
           <div class="step-circle idle" id="dot-2">3</div>
-          <div class="step-label"      id="lbl-2">Senha</div>
+          <div class="step-label" id="lbl-2">Apartamento</div>
+        </div>
+        <div class="step-line" id="line-2"></div>
+        <div class="step-item">
+          <div class="step-circle idle" id="dot-3">4</div>
+          <div class="step-label" id="lbl-3">Senha</div>
         </div>
       </div>
 
-      <!-- Passo 0: dados pessoais -->
+      <!-- Passo 0: condomínio -->
       <div id="step-0">
+        <div class="form-field" style="margin-bottom:8px">
+          <label class="ct-label" for="busca-condo">Seu condomínio</label>
+          <div class="condo-search-wrap">
+            <input class="ct-input" type="text" id="busca-condo"
+                   placeholder="Digite o nome do condomínio..." autocomplete="off"/>
+            <div class="lista-condos" id="lista-condos"></div>
+          </div>
+          <div class="condo-selecionado" id="condo-selecionado">
+            <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="var(--p-600)"
+                 style="width:18px;height:18px;flex-shrink:0">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+            <div class="condo-selecionado-info">
+              <div class="condo-selecionado-nome" id="condo-selecionado-nome"></div>
+              <div class="condo-selecionado-local" id="condo-selecionado-local"></div>
+            </div>
+            <button type="button" class="condo-limpar" onclick="limparCondo()" title="Trocar condomínio">
+              <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" fill="none" stroke="currentColor" style="width:14px;height:14px">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+          <div class="ct-error" id="condo-err" style="display:none"></div>
+        </div>
+        <div style="font-size:12px;color:var(--n-400);margin-bottom:20px">
+          Digite pelo menos 2 letras para buscar seu condomínio.
+        </div>
+        <div class="action-row">
+          <button class="ct-btn-primary" onclick="irPasso(1)" style="flex:1">
+            Continuar
+            <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor" style="width:14px;height:14px">
+              <path d="M5 12h14M12 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Passo 1: dados pessoais -->
+      <div id="step-1" style="display:none">
         <div class="grid2">
           <div class="form-field col-span-2">
             <label class="ct-label" for="nome">Nome completo</label>
@@ -67,14 +148,12 @@
           </div>
           <div class="form-field">
             <label class="ct-label" for="cpf">CPF</label>
-            <input class="ct-input" type="text" id="cpf"
-                   placeholder="000.000.000-00" maxlength="14" />
+            <input class="ct-input" type="text" id="cpf" placeholder="000.000.000-00" maxlength="14" />
             <div class="ct-error" id="cpf-err" style="display:none"></div>
           </div>
           <div class="form-field">
             <label class="ct-label" for="tel">Telefone / WhatsApp</label>
-            <input class="ct-input" type="tel" id="tel"
-                   placeholder="(11) 99999-0000" maxlength="15" />
+            <input class="ct-input" type="tel" id="tel" placeholder="(11) 99999-0000" maxlength="15" />
             <div class="ct-error" id="tel-err" style="display:none"></div>
           </div>
           <div class="form-field col-span-2">
@@ -84,12 +163,17 @@
           </div>
         </div>
         <div class="action-row">
-          <button class="ct-btn-primary" onclick="irPasso(1)" style="flex:1">Continuar</button>
+          <button class="ct-btn-ghost" onclick="irPasso(0)">Voltar</button>
+          <button class="ct-btn-primary" onclick="irPasso(2)" style="flex:2">Continuar</button>
         </div>
       </div>
 
-      <!-- Passo 1: apartamento -->
-      <div id="step-1" style="display:none">
+      <!-- Passo 2: apartamento -->
+      <div id="step-2" style="display:none">
+        <div class="busca-apto-wrap">
+          <input class="ct-input" type="text" id="busca-apto"
+                 placeholder="Buscar apartamento (ex: A-101)..." />
+        </div>
         <div class="apt-section-label">
           Selecione seu apartamento. Os riscados já possuem morador cadastrado.
         </div>
@@ -97,35 +181,31 @@
         <div class="ct-error" id="apto-err" style="display:none"></div>
         <div class="apt-legend">
           <div class="apt-legend-item">
-            <div class="apt-legend-dot"
-                 style="background:var(--p-600);border-color:var(--p-600)"></div>
+            <div class="apt-legend-dot" style="background:var(--p-600);border-color:var(--p-600)"></div>
             Selecionado
           </div>
           <div class="apt-legend-item">
-            <div class="apt-legend-dot"
-                 style="background:var(--n-50);border-color:var(--n-100)"></div>
+            <div class="apt-legend-dot" style="background:var(--n-50);border-color:var(--n-100)"></div>
             Ocupado
           </div>
           <div class="apt-legend-item">
-            <div class="apt-legend-dot"
-                 style="background:var(--n-0);border-color:var(--n-200)"></div>
+            <div class="apt-legend-dot" style="background:var(--n-0);border-color:var(--n-200)"></div>
             Disponível
           </div>
         </div>
         <div class="action-row">
-          <button class="ct-btn-ghost" onclick="irPasso(0)">Voltar</button>
-          <button class="ct-btn-primary" onclick="irPasso(2)">Continuar</button>
+          <button class="ct-btn-ghost" onclick="irPasso(1)">Voltar</button>
+          <button class="ct-btn-primary" onclick="irPasso(3)" style="flex:2">Continuar</button>
         </div>
       </div>
 
-      <!-- Passo 2: senha -->
-      <div id="step-2" style="display:none">
+      <!-- Passo 3: senha -->
+      <div id="step-3" style="display:none">
         <div class="summary-box" id="summary-box"></div>
         <div class="form-field" style="margin-bottom:14px">
           <label class="ct-label" for="senha">Senha</label>
           <div class="ct-input-wrap">
-            <input class="ct-input" type="password" id="senha"
-                   placeholder="Mínimo 6 caracteres" />
+            <input class="ct-input" type="password" id="senha" placeholder="Mínimo 6 caracteres" />
             <button type="button" class="eye-btn" onclick="alternarSenha('senha','eye1')">
               <svg id="eye1" viewBox="0 0 24 24" stroke-width="2" fill="none"
                    stroke="currentColor" style="width:16px;height:16px">
@@ -139,8 +219,7 @@
         <div class="form-field">
           <label class="ct-label" for="confirma">Confirmar senha</label>
           <div class="ct-input-wrap">
-            <input class="ct-input" type="password" id="confirma"
-                   placeholder="Repita a senha" />
+            <input class="ct-input" type="password" id="confirma" placeholder="Repita a senha" />
             <button type="button" class="eye-btn" onclick="alternarSenha('confirma','eye2')">
               <svg id="eye2" viewBox="0 0 24 24" stroke-width="2" fill="none"
                    stroke="currentColor" style="width:16px;height:16px">
@@ -152,16 +231,17 @@
           <div class="ct-error" id="confirma-err" style="display:none"></div>
         </div>
         <div class="action-row">
-          <button class="ct-btn-ghost" onclick="irPasso(1)">Voltar</button>
-          <button class="ct-btn-primary" onclick="finalizar()">Finalizar cadastro</button>
+          <button class="ct-btn-ghost" onclick="irPasso(2)">Voltar</button>
+          <button class="ct-btn-primary" id="btn-finalizar" onclick="finalizar()" style="flex:2">
+            Finalizar cadastro
+          </button>
         </div>
       </div>
 
       <!-- Sucesso -->
       <div class="success-screen" id="success-screen">
         <div class="success-icon">
-          <svg viewBox="0 0 24 24" stroke-width="2.5"
-               stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
             <polyline points="22 4 12 14.01 9 11.01"/>
           </svg>
@@ -176,13 +256,9 @@
 
     </div>
 
-    <p class="anim-3"
-       style="text-align:center;font-size:13px;color:var(--n-400);margin-top:18px">
+    <p class="anim-3" style="text-align:center;font-size:13px;color:var(--n-400);margin-top:18px">
       Já tem conta?
-      <a href="login.html"
-         style="color:var(--p-600);font-weight:600;text-decoration:none">
-        Fazer login
-      </a>
+      <a href="login.html" style="color:var(--p-600);font-weight:600;text-decoration:none">Fazer login</a>
     </p>
 
   </div>
