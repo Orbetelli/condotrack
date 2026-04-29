@@ -342,10 +342,10 @@ async function buscarHistorico() {
     <div class="status-card">
       ${entregas.map(e => {
         const cfg = STATUS_CONFIG[e.status] || STATUS_CONFIG.aguardando
-        const dataReceb = new Date(e.recebido_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit' })
-        const horaReceb = new Date(e.recebido_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })
+        const dataReceb = new Date(e.recebido_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit', timeZone:'America/Sao_Paulo' })
+        const horaReceb = new Date(e.recebido_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', timeZone:'America/Sao_Paulo' })
         const dataRetir = e.retirado_em
-          ? new Date(e.retirado_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit' })
+          ? new Date(e.retirado_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit', timeZone:'America/Sao_Paulo' })
           : null
         return `
           <div class="entry">
@@ -385,8 +385,8 @@ async function carregarEntregas() {
     apto:    e.apartamentos ? `${e.apartamentos.bloco}-${e.apartamentos.numero}` : '—',
     morador: '—',
     trans:   e.transportadora,
-    data:    new Date(e.recebido_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }),
-    hora:    new Date(e.recebido_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
+    data:    new Date(e.recebido_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', timeZone:'America/Sao_Paulo' }),
+    hora:    new Date(e.recebido_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', timeZone:'America/Sao_Paulo' }),
     volumes: e.volumes,
     status:  e.status,
     obs:     e.obs || '',

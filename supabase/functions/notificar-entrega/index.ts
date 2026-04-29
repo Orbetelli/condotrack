@@ -90,6 +90,7 @@ serve(async (req: Request) => {
     const dataReceb = new Date(entrega.recebido_em).toLocaleString('pt-BR', {
       day: '2-digit', month: '2-digit', year: 'numeric',
       hour: '2-digit', minute: '2-digit',
+      timeZone: 'America/Sao_Paulo',
     })
 
     // Sem morador cadastrado no apartamento — não envia
