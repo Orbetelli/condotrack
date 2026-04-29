@@ -189,9 +189,16 @@ async function carregarCondominios(filtro = '') {
       <div class="condo-footer">
         <button class="mini-btn" onclick="abrirDetalhe('${c.id}')">Detalhes</button>
         <button class="mini-btn" onclick="editarCondo('${c.id}')">Editar</button>
-        ${c.status === 'pendente'
-          ? `<button class="mini-btn primary" onclick="alert('Convite por e-mail disponível no tópico 5')">Reenviar convite</button>`
-          : `<button class="mini-btn primary" onclick="alert('Acesso direto disponível em breve')">Acessar painel</button>`}
+        ${c.status === 'ativo'
+          ? `<button class="mini-btn" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A"
+               onclick="confirmarAcao('bloquear','${c.id}','${c.nome.replace(/'/g,"\\'")}')">Bloquear</button>`
+          : c.status === 'inativo'
+          ? `<button class="mini-btn primary"
+               onclick="confirmarAcao('ativar','${c.id}','${c.nome.replace(/'/g,"\\'")}')">Reativar</button>`
+          : `<button class="mini-btn primary"
+               onclick="confirmarAcao('ativar','${c.id}','${c.nome.replace(/'/g,"\\'")}')">Ativar</button>`}
+        <button class="mini-btn danger"
+          onclick="confirmarAcao('excluir','${c.id}','${c.nome.replace(/'/g,"\\'")}')">Excluir</button>
       </div>`
     grid.insertBefore(card, addCard)
   })
@@ -550,6 +557,81 @@ async function salvarSuperAdmin(e) {
 }
 
 // ── Modal: novo/editar condomínio ─────────────────────────────
+// ── Confirmar ação crítica ─────────────────────────────────────
+function confirmarAcao(tipo, condoId, condoNome) {
+  const cfg = {
+    bloquear: {
+      titulo:  'Bloquear condomínio',
+      msg:     `O condomínio <strong>${condoNome}</strong> será bloqueado. Os usuários não conseguirão fazer login até ser reativado.`,
+      btn:     'Bloquear',
+      estilo:  'background:#FEF3C7;color:#92400E;border:none',
+    },
+    ativar: {
+      titulo:  'Reativar condomínio',
+      msg:     `O condomínio <strong>${condoNome}</strong> será reativado e os usuários poderão fazer login novamente.`,
+      btn:     'Reativar',
+      estilo:  'background:var(--p-600);color:#fff;border:none',
+    },
+    excluir: {
+      titulo:  'Excluir condomínio',
+      msg:     `<span style="color:#991B1B;font-weight:700">Atenção: esta ação é irreversível!</span><br><br>
+                O condomínio <strong>${condoNome}</strong> e todos os seus dados
+                (moradores, porteiros, apartamentos e entregas) serão excluídos permanentemente.`,
+      btn:     'Excluir permanentemente',
+      estilo:  'background:#DC2626;color:#fff;border:none',
+    },
+  }
+
+  const c = cfg[tipo]
+  if (!c) return
+
+  // Reutiliza o modal de detalhe como modal de confirmação
+  document.getElementById('modal-detalhe').classList.add('open')
+  document.getElementById('modal-detalhe').querySelector('.modal').innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">${c.titulo}</div>
+      <button class="modal-close" onclick="fecharModal()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <p style="font-size:13px;color:var(--n-600);line-height:1.7;margin-bottom:20px">${c.msg}</p>
+    <div class="modal-actions">
+      <button class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>
+      <button id="btn-confirmar-acao" style="${c.estilo};padding:10px 20px;border-radius:var(--radius-md);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-sans)"
+        onclick="executarAcao('${tipo}','${condoId}')">
+        ${c.btn}
+      </button>
+    </div>
+  `
+}
+
+async function executarAcao(tipo, condoId) {
+  const btn = document.getElementById('btn-confirmar-acao')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner" style="border-top-color:#fff"></span>' }
+
+  try {
+    if (tipo === 'bloquear') {
+      await db.from('condominios').update({ status: 'inativo' }).eq('id', condoId)
+
+    } else if (tipo === 'ativar') {
+      await db.from('condominios').update({ status: 'ativo' }).eq('id', condoId)
+
+    } else if (tipo === 'excluir') {
+      // A cascade do banco cuida de apagar apartamentos e entregas vinculados
+      await db.from('condominios').delete().eq('id', condoId)
+    }
+
+    fecharModal()
+    mudarTab(tabAtiva)
+
+  } catch (err) {
+    console.error(err)
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Tentar novamente' }
+  }
+}
+
 // ── Gera apartamentos automaticamente ────────────────────────
 async function gerarApartamentos(condoId, numBlocos, totalAptos) {
   const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
