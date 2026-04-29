@@ -4,7 +4,7 @@
 // ============================================================
 
 const SUPABASE_URL = 'https://ihaeqbtoylxcfwmdcjfg.supabase.co'
-const SUPABASE_KEY = 'sb_publishable_tkRXIWO0dgIArNRHZ9RyGw_ewcUlAzD'
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImloYWVxYnRveWx4Y2Z3bWRjamZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNTA4NTUsImV4cCI6MjA5MjgyNjg1NX0.Tyn5D4LeCsPWMFh8Crk6zb9gQD9IlR4fjG_v_xfnMPE'
 
 const { createClient } = supabase
 const db = createClient(SUPABASE_URL, SUPABASE_KEY)
@@ -36,7 +36,7 @@ async function getUsuarioLogado() {
 
 async function logout() {
   await db.auth.signOut()
-  window.location.href = 'login.html'
+  window.location.href = '../pages/login.html'
 }
 
 // ── Guard: redireciona se não estiver logado ─────────────────
