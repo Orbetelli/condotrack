@@ -550,6 +550,33 @@ async function salvarSuperAdmin(e) {
 }
 
 // ── Modal: novo/editar condomínio ─────────────────────────────
+// ── Gera apartamentos automaticamente ────────────────────────
+async function gerarApartamentos(condoId, numBlocos, totalAptos) {
+  const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  const aptosPorBloco = Math.ceil(totalAptos / numBlocos)
+  const andares       = Math.ceil(aptosPorBloco / 4) // 4 aptos por andar por padrão
+  const aptosPorAndar = Math.ceil(aptosPorBloco / andares)
+
+  const lista = []
+  for (let b = 0; b < numBlocos; b++) {
+    const bloco = LETRAS[b]
+    for (let a = 1; a <= andares; a++) {
+      for (let u = 1; u <= aptosPorAndar; u++) {
+        const numero = String(a).padStart(1, '0') + String(u).padStart(2, '0')
+        lista.push({ condominio_id: condoId, bloco, numero, status: 'disponivel' })
+        if (lista.length >= totalAptos) break
+      }
+      if (lista.length >= totalAptos) break
+    }
+    if (lista.length >= totalAptos) break
+  }
+
+  // Insere em lotes de 50
+  for (let i = 0; i < lista.length; i += 50) {
+    await db.from('apartamentos').insert(lista.slice(i, i + 50))
+  }
+}
+
 function abrirModalNovo() {
   condominioEditando = null
   document.getElementById('modal-title').textContent = 'Novo condomínio'
@@ -583,31 +610,82 @@ async function salvarCondo(e) {
   e.preventDefault()
   limparTodosErros('err-nome-c','err-end-c','err-sindico','err-email-s')
 
-  const nome   = document.getElementById('c-nome').value.trim()
-  const end    = document.getElementById('c-end').value.trim()
-  const cidade = document.getElementById('c-cidade').value.trim()
-  const uf     = document.getElementById('c-uf').value.trim()
-  const cep    = document.getElementById('c-cep').value.trim()
-  const blocos = parseInt(document.getElementById('c-blocos').value) || 1
-  const aptos  = parseInt(document.getElementById('c-aptos').value)  || 0
+  const nome    = document.getElementById('c-nome').value.trim()
+  const end     = document.getElementById('c-end').value.trim()
+  const cidade  = document.getElementById('c-cidade').value.trim()
+  const uf      = document.getElementById('c-uf').value.trim()
+  const cep     = document.getElementById('c-cep').value.trim()
+  const blocos  = parseInt(document.getElementById('c-blocos').value) || 1
+  const aptos   = parseInt(document.getElementById('c-aptos').value)  || 0
   const sindico = document.getElementById('c-sindico')?.value.trim() || ''
   const emailS  = document.getElementById('c-email-s')?.value.trim() || ''
 
   let ok = true
   if (!nome) { mostrarErro('err-nome-c', 'Informe o nome.'); ok = false }
   if (!end)  { mostrarErro('err-end-c',  'Informe o endereço.'); ok = false }
-  if (!condominioEditando && !sindico)          { mostrarErro('err-sindico', 'Informe o síndico.'); ok = false }
+  if (!condominioEditando && !sindico)               { mostrarErro('err-sindico', 'Informe o síndico.'); ok = false }
   if (!condominioEditando && !isEmailValido(emailS)) { mostrarErro('err-email-s', 'E-mail inválido.'); ok = false }
   if (!ok) return
 
-  if (condominioEditando) {
-    await db.from('condominios').update({ nome, endereco: end, cidade, uf, cep, blocos, total_aptos: aptos }).eq('id', condominioEditando)
-  } else {
-    await db.from('condominios').insert({ nome, endereco: end, cidade, uf, cep, blocos, total_aptos: aptos, status: 'pendente' })
-  }
+  const btn = e.submitter
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
 
-  fecharModal()
-  mudarTab(tabAtiva)
+  try {
+    if (condominioEditando) {
+      // Apenas atualiza os dados do condomínio
+      await db.from('condominios')
+        .update({ nome, endereco: end, cidade, uf, cep, blocos, total_aptos: aptos })
+        .eq('id', condominioEditando)
+
+    } else {
+      // 1. Gera senha temporária para o síndico
+      const senhaTemp = Math.random().toString(36).slice(-8) + 'Aa1!'
+
+      // 2. Cria o condomínio primeiro (status pendente até síndico ser criado)
+      const { data: condoData, error: condoError } = await db
+        .from('condominios')
+        .insert({ nome, endereco: end, cidade, uf, cep, blocos, total_aptos: aptos, status: 'pendente' })
+        .select('id')
+        .single()
+
+      if (condoError || !condoData) {
+        mostrarErro('err-nome-c', 'Erro ao criar condomínio.')
+        if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar condomínio' }
+        return
+      }
+
+      // 3. Chama a Edge Function para criar o síndico sem confirmação de e-mail
+      const { data: fnData, error: fnError } = await db.functions.invoke('criar-sindico', {
+        body: {
+          nome:          sindico,
+          email:         emailS,
+          senha:         senhaTemp,
+          condominio_id: condoData.id,
+        },
+      })
+
+      if (fnError || !fnData?.ok) {
+        // Remove o condomínio criado se o síndico falhou
+        await db.from('condominios').delete().eq('id', condoData.id)
+        mostrarErro('err-email-s', fnData?.error || 'Erro ao criar síndico.')
+        if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar condomínio' }
+        return
+      }
+
+      // 4. Gera os apartamentos automaticamente
+      if (aptos > 0 && blocos > 0) {
+        await gerarApartamentos(condoData.id, blocos, aptos)
+      }
+    }
+
+    fecharModal()
+    mudarTab(tabAtiva)
+
+  } catch (err) {
+    console.error(err)
+    mostrarErro('err-nome-c', 'Erro inesperado. Tente novamente.')
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar condomínio' }
+  }
 }
 
 async function abrirDetalhe(id) {
