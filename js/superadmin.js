@@ -632,6 +632,124 @@ async function executarAcao(tipo, condoId) {
   }
 }
 
+// ── Modal: senha temporária do síndico ───────────────────────
+function mostrarSenhaSindico(nomeSindico, email, senha, nomeCondo) {
+  // Reutiliza o modal de detalhe
+  const modal = document.getElementById('modal-detalhe')
+  modal.querySelector('.modal').innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">Condomínio criado! 🎉</div>
+    </div>
+
+    <div style="background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:var(--radius-md);
+                padding:14px 16px;margin-bottom:18px;display:flex;align-items:flex-start;gap:10px">
+      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="#16A34A"
+           style="width:18px;height:18px;flex-shrink:0;margin-top:1px">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+        <polyline points="22 4 12 14.01 9 11.01"/>
+      </svg>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#166534;margin-bottom:2px">
+          ${nomeCondo} criado com sucesso!
+        </div>
+        <div style="font-size:12px;color:#15803D;line-height:1.5">
+          O síndico já pode acessar o painel com as credenciais abaixo.
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+                color:var(--n-400);margin-bottom:10px">Credenciais de acesso do síndico</div>
+
+    <div style="background:var(--n-50);border:1px solid var(--n-200);border-radius:var(--radius-md);
+                padding:14px 16px;margin-bottom:18px">
+      ${[
+        ['Síndico', nomeSindico],
+        ['E-mail',  email],
+      ].map(([l, v]) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;
+                    padding:7px 0;border-bottom:1px solid var(--n-100)">
+          <span style="font-size:12px;color:var(--n-500)">${l}</span>
+          <span style="font-size:13px;font-weight:600;color:var(--n-900)">${v}</span>
+        </div>`).join('')}
+
+      <!-- Senha destacada -->
+      <div style="padding:10px 0 2px">
+        <div style="font-size:12px;color:var(--n-500);margin-bottom:6px">Senha temporária</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div id="senha-temp-box" style="flex:1;background:var(--p-50);border:1.5px solid var(--p-300);
+               border-radius:var(--radius-md);padding:10px 14px;font-size:16px;font-weight:700;
+               color:var(--p-800);letter-spacing:.1em;font-family:monospace">
+            ${senha}
+          </div>
+          <button onclick="copiarSenha('${senha}')" id="btn-copiar"
+            style="background:var(--p-600);color:#fff;border:none;border-radius:var(--radius-md);
+                   padding:10px 14px;font-size:12px;font-weight:600;cursor:pointer;
+                   font-family:var(--font-sans);white-space:nowrap;transition:background .12s"
+            onmouseenter="this.style.background='var(--p-700)'"
+            onmouseleave="this.style.background='var(--p-600)'">
+            Copiar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:var(--radius-md);
+                padding:10px 14px;font-size:12px;color:#92400E;margin-bottom:20px;
+                display:flex;gap:8px;align-items:flex-start">
+      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="#92400E"
+           style="width:14px;height:14px;flex-shrink:0;margin-top:1px">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      Anote ou copie a senha agora. Por segurança ela não será exibida novamente.
+    </div>
+
+    <div class="modal-actions">
+      <button class="ct-btn-ghost" onclick="fecharModal();mudarTab(tabAtiva)">Fechar</button>
+      <button class="ct-btn-primary" onclick="copiarTudo('${email}','${senha}')"
+        style="flex:2">
+        <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+             style="width:14px;height:14px" stroke-linecap="round">
+          <rect x="9" y="9" width="13" height="13" rx="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+        Copiar e-mail + senha
+      </button>
+    </div>
+  `
+  modal.classList.add('open')
+}
+
+function copiarSenha(senha) {
+  navigator.clipboard.writeText(senha).then(() => {
+    const btn = document.getElementById('btn-copiar')
+    if (btn) {
+      btn.textContent = '✓ Copiado!'
+      btn.style.background = '#16A34A'
+      setTimeout(() => {
+        btn.textContent = 'Copiar'
+        btn.style.background = 'var(--p-600)'
+      }, 2000)
+    }
+  })
+}
+
+function copiarTudo(email, senha) {
+  const texto = `E-mail: ${email}\nSenha: ${senha}`
+  navigator.clipboard.writeText(texto).then(() => {
+    const btns = document.querySelectorAll('#modal-detalhe .ct-btn-primary')
+    btns.forEach(b => {
+      b.textContent = '✓ Copiado!'
+      b.style.background = '#16A34A'
+      setTimeout(() => {
+        b.innerHTML = `<svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:14px;height:14px" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copiar e-mail + senha`
+        b.style.background = 'var(--p-600)'
+      }, 2000)
+    })
+  })
+}
+
 // ── Gera apartamentos automaticamente ────────────────────────
 async function gerarApartamentos(condoId, numBlocos, totalAptos) {
   const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -758,6 +876,11 @@ async function salvarCondo(e) {
       if (aptos > 0 && blocos > 0) {
         await gerarApartamentos(condoData.id, blocos, aptos)
       }
+
+      // 5. Exibe modal com a senha temporária do síndico
+      fecharModal()
+      mostrarSenhaSindico(sindico, emailS, senhaTemp, nome)
+      return
     }
 
     fecharModal()
