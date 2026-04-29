@@ -61,6 +61,7 @@ function mudarTab(tab) {
     porteiros:    { label: '+ Novo porteiro', fn: 'abrirModalPorteiro()' },
     moradores:    { label: '+ Novo morador',  fn: 'abrirModalMorador()' },
     apartamentos: null,
+    entregas:     null,
     relatorios:   null,
   }
   const btn  = document.getElementById('btn-acao')
@@ -83,6 +84,7 @@ async function renderTab(tab) {
   if (tab === 'porteiros')    await renderPorteiros(body)
   if (tab === 'moradores')    await renderMoradores(body)
   if (tab === 'apartamentos') await renderApartamentos(body)
+  if (tab === 'entregas')     await renderEntregas(body)
   if (tab === 'relatorios')   renderRelatorios(body)
 }
 
@@ -363,6 +365,172 @@ function renderGradeAptos(aptos) {
   }).join('')
   const ocQtd = lista.filter(a => a.status === 'ocupado').length
   if (info) info.textContent = `Bloco ${blocoAtivo}: ${ocQtd} ocupados · ${lista.length - ocQtd} disponíveis`
+}
+
+// ── Entregas ──────────────────────────────────────────────────
+const STATUS_ENTREGA = {
+  aguardando: { label: 'Aguardando', bg: '#FEF3C7', color: '#92400E', dot: '#F59E0B' },
+  notificado: { label: 'Notificado', bg: '#EDE9FE', color: '#5B21B6', dot: '#A78BFA' },
+  retirado:   { label: 'Retirado',   bg: '#F0FDF4', color: '#166534', dot: '#34D399' },
+  expirado:   { label: 'Expirado',   bg: '#FEF2F2', color: '#991B1B', dot: '#F87171' },
+}
+
+let todasEntregasAdmin = []
+let filtroEntregaAdmin = 'todos'
+let buscaEntregaAdmin  = ''
+
+async function renderEntregas(body) {
+  // Busca todas as entregas do condomínio
+  const { data, error } = await db
+    .from('entregas')
+    .select(`
+      id, transportadora, volumes, status, obs,
+      recebido_em, retirado_em,
+      apartamentos ( numero, bloco )
+    `)
+    .eq('condominio_id', usuarioLogado.condominio_id)
+    .order('recebido_em', { ascending: false })
+
+  if (error) {
+    body.innerHTML = '<div style="padding:20px;text-align:center;color:var(--c-danger)">Erro ao carregar entregas.</div>'
+    return
+  }
+
+  todasEntregasAdmin = (data || []).map(e => ({
+    id:    e.id,
+    apto:  e.apartamentos ? `${e.apartamentos.bloco}-${e.apartamentos.numero}` : '—',
+    trans: e.transportadora,
+    vol:   e.volumes,
+    status: e.status,
+    obs:   e.obs || '',
+    data:  new Date(e.recebido_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit', timeZone:'America/Sao_Paulo' }),
+    hora:  new Date(e.recebido_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', timeZone:'America/Sao_Paulo' }),
+    retiradoEm: e.retirado_em
+      ? new Date(e.retirado_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', timeZone:'America/Sao_Paulo' })
+      : null,
+  }))
+
+  // Stats
+  const pendentes = todasEntregasAdmin.filter(e => e.status === 'aguardando' || e.status === 'notificado').length
+  const retiradas = todasEntregasAdmin.filter(e => e.status === 'retirado').length
+  const expiradas = todasEntregasAdmin.filter(e => e.status === 'expirado').length
+
+  body.innerHTML = `
+    <div class="stats-grid" style="margin-bottom:16px">
+      <div class="stat-card">
+        <div class="stat-top">
+          <div class="stat-num" style="color:#F59E0B">${pendentes}</div>
+          <div class="stat-icon" style="background:#FEF3C7">
+            <svg viewBox="0 0 24 24" stroke="#92400E" stroke-width="2" fill="none">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-label">Aguardando retirada</div>
+        <span class="stat-badge" style="background:#FEF3C7;color:#92400E">Pendentes</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-top">
+          <div class="stat-num" style="color:#16A34A">${retiradas}</div>
+          <div class="stat-icon" style="background:#F0FDF4">
+            <svg viewBox="0 0 24 24" stroke="#166534" stroke-width="2.5" fill="none">
+              <polyline points="20 6 9 17 4 12" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-label">Retiradas</div>
+        <span class="stat-badge" style="background:#F0FDF4;color:#166534">Concluído</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-top">
+          <div class="stat-num" style="color:#DC2626">${expiradas}</div>
+          <div class="stat-icon" style="background:#FEF2F2">
+            <svg viewBox="0 0 24 24" stroke="#991B1B" stroke-width="2" fill="none">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-label">Expiradas</div>
+        <span class="stat-badge" style="background:#FEF2F2;color:#991B1B">Atenção</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-top">
+          <div class="stat-num">${todasEntregasAdmin.length}</div>
+          <div class="stat-icon" style="background:#EDE9FE">
+            <svg viewBox="0 0 24 24" stroke="#6D28D9" stroke-width="2" fill="none">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-label">Total registrado</div>
+        <span class="stat-badge" style="background:#EDE9FE;color:#5B21B6">Geral</span>
+      </div>
+    </div>
+
+    <!-- Busca e filtros -->
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+      <input class="search-input" type="text" id="busca-entregas-admin"
+             placeholder="Buscar por apartamento ou transportadora..." style="flex:1;min-width:200px"/>
+      ${['todos','aguardando','notificado','retirado','expirado'].map(f =>
+        `<span class="filter-chip${f === 'todos' ? ' active' : ''}"
+               onclick="filtrarEntregasAdmin(this,'${f}')">${f.charAt(0).toUpperCase() + f.slice(1)}</span>`
+      ).join('')}
+    </div>
+
+    <!-- Lista -->
+    <div class="panel-card" id="lista-entregas-admin"></div>
+  `
+
+  renderListaEntregasAdmin()
+
+  document.getElementById('busca-entregas-admin')?.addEventListener('input', function() {
+    buscaEntregaAdmin = this.value
+    renderListaEntregasAdmin()
+  })
+}
+
+function filtrarEntregasAdmin(chip, filtro) {
+  document.querySelectorAll('#tab-body .filter-chip').forEach(c => c.classList.remove('active'))
+  chip.classList.add('active')
+  filtroEntregaAdmin = filtro
+  renderListaEntregasAdmin()
+}
+
+function renderListaEntregasAdmin() {
+  const lista = todasEntregasAdmin.filter(e => {
+    const matchFiltro = filtroEntregaAdmin === 'todos' || e.status === filtroEntregaAdmin
+    const termo = buscaEntregaAdmin.toLowerCase()
+    const matchBusca = !termo || e.apto.toLowerCase().includes(termo) || e.trans.toLowerCase().includes(termo)
+    return matchFiltro && matchBusca
+  })
+
+  const container = document.getElementById('lista-entregas-admin')
+  if (!container) return
+
+  if (!lista.length) {
+    container.innerHTML = '<div class="panel-empty">Nenhuma entrega encontrada</div>'
+    return
+  }
+
+  container.innerHTML = lista.map(e => {
+    const cfg = STATUS_ENTREGA[e.status] || STATUS_ENTREGA.aguardando
+    return `
+      <div class="panel-row">
+        <div class="panel-dot" style="background:${cfg.dot}"></div>
+        <div class="panel-row-info">
+          <div class="panel-row-name">Apto ${e.apto} — ${e.trans}</div>
+          <div class="panel-row-sub">
+            ${e.data} às ${e.hora}
+            · ${e.vol} volume${e.vol > 1 ? 's' : ''}
+            ${e.retiradoEm ? ` · Retirado em ${e.retiradoEm}` : ''}
+            ${e.obs ? ` · ${e.obs}` : ''}
+          </div>
+        </div>
+        <span class="panel-row-badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>
+      </div>`
+  }).join('')
 }
 
 // ── Relatórios ────────────────────────────────────────────────
