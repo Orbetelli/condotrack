@@ -1,5 +1,6 @@
 // ============================================================
 //  login.js — autenticação real via Supabase
+//  UX: detecção automática de perfil + esqueci minha senha
 // ============================================================
 
 const ROTAS = {
@@ -17,30 +18,49 @@ function selecionarPerfil(btn) {
   perfilSelecionado = btn.dataset.profile
 }
 
-async function esqueceuSenha() {
-  const email = document.getElementById('email').value.trim()
-  if (!email || !isEmailValido(email)) {
-    mostrarErro('email-error', 'Informe seu e-mail antes de recuperar a senha.')
-    return
-  }
-  const { error } = await db.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.origin + '/pages/login.html',
-  })
-  if (error) {
-    mostrarErro('form-error', 'Erro ao enviar e-mail de recuperação. Tente novamente.')
-  } else {
-    limparTodosErros('email-error', 'senha-error', 'form-error')
-    mostrarErro('form-error', '✓ E-mail de recuperação enviado! Verifique sua caixa de entrada.')
-    document.getElementById('form-error').style.background = '#F0FDF4'
-    document.getElementById('form-error').style.color = '#166534'
-    document.getElementById('form-error').style.borderColor = '#BBF7D0'
-  }
-}
-
 function alternarSenha() {
   toggleSenha('senha', 'eye-icon')
 }
 
+// ── Detecta perfil ao sair do campo de e-mail ─────────────────
+async function detectarPerfil() {
+  const email = document.getElementById('email').value.trim()
+  if (!isEmailValido(email)) return
+
+  const { data } = await db
+    .from('usuarios')
+    .select('perfil')
+    .eq('email', email)
+    .single()
+
+  if (!data?.perfil) return
+
+  // Mapeia o perfil real para o botão correspondente
+  const mapaBtn = {
+    morador:    'morador',
+    porteiro:   'porteiro',
+    admin:      'admin',
+    superadmin: 'admin',
+  }
+
+  const btnPerfil = mapaBtn[data.perfil]
+  if (!btnPerfil) return
+
+  // Seleciona automaticamente o perfil correto
+  const btn = document.querySelector(`[data-profile="${btnPerfil}"]`)
+  if (btn) {
+    selecionarPerfil(btn)
+
+    // Feedback visual sutil
+    const hint = document.getElementById('perfil-hint')
+    if (hint) {
+      hint.textContent = `Perfil detectado: ${data.perfil === 'superadmin' ? 'Super Admin' : data.perfil.charAt(0).toUpperCase() + data.perfil.slice(1)}`
+      hint.style.display = 'block'
+    }
+  }
+}
+
+// ── Login ─────────────────────────────────────────────────────
 async function handleLogin(e) {
   e.preventDefault()
   limparTodosErros('email-error', 'senha-error', 'form-error')
@@ -74,7 +94,7 @@ async function handleLogin(e) {
       return
     }
 
-    // 2. Busca o perfil do usuário na tabela usuarios
+    // 2. Busca o perfil do usuário
     const { data: usuario, error: userError } = await db
       .from('usuarios')
       .select('perfil, condominio_id, status')
@@ -96,8 +116,7 @@ async function handleLogin(e) {
     }
 
     // 3. Valida se o perfil selecionado bate com o perfil real
-    // superadmin e admin compartilham o botão "Admin" no seletor
-    const perfilReal = usuario.perfil
+    const perfilReal  = usuario.perfil
     const perfilBotao = perfilSelecionado
 
     const mapaValido = {
@@ -114,6 +133,7 @@ async function handleLogin(e) {
     }
 
     // 4. Redireciona para o painel correto
+    salvarSessao(perfilReal, { email, perfil: perfilReal })
     window.location.href = ROTAS[perfilReal]
 
   } catch (err) {
@@ -123,6 +143,59 @@ async function handleLogin(e) {
   }
 }
 
+// ── Esqueci minha senha ───────────────────────────────────────
+function abrirEsqueciSenha() {
+  document.getElementById('modal-esqueci').classList.add('open')
+  document.getElementById('reset-email').value = document.getElementById('email').value
+  limparErro('reset-email-err')
+  document.getElementById('reset-form-wrap').style.display  = 'block'
+  document.getElementById('reset-sucesso-wrap').style.display = 'none'
+}
+
+function fecharEsqueciSenha() {
+  document.getElementById('modal-esqueci').classList.remove('open')
+}
+
+async function enviarResetSenha(e) {
+  e.preventDefault()
+  limparErro('reset-email-err')
+
+  const email = document.getElementById('reset-email').value.trim()
+  if (!isEmailValido(email)) {
+    mostrarErro('reset-email-err', 'Informe um e-mail válido.')
+    return
+  }
+
+  const btn = e.submitter
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '/pages/login.html',
+  })
+
+  if (error) {
+    mostrarErro('reset-email-err', 'Erro ao enviar. Tente novamente.')
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Enviar link de redefinição' }
+    return
+  }
+
+  document.getElementById('reset-form-wrap').style.display   = 'none'
+  document.getElementById('reset-sucesso-wrap').style.display = 'block'
+}
+
+// ── Init ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('login-form')?.addEventListener('submit', handleLogin)
+
+  // Detecta perfil ao sair do campo de e-mail
+  document.getElementById('email')?.addEventListener('blur', detectarPerfil)
+
+  // Fechar modal ao clicar fora
+  document.getElementById('modal-esqueci')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-esqueci')) fecharEsqueciSenha()
+  })
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') fecharEsqueciSenha()
+  })
 })

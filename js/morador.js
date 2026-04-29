@@ -86,9 +86,10 @@ function mudarTab(tab) {
 
 function renderTab(tab) {
   const body = document.getElementById('tab-body')
-  if (tab === 'pendentes') renderPendentes(body)
-  if (tab === 'historico') renderHistorico(body)
-  if (tab === 'perfil')    renderPerfil(body)
+  if (tab === 'pendentes')    renderPendentes(body)
+  if (tab === 'historico')    renderHistorico(body)
+  if (tab === 'notificacoes') await renderNotificacoes(body)
+  if (tab === 'perfil')       renderPerfil(body)
 }
 
 function renderPendentes(container) {
@@ -135,8 +136,24 @@ function renderPendentes(container) {
 }
 
 function renderHistorico(container) {
-  const lista = todasEntregas.filter(e => e.status === 'retirado' || e.status === 'expirado')
-  container.innerHTML = '<div class="sec-title">Histórico de entregas</div>'
+  const retiradas = todasEntregas.filter(e => e.status === 'retirado')
+  const expiradas = todasEntregas.filter(e => e.status === 'expirado')
+  const lista     = [...retiradas, ...expiradas]
+
+  container.innerHTML = `
+    <div class="sec-title">Histórico de entregas</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <div style="background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);padding:14px 16px;text-align:center">
+        <div style="font-size:26px;font-weight:700;color:#16A34A">${retiradas.length}</div>
+        <div style="font-size:12px;color:var(--n-500);margin-top:3px">Retiradas</div>
+      </div>
+      <div style="background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);padding:14px 16px;text-align:center">
+        <div style="font-size:26px;font-weight:700;color:#DC2626">${expiradas.length}</div>
+        <div style="font-size:12px;color:var(--n-500);margin-top:3px">Expiradas</div>
+      </div>
+    </div>
+  `
+
   if (!lista.length) {
     container.innerHTML += `
       <div class="empty-state">
@@ -146,8 +163,10 @@ function renderHistorico(container) {
       </div>`
     return
   }
+
   const wrap = document.createElement('div')
   wrap.style.cssText = 'background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);padding:4px 16px;'
+
   lista.forEach(e => {
     const cfg  = STATUS_CFG[e.status]
     const item = document.createElement('div')
@@ -157,14 +176,99 @@ function renderHistorico(container) {
       <div class="hist-info">
         <div class="hist-trans">${e.trans}</div>
         <div class="hist-data">
-          Recebido: ${e.data} às ${e.hora}
-          ${e.retiradoEm ? ` · Retirado: ${e.retiradoEm}` : ''}
-          · ${e.volumes} volume${e.volumes > 1 ? 's' : ''}
+          📅 Recebido: ${e.data} às ${e.hora}
+          ${e.retiradoEm ? ` · ✅ Retirado: ${e.retiradoEm}` : ''}
+          · 📦 ${e.volumes} volume${e.volumes > 1 ? 's' : ''}
+          ${e.obs ? ` · 📝 ${e.obs}` : ''}
         </div>
       </div>
       <span class="hist-badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>`
     wrap.appendChild(item)
   })
+  container.appendChild(wrap)
+}
+
+async function renderNotificacoes(container) {
+  container.innerHTML = `
+    <div class="sec-title">Notificações</div>
+    <div style="padding:20px;text-align:center">
+      <div class="spinner" style="border-color:var(--p-200);border-top-color:var(--p-600);margin:0 auto"></div>
+    </div>
+  `
+
+  // Busca todas as entregas do morador ordenadas por data
+  const { data, error } = await db
+    .from('entregas')
+    .select('id, transportadora, volumes, status, recebido_em, retirado_em')
+    .eq('apartamento_id', usuarioLogado.apartamento_id)
+    .order('recebido_em', { ascending: false })
+    .limit(30)
+
+  container.innerHTML = '<div class="sec-title">Notificações</div>'
+
+  if (error || !data?.length) {
+    container.innerHTML += `
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+        </div>
+        <div class="empty-title">Nenhuma notificação</div>
+        <div class="empty-sub">Você será notificado quando uma entrega chegar</div>
+      </div>`
+    return
+  }
+
+  const wrap = document.createElement('div')
+  wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;'
+
+  data.forEach(e => {
+    const dataReceb = new Date(e.recebido_em).toLocaleDateString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      timeZone: 'America/Sao_Paulo'
+    })
+    const horaReceb = new Date(e.recebido_em).toLocaleTimeString('pt-BR', {
+      hour: '2-digit', minute: '2-digit',
+      timeZone: 'America/Sao_Paulo'
+    })
+
+    const isRetirado = e.status === 'retirado'
+    const isExpirado = e.status === 'expirado'
+
+    const item = document.createElement('div')
+    item.style.cssText = `
+      background:var(--n-0);border:1px solid var(--n-200);
+      border-left:4px solid ${isRetirado ? '#16A34A' : isExpirado ? '#DC2626' : 'var(--p-500)'};
+      border-radius:var(--radius-lg);padding:14px 16px;
+    `
+    item.innerHTML = `
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:18px">${isRetirado ? '✅' : isExpirado ? '⚠️' : '📦'}</span>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--n-900)">
+              ${isRetirado ? 'Entrega retirada' : isExpirado ? 'Entrega expirada' : 'Nova entrega chegou!'}
+            </div>
+            <div style="font-size:11px;color:var(--n-400);margin-top:1px">${dataReceb} às ${horaReceb}</div>
+          </div>
+        </div>
+        <span style="font-size:10px;font-weight:600;padding:3px 8px;border-radius:99px;white-space:nowrap;
+          background:${isRetirado ? '#F0FDF4' : isExpirado ? '#FEF2F2' : '#F5F3FF'};
+          color:${isRetirado ? '#166534' : isExpirado ? '#991B1B' : 'var(--p-700)'}">
+          ${isRetirado ? 'Retirado' : isExpirado ? 'Expirado' : 'Pendente'}
+        </span>
+      </div>
+      <div style="font-size:12px;color:var(--n-600);line-height:1.6;padding-left:26px">
+        🚚 <strong>${e.transportadora}</strong> · 
+        📦 ${e.volumes} volume${e.volumes > 1 ? 's' : ''}
+        ${isRetirado && e.retirado_em ? ` · ✅ Retirado em ${new Date(e.retirado_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ''}
+      </div>
+    `
+    wrap.appendChild(item)
+  })
+
   container.appendChild(wrap)
 }
 
@@ -225,10 +329,7 @@ async function confirmarRetirada() {
     .update({ status: 'retirado', retirado_em: new Date().toISOString() })
     .eq('id', entregaConfirmar)
 
-  if (error) {
-    mostrarErro('conf-vol', 'Erro ao confirmar. Tente novamente.')
-    return
-  }
+  if (error) { alert('Erro ao confirmar. Tente novamente.'); return }
 
   document.getElementById('modal-form').style.display      = 'none'
   document.getElementById('confirm-success').style.display = 'block'
