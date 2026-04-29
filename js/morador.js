@@ -67,6 +67,7 @@ async function carregarEntregas() {
   }))
 
   renderStats()
+  atualizarNotifDotMorador()
 }
 
 function renderStats() {
@@ -348,9 +349,87 @@ async function confirmarRetirada() {
   setTimeout(() => { fecharModal(); renderTab(tabAtiva) }, 1800)
 }
 
+// ── Notificações do morador ───────────────────────────────────
+let notifMoradorAberto = false
+
+function toggleNotificacoesMorador() {
+  const painel = document.getElementById('notif-painel-morador')
+  if (!painel) return
+  notifMoradorAberto = !notifMoradorAberto
+  painel.style.display = notifMoradorAberto ? 'block' : 'none'
+  if (notifMoradorAberto) renderNotificacoesPainel()
+}
+
+function renderNotificacoesPainel() {
+  const lista = document.getElementById('notif-lista-morador')
+  if (!lista) return
+
+  const pendentes = todasEntregas.filter(e => e.status === 'aguardando' || e.status === 'notificado')
+  const expiradas = todasEntregas.filter(e => e.status === 'expirado')
+
+  if (!todasEntregas.length) {
+    lista.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--n-400)">Nenhuma notificação</div>'
+    return
+  }
+
+  let html = ''
+
+  if (expiradas.length) {
+    html += `
+      <div style="padding:10px 16px;background:#FEF2F2;border-bottom:1px solid #FECACA">
+        <div style="font-size:12px;font-weight:700;color:#991B1B;margin-bottom:2px">
+          ⚠️ ${expiradas.length} entrega${expiradas.length > 1 ? 's' : ''} expirada${expiradas.length > 1 ? 's' : ''}
+        </div>
+        <div style="font-size:11px;color:#B91C1C">Prazo excedido — contate a portaria</div>
+      </div>`
+  }
+
+  if (pendentes.length) {
+    html += pendentes.map(e => `
+      <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;
+                  border-bottom:1px solid var(--n-100)">
+        <div style="width:8px;height:8px;border-radius:50%;background:#F59E0B;flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--n-900)">📦 ${e.trans}</div>
+          <div style="font-size:11px;color:var(--n-500);margin-top:1px">
+            Recebido em ${e.data} às ${e.hora} · ${e.volumes} volume${e.volumes > 1 ? 's' : ''}
+          </div>
+        </div>
+        <span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;
+              background:#FEF3C7;color:#92400E;white-space:nowrap">Pendente</span>
+      </div>`).join('')
+  }
+
+  if (!pendentes.length && !expiradas.length) {
+    html = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--n-400)">Nenhuma entrega pendente 👍</div>'
+  }
+
+  lista.innerHTML = html
+}
+
+function atualizarNotifDotMorador() {
+  const dot = document.getElementById('notif-dot-morador')
+  if (!dot) return
+  const temPendente = todasEntregas.some(e =>
+    e.status === 'aguardando' || e.status === 'notificado' || e.status === 'expirado'
+  )
+  dot.style.display = temPendente ? 'block' : 'none'
+}
+
 function bindEvents() {
   document.getElementById('modal-confirmar')?.addEventListener('click', e => {
     if (e.target === document.getElementById('modal-confirmar')) fecharModal()
   })
   document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal() })
+
+  // Fecha painel de notificações ao clicar fora
+  document.addEventListener('click', e => {
+    const painel = document.getElementById('notif-painel-morador')
+    const btn    = document.getElementById('btn-notif-morador')
+    if (notifMoradorAberto && painel && btn &&
+        !painel.contains(e.target) && !btn.contains(e.target)) {
+      notifMoradorAberto = false
+      painel.style.display = 'none'
+    }
+  })
 }
