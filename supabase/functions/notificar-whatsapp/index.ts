@@ -21,9 +21,19 @@ const ZAPI_CLIENT_TOKEN = Deno.env.get('ZAPI_CLIENT_TOKEN') ?? ''
 const SUPABASE_URL      = Deno.env.get('SUPABASE_URL')      ?? ''
 const SUPABASE_KEY      = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: CORS_HEADERS })
+  }
+
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 })
+    return new Response('Method not allowed', { status: 405, headers: CORS_HEADERS })
   }
 
   try {
@@ -32,7 +42,7 @@ serve(async (req: Request) => {
     if (!entrega_id) {
       return new Response(JSON.stringify({ error: 'entrega_id obrigatório' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       })
     }
 
@@ -62,7 +72,7 @@ serve(async (req: Request) => {
       console.error('Entrega não encontrada:', errEntrega)
       return new Response(JSON.stringify({ error: 'Entrega não encontrada' }), {
         status: 404,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       })
     }
 
@@ -75,7 +85,7 @@ serve(async (req: Request) => {
     if (!morador?.telefone) {
       return new Response(JSON.stringify({ ok: true, msg: 'Morador sem telefone, notificação ignorada' }), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       })
     }
 
@@ -85,7 +95,7 @@ serve(async (req: Request) => {
     if (!telefone) {
       return new Response(JSON.stringify({ ok: true, msg: 'Telefone inválido, notificação ignorada' }), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       })
     }
 
@@ -130,21 +140,21 @@ serve(async (req: Request) => {
       console.error('Z-API error:', err)
       return new Response(JSON.stringify({ error: 'Falha ao enviar WhatsApp', detail: err }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       })
     }
 
     const zapiData = await zapiRes.json()
     return new Response(JSON.stringify({ ok: true, message_id: zapiData.zaapId ?? zapiData.id }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
     })
 
   } catch (err) {
     console.error('Erro inesperado:', err)
     return new Response(JSON.stringify({ error: 'Erro interno' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
     })
   }
 })
