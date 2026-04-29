@@ -84,7 +84,7 @@ function mudarTab(tab) {
   renderTab(tab)
 }
 
-function renderTab(tab) {
+async function renderTab(tab) {
   const body = document.getElementById('tab-body')
   if (tab === 'pendentes')    renderPendentes(body)
   if (tab === 'historico')    renderHistorico(body)

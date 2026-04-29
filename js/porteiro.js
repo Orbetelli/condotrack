@@ -396,10 +396,12 @@ async function carregarEntregas() {
   if (tabPorteiroAtiva === 'dashboard') {
     renderDashboard(document.getElementById('tab-body-porteiro'))
   } else {
-    // Só atualiza stats/cards se os elementos existirem no DOM
     if (document.getElementById('stat-aguardando')) renderStats()
     if (document.getElementById('card-pendentes'))  renderCards()
   }
+
+  // Atualiza o dot de notificação
+  atualizarNotifDot()
 }
 
 // ── Stats ─────────────────────────────────────────────────────
@@ -600,6 +602,92 @@ function ativarFiltro(chip, status) {
   renderCards()
 }
 
+// ── Notificações ──────────────────────────────────────────────
+let notifAberto = false
+
+function toggleNotificacoes() {
+  const painel = document.getElementById('notif-painel')
+  if (!painel) return
+  notifAberto = !notifAberto
+  painel.style.display = notifAberto ? 'block' : 'none'
+  if (notifAberto) renderNotificacoes()
+}
+
+function renderNotificacoes() {
+  const lista = document.getElementById('notif-lista')
+  if (!lista) return
+
+  const expiradas  = todasEntregas.filter(e => e.status === 'expirado')
+  const aguardando = todasEntregas.filter(e => e.status === 'aguardando' || e.status === 'notificado')
+  const retiradas  = todasEntregas.filter(e => e.status === 'retirado')
+
+  if (!todasEntregas.length) {
+    lista.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--n-400)">Nenhuma notificação</div>'
+    return
+  }
+
+  let html = ''
+
+  if (expiradas.length) {
+    html += `
+      <div style="padding:10px 16px;background:#FEF2F2;border-bottom:1px solid #FECACA">
+        <div style="font-size:12px;font-weight:700;color:#991B1B;margin-bottom:2px">
+          ⚠️ ${expiradas.length} entrega${expiradas.length > 1 ? 's' : ''} expirada${expiradas.length > 1 ? 's' : ''}
+        </div>
+        <div style="font-size:11px;color:#B91C1C">
+          ${expiradas.map(e => `Apto ${e.apto} — ${e.trans}`).join(', ')}
+        </div>
+      </div>`
+  }
+
+  if (aguardando.length) {
+    html += `
+      <div style="padding:10px 16px;background:#FEF3C7;border-bottom:1px solid #FDE68A">
+        <div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:2px">
+          📦 ${aguardando.length} entrega${aguardando.length > 1 ? 's' : ''} aguardando retirada
+        </div>
+        <div style="font-size:11px;color:#B45309">
+          ${aguardando.slice(0, 3).map(e => `Apto ${e.apto}`).join(', ')}
+          ${aguardando.length > 3 ? ` e mais ${aguardando.length - 3}...` : ''}
+        </div>
+      </div>`
+  }
+
+  // Últimas retiradas
+  const ultimasRetiradas = retiradas.slice(0, 3)
+  if (ultimasRetiradas.length) {
+    html += `<div style="padding:8px 16px;border-bottom:1px solid var(--n-100)">
+      <div style="font-size:11px;font-weight:700;color:var(--n-500);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Últimas retiradas</div>`
+    ultimasRetiradas.forEach(e => {
+      html += `
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--n-100);font-size:12px">
+          <span style="color:var(--n-700)">Apto ${e.apto} — ${e.trans}</span>
+          <span style="color:#16A34A;font-weight:600">✅ ${e.hora}</span>
+        </div>`
+    })
+    html += '</div>'
+  }
+
+  if (!html) {
+    html = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--n-400)">Tudo em ordem 👍</div>'
+  }
+
+  lista.innerHTML = html
+
+  // Atualiza o dot de notificação
+  const dot = document.getElementById('notif-dot')
+  if (dot) dot.style.display = (expiradas.length || aguardando.length) ? 'block' : 'none'
+}
+
+function atualizarNotifDot() {
+  const dot = document.getElementById('notif-dot')
+  if (!dot) return
+  const temAlerta = todasEntregas.some(e =>
+    e.status === 'expirado' || e.status === 'aguardando' || e.status === 'notificado'
+  )
+  dot.style.display = temAlerta ? 'block' : 'none'
+}
+
 function ativarSidebar(item) {
   document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'))
   item.classList.add('active')
@@ -615,4 +703,14 @@ function bindEvents() {
   document.getElementById('modal-detalhe')?.addEventListener('click', e => { if (e.target === document.getElementById('modal-detalhe')) fecharDetalhe() })
   document.getElementById('form-nova')?.addEventListener('submit', salvarEntrega)
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { fecharModalNova(); fecharDetalhe() } })
+
+  // Fecha painel de notificações ao clicar fora
+  document.addEventListener('click', e => {
+    const painel = document.getElementById('notif-painel')
+    const btn    = document.getElementById('btn-notif')
+    if (notifAberto && painel && !painel.contains(e.target) && !btn.contains(e.target)) {
+      notifAberto = false
+      painel.style.display = 'none'
+    }
+  })
 }
