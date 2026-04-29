@@ -396,20 +396,22 @@ async function carregarEntregas() {
   if (tabPorteiroAtiva === 'dashboard') {
     renderDashboard(document.getElementById('tab-body-porteiro'))
   } else {
-    renderStats()
-    renderCards()
+    // Só atualiza stats/cards se os elementos existirem no DOM
+    if (document.getElementById('stat-aguardando')) renderStats()
+    if (document.getElementById('card-pendentes'))  renderCards()
   }
 }
 
 // ── Stats ─────────────────────────────────────────────────────
 function renderStats() {
-  document.getElementById('stat-aguardando').textContent =
+  const el = (id) => document.getElementById(id)
+  if (el('stat-aguardando')) el('stat-aguardando').textContent =
     todasEntregas.filter(e => e.status === 'aguardando' || e.status === 'notificado').length
-  document.getElementById('stat-retirado').textContent   =
+  if (el('stat-retirado'))   el('stat-retirado').textContent   =
     todasEntregas.filter(e => e.status === 'retirado').length
-  document.getElementById('stat-expirado').textContent   =
+  if (el('stat-expirado'))   el('stat-expirado').textContent   =
     todasEntregas.filter(e => e.status === 'expirado').length
-  document.getElementById('stat-total').textContent      = todasEntregas.length
+  if (el('stat-total'))      el('stat-total').textContent      = todasEntregas.length
 }
 
 // ── Filtragem ─────────────────────────────────────────────────
