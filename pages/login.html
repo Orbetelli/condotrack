@@ -31,32 +31,19 @@
 
       <div class="login-heading">
         <h2>Bem-vindo de volta</h2>
-        <p>Selecione seu perfil e faça o login</p>
-      </div>
-
-      <!-- Seletor de perfil -->
-      <div class="profile-selector">
-        <div class="profile-selector-label">Entrar como</div>
-        <div class="profile-grid">
-          <button class="profile-btn active" data-profile="morador" onclick="selecionarPerfil(this)">
-            <span class="profile-btn-name">Morador</span>
-            <span class="profile-btn-desc">Minhas entregas</span>
-          </button>
-          <button class="profile-btn" data-profile="porteiro" onclick="selecionarPerfil(this)">
-            <span class="profile-btn-name">Porteiro</span>
-            <span class="profile-btn-desc">Gerir portaria</span>
-          </button>
-          <button class="profile-btn" data-profile="admin" onclick="selecionarPerfil(this)">
-            <span class="profile-btn-name">Admin</span>
-            <span class="profile-btn-desc">Configurações</span>
-          </button>
-        </div>
+        <p>Entre com seu e-mail e senha para acessar</p>
       </div>
 
       <!-- Hint de perfil detectado automaticamente -->
       <div id="perfil-hint" style="display:none;font-size:12px;color:var(--p-600);font-weight:600;
-           text-align:center;margin-top:-10px;margin-bottom:10px;padding:6px 12px;
-           background:var(--p-50);border-radius:var(--radius-md)">
+           text-align:center;margin-bottom:16px;padding:8px 12px;
+           background:var(--p-50);border-radius:var(--radius-md);
+           display:flex;align-items:center;justify-content:center;gap:6px">
+        <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="var(--p-600)" style="width:14px;height:14px">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span id="perfil-hint-texto"></span>
       </div>
 
       <!-- Formulário -->

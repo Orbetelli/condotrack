@@ -10,12 +10,11 @@ const ROTAS = {
   morador:    'morador.html',
 }
 
-let perfilSelecionado = 'morador'
-
-function selecionarPerfil(btn) {
-  document.querySelectorAll('.profile-btn').forEach(b => b.classList.remove('active'))
-  btn.classList.add('active')
-  perfilSelecionado = btn.dataset.profile
+const PERFIL_LABEL = {
+  superadmin: 'Super Admin',
+  admin:      'Síndico',
+  porteiro:   'Porteiro',
+  morador:    'Morador',
 }
 
 function alternarSenha() {
@@ -29,35 +28,32 @@ async function detectarPerfil() {
 
   const { data } = await db
     .from('usuarios')
-    .select('perfil')
+    .select('perfil, status')
     .eq('email', email)
     .single()
 
-  if (!data?.perfil) return
+  const hint     = document.getElementById('perfil-hint')
+  const hintText = document.getElementById('perfil-hint-texto')
+  if (!hint || !hintText) return
 
-  // Mapeia o perfil real para o botão correspondente
-  const mapaBtn = {
-    morador:    'morador',
-    porteiro:   'porteiro',
-    admin:      'admin',
-    superadmin: 'admin',
+  if (!data?.perfil) {
+    hint.style.display = 'none'
+    return
   }
 
-  const btnPerfil = mapaBtn[data.perfil]
-  if (!btnPerfil) return
-
-  // Seleciona automaticamente o perfil correto
-  const btn = document.querySelector(`[data-profile="${btnPerfil}"]`)
-  if (btn) {
-    selecionarPerfil(btn)
-
-    // Feedback visual sutil
-    const hint = document.getElementById('perfil-hint')
-    if (hint) {
-      hint.textContent = `Perfil detectado: ${data.perfil === 'superadmin' ? 'Super Admin' : data.perfil.charAt(0).toUpperCase() + data.perfil.slice(1)}`
-      hint.style.display = 'block'
-    }
+  if (data.status === 'inativo') {
+    hint.style.background   = '#FEF2F2'
+    hint.style.color        = '#991B1B'
+    hint.querySelector('svg').setAttribute('stroke', '#991B1B')
+    hintText.textContent    = 'Conta inativa — contate o administrador'
+  } else {
+    hint.style.background   = 'var(--p-50)'
+    hint.style.color        = 'var(--p-700)'
+    hint.querySelector('svg').setAttribute('stroke', 'var(--p-600)')
+    hintText.textContent    = `Perfil detectado: ${PERFIL_LABEL[data.perfil] || data.perfil}`
   }
+
+  hint.style.display = 'flex'
 }
 
 // ── Login ─────────────────────────────────────────────────────
@@ -94,7 +90,7 @@ async function handleLogin(e) {
       return
     }
 
-    // 2. Busca o perfil do usuário
+    // 2. Busca o perfil real do usuário — sem validar seletor
     const { data: usuario, error: userError } = await db
       .from('usuarios')
       .select('perfil, condominio_id, status')
@@ -115,26 +111,17 @@ async function handleLogin(e) {
       return
     }
 
-    // 3. Valida se o perfil selecionado bate com o perfil real
-    const perfilReal  = usuario.perfil
-    const perfilBotao = perfilSelecionado
-
-    const mapaValido = {
-      morador:  ['morador'],
-      porteiro: ['porteiro'],
-      admin:    ['admin', 'superadmin'],
-    }
-
-    if (!mapaValido[perfilBotao]?.includes(perfilReal)) {
-      mostrarErro('form-error', 'Perfil selecionado não corresponde à sua conta.')
+    // 3. Redireciona direto para o painel correto — sem precisar selecionar perfil
+    const rota = ROTAS[usuario.perfil]
+    if (!rota) {
+      mostrarErro('form-error', 'Perfil não reconhecido. Contate o suporte.')
       await db.auth.signOut()
       setBtnCarregando('login-btn', false)
       return
     }
 
-    // 4. Redireciona para o painel correto
-    salvarSessao(perfilReal, { email, perfil: perfilReal })
-    window.location.href = ROTAS[perfilReal]
+    salvarSessao(usuario.perfil, { email, perfil: usuario.perfil })
+    window.location.href = rota
 
   } catch (err) {
     console.error('Erro no login:', err)
@@ -148,7 +135,7 @@ function abrirEsqueciSenha() {
   document.getElementById('modal-esqueci').classList.add('open')
   document.getElementById('reset-email').value = document.getElementById('email').value
   limparErro('reset-email-err')
-  document.getElementById('reset-form-wrap').style.display  = 'block'
+  document.getElementById('reset-form-wrap').style.display    = 'block'
   document.getElementById('reset-sucesso-wrap').style.display = 'none'
 }
 
@@ -179,22 +166,17 @@ async function enviarResetSenha(e) {
     return
   }
 
-  document.getElementById('reset-form-wrap').style.display   = 'none'
+  document.getElementById('reset-form-wrap').style.display    = 'none'
   document.getElementById('reset-sucesso-wrap').style.display = 'block'
 }
 
 // ── Init ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('login-form')?.addEventListener('submit', handleLogin)
-
-  // Detecta perfil ao sair do campo de e-mail
   document.getElementById('email')?.addEventListener('blur', detectarPerfil)
-
-  // Fechar modal ao clicar fora
   document.getElementById('modal-esqueci')?.addEventListener('click', e => {
     if (e.target === document.getElementById('modal-esqueci')) fecharEsqueciSenha()
   })
-
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') fecharEsqueciSenha()
   })
