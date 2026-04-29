@@ -707,8 +707,7 @@ function mostrarSenhaSindico(nomeSindico, email, senha, nomeCondo) {
 
     <div class="modal-actions">
       <button class="ct-btn-ghost" onclick="fecharModal();mudarTab(tabAtiva)">Fechar</button>
-      <button class="ct-btn-primary" onclick="copiarTudo('${email}','${senha}')"
-        style="flex:2">
+      <button class="ct-btn-primary" onclick="copiarTudo(this)" data-email="${email}" data-senha="${senha}" data-sindico="${nomeSindico}" data-condo="${nomeCondo}" style="flex:2">
         <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
              style="width:14px;height:14px" stroke-linecap="round">
           <rect x="9" y="9" width="13" height="13" rx="2"/>
@@ -735,18 +734,34 @@ function copiarSenha(senha) {
   })
 }
 
-function copiarTudo(email, senha) {
-  const texto = `E-mail: ${email}\nSenha: ${senha}`
+function copiarTudo(btn) {
+  const email       = btn.dataset.email
+  const senha       = btn.dataset.senha
+  const nomeSindico = btn.dataset.sindico
+  const nomeCondo   = btn.dataset.condo
+
+  const texto = `Olá, ${nomeSindico}! 👋
+
+Seu acesso ao CondoTrack foi criado com sucesso.
+
+🏢 Condomínio: ${nomeCondo}
+📧 E-mail: ${email}
+🔑 Senha temporária: ${senha}
+
+🔗 Acesse agora: ${window.location.origin}/pages/login.html
+
+⚠️ Por segurança, recomendamos alterar sua senha no primeiro acesso.
+
+Qualquer dúvida, entre em contato com o administrador.
+— CondoTrack`
+
   navigator.clipboard.writeText(texto).then(() => {
-    const btns = document.querySelectorAll('#modal-detalhe .ct-btn-primary')
-    btns.forEach(b => {
-      b.textContent = '✓ Copiado!'
-      b.style.background = '#16A34A'
-      setTimeout(() => {
-        b.innerHTML = `<svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:14px;height:14px" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copiar e-mail + senha`
-        b.style.background = 'var(--p-600)'
-      }, 2000)
-    })
+    btn.innerHTML = `<svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:14px;height:14px" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Copiado!`
+    btn.style.background = '#16A34A'
+    setTimeout(() => {
+      btn.innerHTML = `<svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:14px;height:14px" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copiar e-mail + senha`
+      btn.style.background = 'var(--p-600)'
+    }, 2000)
   })
 }
 
