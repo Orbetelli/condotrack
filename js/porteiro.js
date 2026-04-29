@@ -470,6 +470,9 @@ function abrirModalNova() {
   document.getElementById('modal-nova').classList.add('open')
   document.getElementById('form-nova').reset()
   limparTodosErros('err-apto','err-trans','err-volumes')
+  // Garante que o botão está sempre restaurado ao abrir o modal
+  const btn = document.getElementById('btn-nova-entrega-2')
+  if (btn) { btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor" style="width:15px;height:15px" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Registrar entrega' }
 }
 
 function fecharModalNova() {
@@ -543,6 +546,9 @@ async function salvarEntrega(e) {
 
   fecharModalNova()
   await carregarEntregas()
+  // Restaura o botão após sucesso (fecharModalNova já reseta via abrirModalNova na próxima vez,
+  // mas garante que o DOM está limpo caso o modal seja reaberto sem reload)
+  if (btn) { btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor" style="width:15px;height:15px" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Registrar entrega' }
 }
 
 // ── Detalhe ───────────────────────────────────────────────────
