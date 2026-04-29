@@ -49,7 +49,7 @@ serve(async (req: Request) => {
     // Usa service role para bypass do RLS
     const db = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-    // Busca entrega + apartamento + morador + condomínio
+    // Busca entrega + apartamento + condomínio
     const { data: entrega, error: errEntrega } = await db
       .from('entregas')
       .select(`
@@ -59,9 +59,9 @@ serve(async (req: Request) => {
         obs,
         recebido_em,
         apartamentos (
+          id,
           numero,
-          bloco,
-          usuarios ( nome, telefone )
+          bloco
         ),
         condominios ( nome, endereco, cidade, uf )
       `)
@@ -76,7 +76,16 @@ serve(async (req: Request) => {
       })
     }
 
-    const morador  = entrega.apartamentos?.usuarios
+    // Busca o morador do apartamento separadamente
+    const { data: moradorData } = await db
+      .from('usuarios')
+      .select('nome, telefone')
+      .eq('apartamento_id', entrega.apartamentos?.id)
+      .eq('perfil', 'morador')
+      .eq('status', 'ativo')
+      .single()
+
+    const morador  = moradorData
     const apto     = entrega.apartamentos
     const condo    = entrega.condominios
     const nomeApto = apto ? `${apto.bloco}-${apto.numero}` : '—'
