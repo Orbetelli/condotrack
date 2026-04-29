@@ -3,208 +3,194 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CondoTrack — Painel do Síndico</title>
+  <title>CondoTrack — Minhas Entregas</title>
   <link rel="stylesheet" href="../css/style.css" />
-  <link rel="stylesheet" href="../css/admin.css" />
+  <link rel="stylesheet" href="../css/morador.css" />
 </head>
 <body>
 <div class="shell">
 
-  <!-- ── Sidebar ── -->
-  <aside class="sidebar">
-    <div class="sb-logo" style="padding:2px;background:white;border-radius:10px;width:52px;height:52px;display:flex;align-items:center;justify-content:center;overflow:hidden">
-      <img src="../img/logo.png" alt="CondoTrack" style="width:48px;height:48px;object-fit:contain"/>
-    </div>
-    <nav class="sb-nav">
-      <button class="sb-item active" data-tip="Dashboard" onclick="ativarSidebar(this);mudarTab('dashboard')">
-        <svg viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      </button>
-      <button class="sb-item" data-tip="Porteiros" onclick="ativarSidebar(this);mudarTab('porteiros')">
-        <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
-      </button>
-      <button class="sb-item" data-tip="Moradores" onclick="ativarSidebar(this);mudarTab('moradores')">
-        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      </button>
-      <button class="sb-item" data-tip="Apartamentos" onclick="ativarSidebar(this);mudarTab('apartamentos')">
-        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      </button>
-      <button class="sb-item" data-tip="Entregas" onclick="ativarSidebar(this);mudarTab('entregas')">
-        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-      </button>
-      <button class="sb-item" data-tip="Relatórios" onclick="ativarSidebar(this);mudarTab('relatorios')">
-        <svg viewBox="0 0 24 24" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      </button>
-      <div class="sb-divider"></div>
-      <button class="sb-item" data-tip="Configurações" onclick="ativarSidebar(this)">
-        <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-      </button>
-      <button class="sb-item" data-tip="Sair" onclick="encerrarSessao()">
-        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-      </button>
-    </nav>
-    <div class="sb-avatar" id="sb-avatar">JS</div>
-  </aside>
-
-  <!-- ── Main ── -->
-  <div class="main">
-
-    <header class="header">
-      <div>
-        <div class="header-title" id="header-condo">—</div>
-        <div class="header-sub"   id="header-sindico">—</div>
+  <!-- ── Header roxo ── -->
+  <header class="header">
+    <div class="header-top">
+      <div class="header-logo">
+        <div style="background:white;border-radius:10px;width:120px;height:48px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+          <img src="../img/logo.png" alt="CondoTrack" style="width:116px;height:44px;object-fit:contain"/>
+        </div>
       </div>
-      <div class="header-right">
-        <span class="header-badge">Síndico</span>
-        <button class="btn-action" id="btn-acao" style="display:none">
-          <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round">
-            <line x1="12" y1="5" x2="12" y2="19"/>
-            <line x1="5" y1="12" x2="19" y2="12"/>
+      <div class="header-actions" style="position:relative">
+        <button class="notif-btn" id="btn-notif-morador" onclick="toggleNotificacoesMorador()">
+          <svg viewBox="0 0 24 24" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <div class="notif-dot" id="notif-dot-morador" style="display:none"></div>
+        </button>
+
+        <!-- Painel de notificações -->
+        <div id="notif-painel-morador" style="
+          display:none;position:absolute;top:44px;right:0;
+          width:300px;background:var(--n-0);border:1px solid var(--n-200);
+          border-radius:var(--radius-lg);box-shadow:0 8px 32px rgba(0,0,0,.15);
+          z-index:99;overflow:hidden;max-height:380px;overflow-y:auto">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--n-100);
+                      display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:13px;font-weight:700;color:var(--n-900)">Notificações</span>
+            <button onclick="toggleNotificacoesMorador()" style="background:none;border:none;
+                    cursor:pointer;color:var(--n-400);font-size:12px">Fechar</button>
+          </div>
+          <div id="notif-lista-morador" style="padding:4px 0">
+            <div style="padding:20px;text-align:center;font-size:12px;color:var(--n-400)">
+              Carregando...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-body">
+      <div class="header-greeting" id="header-greeting">Bom dia,</div>
+      <div class="header-name" id="header-name">—</div>
+      <div class="header-apto">
+        <svg viewBox="0 0 24 24" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        </svg>
+        <span id="header-apto">—</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Cards flutuantes de stats ── -->
+  <div class="stats-float">
+    <div class="stat-float">
+      <div class="stat-float-num" id="stat-pendentes" style="color:var(--p-600)">—</div>
+      <div class="stat-float-label">Aguardando</div>
+    </div>
+    <div class="stat-float">
+      <div class="stat-float-num" id="stat-retiradas" style="color:#16A34A">—</div>
+      <div class="stat-float-label">Retiradas</div>
+    </div>
+    <div class="stat-float">
+      <div class="stat-float-num" id="stat-total">—</div>
+      <div class="stat-float-label">Total</div>
+    </div>
+  </div>
+
+  <!-- ── Abas ── -->
+  <nav class="nav-tabs">
+    <div class="nav-tab active" data-tab="pendentes" onclick="mudarTab('pendentes')">
+      <svg viewBox="0 0 24 24" stroke-width="2">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+      </svg>
+      Minhas entregas
+    </div>
+    <div class="nav-tab" data-tab="historico" onclick="mudarTab('historico')">
+      <svg viewBox="0 0 24 24" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+      </svg>
+      Histórico
+    </div>
+    <div class="nav-tab" data-tab="notificacoes" onclick="mudarTab('notificacoes')">
+      <svg viewBox="0 0 24 24" stroke-width="2">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+      Notificações
+    </div>
+    <div class="nav-tab" data-tab="perfil" onclick="mudarTab('perfil')">
+      <svg viewBox="0 0 24 24" stroke-width="2">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+        <circle cx="12" cy="7" r="4"/>
+      </svg>
+      Perfil
+    </div>
+  </nav>
+
+  <!-- ── Condomínio ── -->
+  <div style="padding:12px 20px 0;font-size:12px;color:var(--n-400);display:flex;align-items:center;gap:5px">
+    <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:13px;height:13px">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+      <circle cx="12" cy="10" r="3"/>
+    </svg>
+    <span id="header-condo">—</span>
+  </div>
+
+  <!-- ── Body dinâmico ── -->
+  <main class="body" id="tab-body"></main>
+
+</div>
+
+<!-- ── Modal: confirmar retirada ── -->
+<div class="modal-overlay" id="modal-confirmar">
+  <div class="modal">
+
+    <!-- Form padrão -->
+    <div id="modal-form">
+      <div class="modal-header">
+        <div class="modal-title">Confirmar retirada</div>
+        <button class="modal-close" onclick="fecharModal()">
+          <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         </button>
       </div>
-    </header>
 
-    <nav class="nav-tabs">
-      <div class="nav-tab active" data-tab="dashboard"    onclick="mudarTab('dashboard')">
-        <svg viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-        Dashboard
-      </div>
-      <div class="nav-tab" data-tab="porteiros"    onclick="mudarTab('porteiros')">
-        <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
-        Porteiros
-      </div>
-      <div class="nav-tab" data-tab="moradores"    onclick="mudarTab('moradores')">
-        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-        Moradores
-      </div>
-      <div class="nav-tab" data-tab="apartamentos" onclick="mudarTab('apartamentos')">
-        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        Apartamentos
-      </div>
-      <div class="nav-tab" data-tab="entregas" onclick="mudarTab('entregas')">
-        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-        Entregas
-      </div>
-      <div class="nav-tab" data-tab="relatorios"   onclick="mudarTab('relatorios')">
-        <svg viewBox="0 0 24 24" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        Relatórios
-      </div>
-    </nav>
-
-    <main class="body" id="tab-body"></main>
-  </div>
-</div>
-
-<!-- ── Modal: porteiro ── -->
-<div class="modal-overlay" id="modal-porteiro">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="modal-port-title">Novo porteiro</div>
-      <button class="modal-close" onclick="fecharModal()">
-        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      </button>
-    </div>
-    <form id="form-porteiro" novalidate>
-      <div class="modal-field">
-        <label class="ct-label" for="p-nome">Nome completo</label>
-        <input class="ct-input" type="text" id="p-nome" placeholder="Carlos da Silva" />
-        <div class="ct-error" id="err-p-nome" style="display:none"></div>
-      </div>
-      <div class="modal-field">
-        <label class="ct-label" for="p-email">E-mail de acesso</label>
-        <input class="ct-input" type="email" id="p-email" placeholder="porteiro@email.com" />
-        <div class="ct-error" id="err-p-email" style="display:none"></div>
-      </div>
-      <div class="modal-grid">
-        <div class="modal-field">
-          <label class="ct-label" for="p-turno">Turno</label>
-          <select class="ct-input" id="p-turno">
-            <option value="A">Turno A</option>
-            <option value="B">Turno B</option>
-            <option value="C">Turno C</option>
-          </select>
-        </div>
-        <div class="modal-field">
-          <label class="ct-label" for="p-periodo">Período</label>
-          <select class="ct-input" id="p-periodo">
-            <option>Manhã</option>
-            <option>Tarde</option>
-            <option>Noite</option>
-          </select>
+      <div style="background:var(--p-50);border:1.5px solid var(--p-200);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:18px">
+        <div style="font-size:12px;color:var(--p-700);margin-bottom:8px;font-weight:600">Detalhes da entrega</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between;font-size:13px">
+            <span style="color:var(--p-700)">Transportadora</span>
+            <strong style="color:var(--p-900)" id="conf-trans">—</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px">
+            <span style="color:var(--p-700)">Recebido em</span>
+            <strong style="color:var(--p-900)" id="conf-data">—</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px">
+            <span style="color:var(--p-700)">Volumes</span>
+            <strong style="color:var(--p-900)" id="conf-vol">—</strong>
+          </div>
         </div>
       </div>
-      <div style="font-size:12px;color:var(--n-400);margin-bottom:4px">
-        Uma senha temporária será enviada por e-mail ao porteiro.
-      </div>
+
+      <p style="font-size:13px;color:var(--n-500);line-height:1.6;margin-bottom:4px">
+        Ao confirmar, você declara que retirou esta entrega pessoalmente na portaria.
+      </p>
+
       <div class="modal-actions">
         <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>
-        <button type="submit" class="ct-btn-primary">
+        <button type="button" class="ct-btn-primary" onclick="confirmarRetirada()">
           <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
                style="width:14px;height:14px" stroke-linecap="round">
             <polyline points="20 6 9 17 4 12"/>
           </svg>
-          Salvar porteiro
+          Confirmar retirada
         </button>
       </div>
-    </form>
-  </div>
-</div>
-
-<!-- ── Modal: morador ── -->
-<div class="modal-overlay" id="modal-morador">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">Pré-cadastrar morador</div>
-      <button class="modal-close" onclick="fecharModal()">
-        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      </button>
     </div>
-    <form id="form-morador" novalidate>
-      <div class="modal-field">
-        <label class="ct-label" for="m-nome">Nome completo</label>
-        <input class="ct-input" type="text" id="m-nome" placeholder="Maria da Silva" />
-        <div class="ct-error" id="err-m-nome" style="display:none"></div>
+
+    <!-- Tela de sucesso -->
+    <div class="confirm-success" id="confirm-success">
+      <div class="confirm-success-icon">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
       </div>
-      <div class="modal-grid">
-        <div class="modal-field">
-          <label class="ct-label" for="m-apto">Apartamento</label>
-          <input class="ct-input" type="text" id="m-apto" placeholder="204-B" />
-          <div class="ct-error" id="err-m-apto" style="display:none"></div>
-        </div>
-        <div class="modal-field">
-          <label class="ct-label" for="m-cpf">CPF</label>
-          <input class="ct-input" type="text" id="m-cpf" placeholder="000.000.000-00" maxlength="14" />
-        </div>
+      <div style="font-size:17px;font-weight:700;color:var(--n-900);margin-bottom:6px">Retirada confirmada!</div>
+      <div style="font-size:13px;color:var(--n-500);line-height:1.6">
+        Sua retirada foi registrada com sucesso. O porteiro será notificado.
       </div>
-      <div class="modal-field">
-        <label class="ct-label" for="m-email">E-mail</label>
-        <input class="ct-input" type="email" id="m-email" placeholder="morador@email.com" />
-        <div class="ct-error" id="err-m-email" style="display:none"></div>
-      </div>
-      <div style="font-size:12px;color:var(--n-400);margin-bottom:4px">
-        O morador poderá se cadastrar usando o CPF cadastrado aqui.
-      </div>
-      <div class="modal-actions">
-        <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>
-        <button type="submit" class="ct-btn-primary">
-          <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
-               style="width:14px;height:14px" stroke-linecap="round">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-          Pré-cadastrar
-        </button>
-      </div>
-    </form>
+    </div>
+
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
 <script src="../js/utils.js"></script>
-<script src="../js/admin.js"></script>
+<script src="../js/morador.js"></script>
 </body>
 </html>
