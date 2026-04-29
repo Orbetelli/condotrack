@@ -307,7 +307,6 @@ async function buscarHistorico() {
 
   result.innerHTML = '<div style="padding:20px;text-align:center"><div class="spinner" style="border-color:var(--p-200);border-top-color:var(--p-600);margin:0 auto"></div></div>'
 
-  // Busca o apartamento
   const { data: aptoData } = await db
     .from('apartamentos')
     .select('id, numero, bloco')
@@ -321,7 +320,6 @@ async function buscarHistorico() {
     return
   }
 
-  // Busca histórico de entregas
   const { data: entregas, error } = await db
     .from('entregas')
     .select('id, transportadora, volumes, status, obs, recebido_em, retirado_em')
@@ -383,15 +381,15 @@ async function carregarEntregas() {
   if (error) { console.error('Erro ao carregar entregas:', error); return }
 
   todasEntregas = (data || []).map(e => ({
-    id:          e.id,
-    apto:        e.apartamentos ? `${e.apartamentos.bloco}-${e.apartamentos.numero}` : '—',
-    morador:     '—',
-    trans:       e.transportadora,
-    data:        new Date(e.recebido_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }),
-    hora:        new Date(e.recebido_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
-    volumes:     e.volumes,
-    status:      e.status,
-    obs:         e.obs || '',
+    id:      e.id,
+    apto:    e.apartamentos ? `${e.apartamentos.bloco}-${e.apartamentos.numero}` : '—',
+    morador: '—',
+    trans:   e.transportadora,
+    data:    new Date(e.recebido_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }),
+    hora:    new Date(e.recebido_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
+    volumes: e.volumes,
+    status:  e.status,
+    obs:     e.obs || '',
   }))
 
   // Renderiza a aba ativa
@@ -491,6 +489,9 @@ async function salvarEntrega(e) {
   if (!volumes)    { mostrarErro('err-volumes', 'Informe a quantidade.'); valido = false }
   if (!valido) return
 
+  const btn = e.submitter
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
   // Busca o apartamento pelo texto digitado (ex: "A-101")
   const [bloco, numero] = aptoTexto.toUpperCase().split('-')
   const { data: aptoData } = await db
@@ -503,6 +504,7 @@ async function salvarEntrega(e) {
 
   if (!aptoData) {
     mostrarErro('err-apto', 'Apartamento não encontrado.')
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Registrar entrega' }
     return
   }
 
@@ -516,13 +518,25 @@ async function salvarEntrega(e) {
     status: 'aguardando',
   }).select('id').single()
 
-  if (error) { mostrarErro('err-trans', 'Erro ao registrar. Tente novamente.'); return }
+  if (error) {
+    mostrarErro('err-trans', 'Erro ao registrar. Tente novamente.')
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Registrar entrega' }
+    return
+  }
 
-  // Dispara notificação por e-mail em background (não bloqueia a UI)
+  // Dispara e-mail e WhatsApp em background (não bloqueiam a UI)
   if (novaEntrega?.id) {
-    db.functions.invoke('notificar-entrega', {
-      body: { entrega_id: novaEntrega.id },
-    }).catch(err => console.warn('Notificação não enviada:', err))
+    const notifs = [
+      db.functions.invoke('notificar-entrega',  { body: { entrega_id: novaEntrega.id } }),
+      db.functions.invoke('notificar-whatsapp', { body: { entrega_id: novaEntrega.id } }),
+    ]
+    Promise.allSettled(notifs).then(results => {
+      results.forEach((r, i) => {
+        if (r.status === 'rejected') {
+          console.warn(`Notificação ${i === 0 ? 'e-mail' : 'WhatsApp'} não enviada:`, r.reason)
+        }
+      })
+    })
   }
 
   fecharModalNova()
