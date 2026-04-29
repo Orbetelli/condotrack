@@ -22,38 +22,36 @@ function alternarSenha() {
 }
 
 // ── Detecta perfil ao sair do campo de e-mail ─────────────────
+// Nota: só mostra hint se a query funcionar — ignora silenciosamente se RLS bloquear
 async function detectarPerfil() {
   const email = document.getElementById('email').value.trim()
   if (!isEmailValido(email)) return
-
-  const { data } = await db
-    .from('usuarios')
-    .select('perfil, status')
-    .eq('email', email)
-    .single()
 
   const hint     = document.getElementById('perfil-hint')
   const hintText = document.getElementById('perfil-hint-texto')
   if (!hint || !hintText) return
 
-  if (!data?.perfil) {
+  try {
+    const { data } = await db
+      .from('usuarios')
+      .select('perfil, status')
+      .eq('email', email)
+      .maybeSingle()
+
+    if (!data?.perfil) { hint.style.display = 'none'; return }
+
+    if (data.status === 'inativo') {
+      hint.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;font-weight:600;text-align:center;margin-bottom:16px;padding:8px 12px;background:#FEF2F2;border-radius:var(--radius-md);color:#991B1B'
+      hintText.textContent = '⚠️ Conta inativa — contate o administrador'
+    } else {
+      hint.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;font-weight:600;text-align:center;margin-bottom:16px;padding:8px 12px;background:var(--p-50);border-radius:var(--radius-md);color:var(--p-700)'
+      hintText.textContent = `✓ Perfil detectado: ${PERFIL_LABEL[data.perfil] || data.perfil}`
+    }
+    hint.style.display = 'flex'
+  } catch (_) {
+    // RLS bloqueou — ignora silenciosamente, o login ainda funciona
     hint.style.display = 'none'
-    return
   }
-
-  if (data.status === 'inativo') {
-    hint.style.background   = '#FEF2F2'
-    hint.style.color        = '#991B1B'
-    hint.querySelector('svg').setAttribute('stroke', '#991B1B')
-    hintText.textContent    = 'Conta inativa — contate o administrador'
-  } else {
-    hint.style.background   = 'var(--p-50)'
-    hint.style.color        = 'var(--p-700)'
-    hint.querySelector('svg').setAttribute('stroke', 'var(--p-600)')
-    hintText.textContent    = `Perfil detectado: ${PERFIL_LABEL[data.perfil] || data.perfil}`
-  }
-
-  hint.style.display = 'flex'
 }
 
 // ── Login ─────────────────────────────────────────────────────
@@ -120,7 +118,10 @@ async function handleLogin(e) {
       return
     }
 
-    salvarSessao(usuario.perfil, { email, perfil: usuario.perfil })
+    // Salva sessão se a função existir (opcional)
+    if (typeof salvarSessao === 'function') {
+      salvarSessao(usuario.perfil, { email, perfil: usuario.perfil })
+    }
     window.location.href = rota
 
   } catch (err) {

@@ -73,3 +73,15 @@ function aplicarMascaraTelefone(inputId) {
 }
 
 // encerrarSessao é definida em supabase.js (faz signOut + redireciona)
+
+function salvarSessao(perfil, dados) {
+  sessionStorage.setItem('ct_perfil', perfil)
+  sessionStorage.setItem('ct_usuario', JSON.stringify(dados))
+}
+
+function obterSessao() {
+  return {
+    perfil:  sessionStorage.getItem('ct_perfil'),
+    usuario: JSON.parse(sessionStorage.getItem('ct_usuario') || 'null'),
+  }
+}
