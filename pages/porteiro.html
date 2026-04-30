@@ -253,6 +253,15 @@
 
     <div class="modal-actions" style="margin-top:20px">
       <button type="button" class="ct-btn-ghost" onclick="fecharDetalhe()">Fechar</button>
+      <button type="button" class="ct-btn-primary" id="btn-entregue-porteiro"
+              onclick="registrarEntreguePorteiro()" style="display:none;background:#059669">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+             style="width:15px;height:15px" stroke-linecap="round">
+          <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+        </svg>
+        Entreguei pessoalmente
+      </button>
       <button type="button" class="ct-btn-primary" id="btn-confirmar-retirada"
               onclick="confirmarRetirada()" style="display:none">
         <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"

@@ -3,10 +3,11 @@
 // ============================================================
 
 const STATUS_CONFIG = {
-  aguardando: { label: 'Aguardando', bg: '#FEF3C7', color: '#92400E', dot: '#F59E0B' },
-  notificado: { label: 'Notificado', bg: '#EDE9FE', color: '#5B21B6', dot: '#A78BFA' },
-  retirado:   { label: 'Retirado',   bg: '#F0FDF4', color: '#166534', dot: '#34D399' },
-  expirado:   { label: 'Expirado',   bg: '#FEF2F2', color: '#991B1B', dot: '#F87171' },
+  aguardando:         { label: 'Aguardando',          bg: '#FEF3C7', color: '#92400E', dot: '#F59E0B' },
+  notificado:         { label: 'Notificado',           bg: '#EDE9FE', color: '#5B21B6', dot: '#A78BFA' },
+  entregue_porteiro:  { label: 'Entregue — Confirmar', bg: '#ECFDF5', color: '#065F46', dot: '#10B981' },
+  retirado:           { label: 'Retirado',             bg: '#F0FDF4', color: '#166534', dot: '#34D399' },
+  expirado:           { label: 'Expirado',             bg: '#FEF2F2', color: '#991B1B', dot: '#F87171' },
 }
 
 let usuarioLogado      = null
@@ -399,7 +400,7 @@ async function carregarEntregas() {
 // ── Stats ─────────────────────────────────────────────────────
 function renderStats() {
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val }
-  set('stat-aguardando', todasEntregas.filter(e => e.status === 'aguardando' || e.status === 'notificado').length)
+  set('stat-aguardando', todasEntregas.filter(e => e.status === 'aguardando' || e.status === 'notificado' || e.status === 'entregue_porteiro').length)
   set('stat-retirado',   todasEntregas.filter(e => e.status === 'retirado').length)
   set('stat-expirado',   todasEntregas.filter(e => e.status === 'expirado').length)
   set('stat-total',      todasEntregas.length)
@@ -420,7 +421,7 @@ function filtrar() {
 // ── Cards ─────────────────────────────────────────────────────
 function renderCards() {
   const filtradas = filtrar()
-  const pendentes = filtradas.filter(e => ['aguardando','notificado','expirado'].includes(e.status))
+  const pendentes = filtradas.filter(e => ['aguardando','notificado','expirado','entregue_porteiro'].includes(e.status))
   const retiradas = filtradas.filter(e => e.status === 'retirado')
 
   const cardPend = document.getElementById('card-pendentes')
@@ -683,14 +684,41 @@ function abrirDetalhe(id) {
   document.getElementById('detalhe-status').style.background = cfg.bg
   document.getElementById('detalhe-status').style.color      = cfg.color
 
-  const btnConf = document.getElementById('btn-confirmar-retirada')
-  btnConf.style.display = ['aguardando','notificado'].includes(e.status) ? 'flex' : 'none'
+  const btnConf   = document.getElementById('btn-confirmar-retirada')
+  const btnEntregue = document.getElementById('btn-entregue-porteiro')
+  btnConf.style.display     = ['aguardando','notificado'].includes(e.status) ? 'flex' : 'none'
+  btnEntregue.style.display = ['aguardando','notificado'].includes(e.status) ? 'flex' : 'none'
   document.getElementById('modal-detalhe').classList.add('open')
 }
 
 function fecharDetalhe() {
   document.getElementById('modal-detalhe').classList.remove('open')
   entregaDetalhe = null
+}
+
+async function registrarEntreguePorteiro() {
+  if (!entregaDetalhe) return
+
+  const { error } = await db
+    .from('entregas')
+    .update({
+      status:      'entregue_porteiro',
+      entregue_em: new Date().toISOString(),
+    })
+    .eq('id', entregaDetalhe.id)
+
+  if (error) { alert('Erro ao registrar entrega.'); return }
+
+  // Notifica o morador para confirmar em 15 minutos
+  db.functions.invoke('confirmar-entrega', {
+    body: {
+      entrega_id: entregaDetalhe.id,
+      morador_id: entregaDetalhe.moradorId || null,
+    },
+  }).catch(err => console.warn('Notificação não enviada:', err))
+
+  fecharDetalhe()
+  await carregarEntregas()
 }
 
 async function confirmarRetirada() {
