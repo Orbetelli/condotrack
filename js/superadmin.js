@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   mudarTab('dashboard')
   aplicarMascaraCEP()
+  aplicarMascaraCNPJ('c-cnpj')
   bindEvents()
 })
 
@@ -554,7 +555,7 @@ function abrirModalNovo() {
   condominioEditando = null
   document.getElementById('modal-title').textContent = 'Novo condomínio'
   document.getElementById('form-condo').reset()
-  limparTodosErros('err-nome-c','err-end-c','err-sindico','err-email-s')
+  limparTodosErros('err-nome-c','err-end-c','err-sindico','err-email-s','err-cnpj')
   // Reseta modo de apartamentos
   alternarModoApto('auto')
   const preview = document.getElementById('preview-aptos')
@@ -568,6 +569,8 @@ async function editarCondo(id) {
   condominioEditando = id
   document.getElementById('modal-title').textContent = 'Editar condomínio'
   document.getElementById('c-nome').value   = data.nome
+  document.getElementById('c-cnpj').value   = data.cnpj || ''
+  document.getElementById('c-razao').value  = data.razao_social || ''
   document.getElementById('c-end').value    = data.endereco
   document.getElementById('c-cidade').value = data.cidade
   document.getElementById('c-uf').value     = data.uf
@@ -682,6 +685,8 @@ async function salvarCondo(e) {
   limparTodosErros('err-nome-c','err-end-c','err-sindico','err-email-s')
 
   const nome    = document.getElementById('c-nome').value.trim()
+  const cnpj    = document.getElementById('c-cnpj').value.trim()
+  const razao   = document.getElementById('c-razao').value.trim()
   const end     = document.getElementById('c-end').value.trim()
   const cidade  = document.getElementById('c-cidade').value.trim()
   const uf      = document.getElementById('c-uf').value.trim()
@@ -694,6 +699,7 @@ async function salvarCondo(e) {
   let ok = true
   if (!nome) { mostrarErro('err-nome-c', 'Informe o nome.'); ok = false }
   if (!end)  { mostrarErro('err-end-c',  'Informe o endereço.'); ok = false }
+  if (cnpj && !isCNPJValido(cnpj)) { mostrarErro('err-cnpj', 'CNPJ inválido.'); ok = false }
   if (!condominioEditando && !sindico)               { mostrarErro('err-sindico',  'Informe o síndico.'); ok = false }
   if (!condominioEditando && !isEmailValido(emailS)) { mostrarErro('err-email-s', 'E-mail inválido.'); ok = false }
   if (!ok) return
@@ -705,11 +711,17 @@ async function salvarCondo(e) {
     let condoId = condominioEditando
 
     if (condominioEditando) {
-      await db.from('condominios').update({ nome, endereco: end, cidade, uf, cep, blocos, total_aptos: aptos }).eq('id', condominioEditando)
+      await db.from('condominios').update({
+        nome, cnpj: cnpj || null, razao_social: razao || null,
+        endereco: end, cidade, uf, cep, blocos, total_aptos: aptos
+      }).eq('id', condominioEditando)
     } else {
       const { data: novoCondo, error: errCondo } = await db
         .from('condominios')
-        .insert({ nome, endereco: end, cidade, uf, cep, blocos, total_aptos: aptos, status: 'ativo' })
+        .insert({
+          nome, cnpj: cnpj || null, razao_social: razao || null,
+          endereco: end, cidade, uf, cep, blocos, total_aptos: aptos, status: 'ativo'
+        })
         .select('id').single()
 
       if (errCondo || !novoCondo) {

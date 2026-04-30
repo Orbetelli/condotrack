@@ -11,6 +11,32 @@ function isCPFValido(cpf) {
   return cpf.replace(/\D/g, '').length === 11
 }
 
+function isCNPJValido(cnpj) {
+  const n = cnpj.replace(/\D/g, '')
+  if (n.length !== 14) return false
+  if (/^(\d)\1+$/.test(n)) return false
+  const calc = (s, p) => {
+    let t = 0
+    for (let i = 0; i < s; i++) t += parseInt(n[i]) * p--
+    const r = t % 11
+    return r < 2 ? 0 : 11 - r
+  }
+  return calc(12, 5) === parseInt(n[12]) && calc(13, 6) === parseInt(n[13])
+}
+
+function aplicarMascaraCNPJ(inputId) {
+  const input = document.getElementById(inputId)
+  if (!input) return
+  input.addEventListener('input', function () {
+    let v = this.value.replace(/\D/g, '').slice(0, 14)
+    v = v.replace(/(\d{2})(\d)/, '$1.$2')
+    v = v.replace(/(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    v = v.replace(/\.(\d{3})(\d)/, '.$1/$2')
+    v = v.replace(/(\d{4})(\d)/, '$1-$2')
+    this.value = v
+  })
+}
+
 function mostrarErro(id, mensagem) {
   const el = document.getElementById(id)
   if (!el) return
@@ -72,8 +98,6 @@ function aplicarMascaraTelefone(inputId) {
   })
 }
 
-// encerrarSessao é definida em supabase.js (faz signOut + redireciona)
-
 function salvarSessao(perfil, dados) {
   sessionStorage.setItem('ct_perfil', perfil)
   sessionStorage.setItem('ct_usuario', JSON.stringify(dados))
@@ -85,3 +109,5 @@ function obterSessao() {
     usuario: JSON.parse(sessionStorage.getItem('ct_usuario') || 'null'),
   }
 }
+
+// encerrarSessao é definida em supabase.js (faz signOut + redireciona)

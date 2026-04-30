@@ -125,9 +125,15 @@ function renderizarGradeAptos(filtro = '') {
   if (!grid) return
   grid.innerHTML = ''
 
+  // Ordena naturalmente (101 antes de 102, não alfabético)
+  const sorted = [...TODOS_APTOS].sort((a, b) => {
+    if (a.bloco !== b.bloco) return a.bloco.localeCompare(b.bloco)
+    return a.numero.localeCompare(b.numero, undefined, { numeric: true })
+  })
+
   const lista = filtro
-    ? TODOS_APTOS.filter(a => `${a.bloco}-${a.numero}`.toLowerCase().includes(filtro.toLowerCase()))
-    : TODOS_APTOS
+    ? sorted.filter(a => formatarApto(a).toLowerCase().includes(filtro.toLowerCase()))
+    : sorted
 
   if (!lista.length) {
     grid.innerHTML = '<div style="grid-column:span 5;text-align:center;font-size:12px;color:var(--n-400);padding:16px">Nenhum apartamento encontrado.</div>'
@@ -138,7 +144,7 @@ function renderizarGradeAptos(filtro = '') {
     const btn = document.createElement('button')
     btn.type = 'button'
     btn.className = 'apt-btn'
-    btn.textContent = `${a.bloco}-${a.numero}`
+    btn.textContent = formatarApto(a)
     btn.title = `Bloco ${a.bloco} · Apto ${a.numero}`
 
     if (OCUPADOS_SET.has(a.id)) {
@@ -147,13 +153,24 @@ function renderizarGradeAptos(filtro = '') {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.apt-btn').forEach(b => b.classList.remove('selected'))
         btn.classList.add('selected')
-        estado.aptoSelecionado = `${a.bloco}-${a.numero}`
+        estado.aptoSelecionado = formatarApto(a)
         estado.aptoId          = a.id
         limparErro('apto-err')
       })
     }
     grid.appendChild(btn)
   })
+}
+
+// Formata o apto de forma inteligente:
+// Se o número já contém o bloco (ex: "101" com bloco "A") → mostra "A-101"
+// Se o condomínio tem apenas 1 bloco e número é livre → mostra só o número
+function formatarApto(a) {
+  // Se bloco é 'A' e o número já parece incluir o bloco, mostra só o número
+  if (a.bloco === 'A' && /^\d/.test(a.numero)) return `${a.bloco}-${a.numero}`
+  // Se o número já tem letra de bloco embutida, mostra só o número
+  if (a.numero.startsWith(a.bloco)) return a.numero
+  return `${a.bloco}-${a.numero}`
 }
 
 function iniciarBuscaApto() {
