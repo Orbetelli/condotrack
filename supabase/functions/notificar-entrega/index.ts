@@ -1,55 +1,55 @@
 // ============================================================
-//  notificar-entrega/index.ts
+//  notificar-whatsapp/index.ts
 //  Supabase Edge Function
-//  Dispara e-mail via Resend quando uma entrega é registrada
+//  Dispara mensagem WhatsApp via Z-API quando entrega é registrada
 //
 //  Deploy:
-//    supabase functions deploy notificar-entrega
+//    supabase functions deploy notificar-whatsapp
 //
-//  Variáveis de ambiente necessárias (Supabase Dashboard):
-//    RESEND_API_KEY = re_xxxxxxxxxxxx
-//    FROM_EMAIL     = entregas@condotrack.com.br
+//  Variáveis de ambiente necessárias (Supabase Dashboard → Functions → Secrets):
+//    ZAPI_INSTANCE_ID    = seu Instance ID do Z-API
+//    ZAPI_TOKEN          = seu Token do Z-API
+//    ZAPI_CLIENT_TOKEN   = seu Client Token do Z-API
 // ============================================================
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')          ?? ''
-const SUPABASE_URL   = Deno.env.get('SUPABASE_URL')            ?? ''
-const SUPABASE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-const FROM_EMAIL     = Deno.env.get('FROM_EMAIL')              ?? 'entregas@condotrack.com.br'
-const FROM_NAME      = 'CondoTrack'
+const ZAPI_INSTANCE_ID  = Deno.env.get('ZAPI_INSTANCE_ID')  ?? ''
+const ZAPI_TOKEN        = Deno.env.get('ZAPI_TOKEN')        ?? ''
+const ZAPI_CLIENT_TOKEN = Deno.env.get('ZAPI_CLIENT_TOKEN') ?? ''
+const SUPABASE_URL      = Deno.env.get('SUPABASE_URL')      ?? ''
+const SUPABASE_KEY      = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
-// FIX: CORS headers para compatibilidade com chamadas diretas do frontend
-const CORS = {
+const CORS_HEADERS = {
   'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type, x-client-info, apikey',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 serve(async (req: Request) => {
-  // FIX: responder OPTIONS para preflight CORS
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: CORS })
+    return new Response('ok', { headers: CORS_HEADERS })
   }
 
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405, headers: CORS })
+    return new Response('Method not allowed', { status: 405, headers: CORS_HEADERS })
   }
 
   try {
-    const { entrega_id } = await req.json()
+    const { entrega_id, morador_id } = await req.json()
 
     if (!entrega_id) {
       return new Response(JSON.stringify({ error: 'entrega_id obrigatório' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json', ...CORS },
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       })
     }
 
-    // Usa service role para bypassar RLS e buscar todos os dados necessários
+    // Usa service role para bypass do RLS
     const db = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-    // Busca entrega + apartamento + morador + condomínio em uma query só
+    // Busca entrega + apartamento + condomínio
     const { data: entrega, error: errEntrega } = await db
       .from('entregas')
       .select(`
@@ -59,9 +59,9 @@ serve(async (req: Request) => {
         obs,
         recebido_em,
         apartamentos (
+          id,
           numero,
-          bloco,
-          usuarios!apartamento_id ( nome, email, perfil )
+          bloco
         ),
         condominios ( nome, endereco, cidade, uf )
       `)
@@ -72,41 +72,65 @@ serve(async (req: Request) => {
       console.error('Entrega não encontrada:', errEntrega)
       return new Response(JSON.stringify({ error: 'Entrega não encontrada' }), {
         status: 404,
-        headers: { 'Content-Type': 'application/json', ...CORS },
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       })
     }
 
-    // FIX: usuarios retorna array — filtra pelo perfil morador
-    const usuariosApto = entrega.apartamentos?.usuarios
-    const morador = Array.isArray(usuariosApto)
-      ? usuariosApto.find((u: { perfil: string }) => u.perfil === 'morador')
-      : usuariosApto
+    // Busca o morador — prioriza morador_id (destinatário específico)
+    let moradorData = null
+    if (morador_id) {
+      const { data } = await db
+        .from('usuarios')
+        .select('nome, telefone')
+        .eq('id', morador_id)
+        .single()
+      moradorData = data
+    } else {
+      const { data } = await db
+        .from('usuarios')
+        .select('nome, telefone')
+        .eq('apartamento_id', entrega.apartamentos?.id)
+        .eq('perfil', 'morador')
+        .eq('status', 'ativo')
+        .single()
+      moradorData = data
+    }
 
-    const apto         = entrega.apartamentos
-    const condo        = entrega.condominios
-    const nomeApto     = apto ? `${apto.bloco}-${apto.numero}` : '—'
+    const morador  = moradorData
+    const apto     = entrega.apartamentos
+    const condo    = entrega.condominios
+    const nomeApto = apto ? `${apto.bloco}-${apto.numero}` : '—'
 
-    // FIX: toLocaleString suporta opções de hora, toLocaleDateString não
-    const dataReceb = new Date(entrega.recebido_em).toLocaleString('pt-BR', {
+    // Sem telefone cadastrado — ignora silenciosamente
+    if (!morador?.telefone) {
+      return new Response(JSON.stringify({ ok: true, msg: 'Morador sem telefone, notificação ignorada' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      })
+    }
+
+    // Formata o número para o padrão internacional (Z-API espera DDI+DDD+número)
+    // Ex: "(11) 99999-0000" → "5511999990000"
+    const telefone = formatarTelefone(morador.telefone)
+    if (!telefone) {
+      return new Response(JSON.stringify({ ok: true, msg: 'Telefone inválido, notificação ignorada' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      })
+    }
+
+    const dataReceb = new Date(entrega.recebido_em).toLocaleDateString('pt-BR', {
       day: '2-digit', month: '2-digit', year: 'numeric',
       hour: '2-digit', minute: '2-digit',
       timeZone: 'America/Sao_Paulo',
     })
 
-    // Sem morador cadastrado no apartamento — não envia
-    if (!morador?.email) {
-      return new Response(JSON.stringify({ ok: true, msg: 'Morador sem e-mail, notificação ignorada' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json', ...CORS },
-      })
-    }
-
     const volumes = entrega.volumes === 1
       ? '1 volume'
       : `${entrega.volumes} volumes`
 
-    // Monta o HTML do e-mail
-    const html = emailHTML({
+    // Monta a mensagem
+    const mensagem = montarMensagem({
       nomeMorador:    morador.nome,
       nomeApto,
       transportadora: entrega.transportadora,
@@ -114,60 +138,64 @@ serve(async (req: Request) => {
       obs:            entrega.obs || null,
       dataRecebido:   dataReceb,
       nomeCondo:      condo?.nome ?? '—',
-      enderecoCondo:  condo ? `${condo.endereco}, ${condo.cidade} — ${condo.uf}` : '—',
     })
 
-    // Dispara o e-mail via Resend
-    const resendRes = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type':  'application/json',
-      },
-      body: JSON.stringify({
-        from:    `${FROM_NAME} <${FROM_EMAIL}>`,
-        to:      [morador.email],
-        subject: `📦 Entrega chegou! ${entrega.transportadora} — Apto ${nomeApto}`,
-        html,
-      }),
-    })
+    // Dispara via Z-API
+    const zapiRes = await fetch(
+      `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Client-Token':  ZAPI_CLIENT_TOKEN,
+        },
+        body: JSON.stringify({
+          phone:   telefone,
+          message: mensagem,
+        }),
+      }
+    )
 
-    if (!resendRes.ok) {
-      const err = await resendRes.text()
-      console.error('Resend error:', err)
-      return new Response(JSON.stringify({ error: 'Falha ao enviar e-mail', detail: err }), {
+    if (!zapiRes.ok) {
+      const err = await zapiRes.text()
+      console.error('Z-API error:', err)
+      return new Response(JSON.stringify({ error: 'Falha ao enviar WhatsApp', detail: err }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json', ...CORS },
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       })
     }
 
-    // FIX: trata erro do UPDATE de status
-    const { error: updateError } = await db
-      .from('entregas')
-      .update({ status: 'notificado' })
-      .eq('id', entrega_id)
-
-    if (updateError) {
-      console.error('Erro ao atualizar status da entrega:', updateError)
-    }
-
-    const resendData = await resendRes.json()
-    return new Response(JSON.stringify({ ok: true, email_id: resendData.id }), {
+    const zapiData = await zapiRes.json()
+    return new Response(JSON.stringify({ ok: true, message_id: zapiData.zaapId ?? zapiData.id }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json', ...CORS },
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
     })
 
   } catch (err) {
     console.error('Erro inesperado:', err)
     return new Response(JSON.stringify({ error: 'Erro interno' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json', ...CORS },
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
     })
   }
 })
 
-// ── Template HTML do e-mail ───────────────────────────────────
-function emailHTML(p: {
+// ── Formata telefone para padrão Z-API ────────────────────────
+// "(11) 99999-0000" ou "11999990000" → "5511999990000"
+function formatarTelefone(tel: string): string | null {
+  const digits = tel.replace(/\D/g, '')
+
+  // Já tem DDI 55
+  if (digits.startsWith('55') && digits.length >= 12) return digits
+
+  // Tem DDD + número (10 ou 11 dígitos)
+  if (digits.length === 10 || digits.length === 11) return '55' + digits
+
+  return null
+}
+
+// ── Monta a mensagem WhatsApp ─────────────────────────────────
+function montarMensagem(p: {
   nomeMorador:    string
   nomeApto:       string
   transportadora: string
@@ -175,134 +203,23 @@ function emailHTML(p: {
   obs:            string | null
   dataRecebido:   string
   nomeCondo:      string
-  enderecoCondo:  string
-}) {
-  const linhasDetalhes = [
-    detalheRow('Transportadora', p.transportadora, false),
-    detalheRow('Volumes',        p.volumes,        false),
-    detalheRow('Apartamento',    'Apto ' + p.nomeApto, false),
-    // FIX: última linha sem border-bottom
-    detalheRow('Recebido em',    p.dataRecebido,   !p.obs),
-    p.obs ? detalheRow('Observação', p.obs, true) : '',
-  ].join('')
+}): string {
+  const obs = p.obs ? `\n📝 *Obs:* ${p.obs}` : ''
 
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sua entrega chegou!</title>
-</head>
-<body style="margin:0;padding:0;background:#F4F4F5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+  return `📦 *Sua entrega chegou!*
 
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F4F5;padding:32px 16px">
-    <tr>
-      <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
+Olá, *${p.nomeMorador}*! Seu pacote está disponível na portaria.
 
-          <!-- Logo -->
-          <tr>
-            <td align="center" style="padding-bottom:24px">
-              <table cellpadding="0" cellspacing="0">
-                <tr>
-                  <td style="background:#7C3AED;border-radius:10px;padding:10px 14px">
-                    <span style="color:#fff;font-size:16px;font-weight:700;letter-spacing:-.3px">CondoTrack</span>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+*Detalhes:*
+🚚 Transportadora: *${p.transportadora}*
+📦 Volumes: *${p.volumes}*
+🏠 Apartamento: *${p.nomeApto}*
+🕐 Recebido em: *${p.dataRecebido}*${obs}
 
-          <!-- Card principal -->
-          <tr>
-            <td style="background:#fff;border-radius:16px;border:1px solid #E4E4E7;padding:32px 32px 24px">
+📍 *Local de retirada:*
+${p.nomeCondo} — Portaria
 
-              <!-- Ícone de entrega -->
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center" style="padding-bottom:20px">
-                    <div style="width:64px;height:64px;background:#F5F3FF;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:28px">📦</div>
-                  </td>
-                </tr>
-                <tr>
-                  <td align="center" style="padding-bottom:6px">
-                    <span style="font-size:22px;font-weight:700;color:#18181B;letter-spacing:-.3px">Sua entrega chegou!</span>
-                  </td>
-                </tr>
-                <tr>
-                  <td align="center" style="padding-bottom:28px">
-                    <span style="font-size:14px;color:#71717A">Olá, ${p.nomeMorador}. Seu pacote está na portaria.</span>
-                  </td>
-                </tr>
-              </table>
+⚠️ Retire sua entrega em até 5 dias úteis mediante apresentação de documento.
 
-              <!-- Detalhes da entrega -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:#F5F3FF;border-radius:12px;padding:20px;margin-bottom:20px">
-                <tr>
-                  <td style="padding-bottom:12px;border-bottom:1px solid #DDD6FE">
-                    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#7C3AED">Detalhes da entrega</span>
-                  </td>
-                </tr>
-                ${linhasDetalhes}
-              </table>
-
-              <!-- Local de retirada -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:14px 16px;margin-bottom:24px">
-                <tr>
-                  <td>
-                    <span style="font-size:12px;font-weight:700;color:#166534;display:block;margin-bottom:3px">Local de retirada</span>
-                    <span style="font-size:13px;color:#15803D">${p.nomeCondo} — Portaria</span><br>
-                    <span style="font-size:12px;color:#16A34A">${p.enderecoCondo}</span>
-                  </td>
-                </tr>
-              </table>
-
-              <!-- Aviso -->
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td style="padding-top:16px;border-top:1px solid #F4F4F5">
-                    <span style="font-size:12px;color:#A1A1AA;line-height:1.6">
-                      Retire sua entrega na portaria mediante apresentação de documento.
-                      Após 5 dias úteis sem retirada, o item poderá ser devolvido ao remetente.
-                    </span>
-                  </td>
-                </tr>
-              </table>
-
-            </td>
-          </tr>
-
-          <!-- Rodapé -->
-          <tr>
-            <td align="center" style="padding-top:20px">
-              <span style="font-size:12px;color:#A1A1AA">
-                CondoTrack · Sistema de gestão de entregas<br>
-                Este e-mail foi enviado automaticamente. Não responda.
-              </span>
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-
-</body>
-</html>`
-}
-
-// FIX: parâmetro isLast controla border-bottom da última linha
-function detalheRow(label: string, valor: string, isLast: boolean) {
-  const border = isLast ? 'none' : '1px solid #EDE9FE'
-  return `
-    <tr>
-      <td style="padding:10px 0;border-bottom:${border}">
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td style="font-size:12px;color:#7C3AED;width:40%">${label}</td>
-            <td style="font-size:13px;font-weight:600;color:#2E1065;text-align:right">${valor}</td>
-          </tr>
-        </table>
-      </td>
-    </tr>`
+_Mensagem automática — CondoTrack_`
 }

@@ -37,7 +37,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { entrega_id } = await req.json()
+    const { entrega_id, morador_id } = await req.json()
 
     if (!entrega_id) {
       return new Response(JSON.stringify({ error: 'entrega_id obrigatório' }), {
@@ -76,14 +76,25 @@ serve(async (req: Request) => {
       })
     }
 
-    // Busca o morador do apartamento separadamente
-    const { data: moradorData } = await db
-      .from('usuarios')
-      .select('nome, telefone')
-      .eq('apartamento_id', entrega.apartamentos?.id)
-      .eq('perfil', 'morador')
-      .eq('status', 'ativo')
-      .single()
+    // Busca o morador — prioriza morador_id (destinatário específico)
+    let moradorData = null
+    if (morador_id) {
+      const { data } = await db
+        .from('usuarios')
+        .select('nome, telefone')
+        .eq('id', morador_id)
+        .single()
+      moradorData = data
+    } else {
+      const { data } = await db
+        .from('usuarios')
+        .select('nome, telefone')
+        .eq('apartamento_id', entrega.apartamentos?.id)
+        .eq('perfil', 'morador')
+        .eq('status', 'ativo')
+        .single()
+      moradorData = data
+    }
 
     const morador  = moradorData
     const apto     = entrega.apartamentos
