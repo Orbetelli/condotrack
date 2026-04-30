@@ -189,6 +189,17 @@ serve(async (req: Request) => {
 
   console.log('verificar-entregas resultado:', resultado)
 
+  // Dispara alerta de entregas acumuladas em background
+  const supabaseUrl = SUPABASE_URL.replace('/rest/v1', '')
+  fetch(`${supabaseUrl}/functions/v1/alertar-entregas-acumuladas`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+    },
+    body: JSON.stringify({}),
+  }).catch(err => console.warn('Alerta acumuladas não enviado:', err))
+
   return new Response(JSON.stringify(resultado), {
     status: 200,
     headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },

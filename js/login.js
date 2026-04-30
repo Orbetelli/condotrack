@@ -1,6 +1,5 @@
 // ============================================================
 //  login.js — autenticação real via Supabase
-//  UX: detecção automática de perfil + esqueci minha senha
 // ============================================================
 
 const ROTAS = {
@@ -10,51 +9,18 @@ const ROTAS = {
   morador:    'morador.html',
 }
 
-const PERFIL_LABEL = {
-  superadmin: 'Super Admin',
-  admin:      'Síndico',
-  porteiro:   'Porteiro',
-  morador:    'Morador',
+let perfilSelecionado = 'morador'
+
+function selecionarPerfil(btn) {
+  document.querySelectorAll('.profile-btn').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active')
+  perfilSelecionado = btn.dataset.profile
 }
 
 function alternarSenha() {
   toggleSenha('senha', 'eye-icon')
 }
 
-// ── Detecta perfil ao sair do campo de e-mail ─────────────────
-// Nota: só mostra hint se a query funcionar — ignora silenciosamente se RLS bloquear
-async function detectarPerfil() {
-  const email = document.getElementById('email').value.trim()
-  if (!isEmailValido(email)) return
-
-  const hint     = document.getElementById('perfil-hint')
-  const hintText = document.getElementById('perfil-hint-texto')
-  if (!hint || !hintText) return
-
-  try {
-    const { data } = await db
-      .from('usuarios')
-      .select('perfil, status')
-      .eq('email', email)
-      .maybeSingle()
-
-    if (!data?.perfil) { hint.style.display = 'none'; return }
-
-    if (data.status === 'inativo') {
-      hint.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;font-weight:600;text-align:center;margin-bottom:16px;padding:8px 12px;background:#FEF2F2;border-radius:var(--radius-md);color:#991B1B'
-      hintText.textContent = '⚠️ Conta inativa — contate o administrador'
-    } else {
-      hint.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;font-weight:600;text-align:center;margin-bottom:16px;padding:8px 12px;background:var(--p-50);border-radius:var(--radius-md);color:var(--p-700)'
-      hintText.textContent = `✓ Perfil detectado: ${PERFIL_LABEL[data.perfil] || data.perfil}`
-    }
-    hint.style.display = 'flex'
-  } catch (_) {
-    // RLS bloqueou — ignora silenciosamente, o login ainda funciona
-    hint.style.display = 'none'
-  }
-}
-
-// ── Login ─────────────────────────────────────────────────────
 async function handleLogin(e) {
   e.preventDefault()
   limparTodosErros('email-error', 'senha-error', 'form-error')
@@ -88,7 +54,7 @@ async function handleLogin(e) {
       return
     }
 
-    // 2. Busca o perfil real do usuário — sem validar seletor
+    // 2. Busca o perfil do usuário na tabela usuarios
     const { data: usuario, error: userError } = await db
       .from('usuarios')
       .select('perfil, condominio_id, status')
@@ -109,20 +75,36 @@ async function handleLogin(e) {
       return
     }
 
-    // 3. Redireciona direto para o painel correto — sem precisar selecionar perfil
-    const rota = ROTAS[usuario.perfil]
-    if (!rota) {
-      mostrarErro('form-error', 'Perfil não reconhecido. Contate o suporte.')
+    // 3. Valida se o perfil selecionado bate com o perfil real
+    // superadmin e admin compartilham o botão "Admin" no seletor
+    const perfilReal = usuario.perfil
+    const perfilBotao = perfilSelecionado
+
+    const mapaValido = {
+      morador:  ['morador'],
+      porteiro: ['porteiro'],
+      admin:    ['admin', 'superadmin'],
+    }
+
+    if (!mapaValido[perfilBotao]?.includes(perfilReal)) {
+      mostrarErro('form-error', 'Perfil selecionado não corresponde à sua conta.')
       await db.auth.signOut()
       setBtnCarregando('login-btn', false)
       return
     }
 
-    // Salva sessão se a função existir (opcional)
-    if (typeof salvarSessao === 'function') {
-      salvarSessao(usuario.perfil, { email, perfil: usuario.perfil })
-    }
-    window.location.href = rota
+    // 4. Registra histórico de acesso
+    db.from('acessos').insert({
+      usuario_id:    usuario.id,
+      condominio_id: usuario.condominio_id,
+      perfil:        perfilReal,
+      nome:          usuario.nome,
+      status:        'sucesso',
+    }).then(() => {}).catch(() => {}) // fire-and-forget
+
+    // 5. Redireciona para o painel correto
+    salvarSessao(perfilReal, { email, perfil: perfilReal })
+    window.location.href = ROTAS[perfilReal]
 
   } catch (err) {
     console.error('Erro no login:', err)
@@ -131,54 +113,6 @@ async function handleLogin(e) {
   }
 }
 
-// ── Esqueci minha senha ───────────────────────────────────────
-function abrirEsqueciSenha() {
-  document.getElementById('modal-esqueci').classList.add('open')
-  document.getElementById('reset-email').value = document.getElementById('email').value
-  limparErro('reset-email-err')
-  document.getElementById('reset-form-wrap').style.display    = 'block'
-  document.getElementById('reset-sucesso-wrap').style.display = 'none'
-}
-
-function fecharEsqueciSenha() {
-  document.getElementById('modal-esqueci').classList.remove('open')
-}
-
-async function enviarResetSenha(e) {
-  e.preventDefault()
-  limparErro('reset-email-err')
-
-  const email = document.getElementById('reset-email').value.trim()
-  if (!isEmailValido(email)) {
-    mostrarErro('reset-email-err', 'Informe um e-mail válido.')
-    return
-  }
-
-  const btn = e.submitter
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
-
-  const { error } = await db.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.origin + '/pages/login.html',
-  })
-
-  if (error) {
-    mostrarErro('reset-email-err', 'Erro ao enviar. Tente novamente.')
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Enviar link de redefinição' }
-    return
-  }
-
-  document.getElementById('reset-form-wrap').style.display    = 'none'
-  document.getElementById('reset-sucesso-wrap').style.display = 'block'
-}
-
-// ── Init ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('login-form')?.addEventListener('submit', handleLogin)
-  document.getElementById('email')?.addEventListener('blur', detectarPerfil)
-  document.getElementById('modal-esqueci')?.addEventListener('click', e => {
-    if (e.target === document.getElementById('modal-esqueci')) fecharEsqueciSenha()
-  })
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') fecharEsqueciSenha()
-  })
 })

@@ -29,6 +29,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   usuarioLogado = await requireAuth(['admin'])
   if (!usuarioLogado) return
 
+  iniciarTimeoutInatividade()
+  await registrarLog('acesso', 'Painel do síndico acessado')
+
   // Header
   document.getElementById('header-condo').textContent   = usuarioLogado.condominios?.nome || '—'
   document.getElementById('header-sindico').textContent = `Painel do síndico · ${usuarioLogado.nome}`
@@ -306,12 +309,38 @@ function moradorRows(lista) {
             <div class="panel-row-sub">Apto ${m.apto} · ${m.email || '—'}</div>
           </div>
           <span class="panel-row-badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>
-          <button class="panel-row-btn" title="Ver detalhes">
-            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+          ${m.status === 'pendente' ? `
+            <button class="panel-row-btn" onclick="enviarConvite('${m.id}', '${m.nome.replace(/'/g, "\'")}')"
+                    title="Enviar convite" style="background:var(--p-100);border-color:var(--p-300)">
+              <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="var(--p-600)" style="width:12px;height:12px">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.36 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16.92z"/>
+              </svg>
+            </button>` : ''}
+          <button class="panel-row-btn" onclick="abrirModalEditarApto('${m.id}','${m.nome.replace(/'/g, "\'")}','${m.apto}')" title="Editar apartamento">
+            <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" stroke-linecap="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
           </button>
         </div>`
     }).join('')}
   `
+}
+
+async function enviarConvite(moradorId, nome) {
+  if (!confirm(`Enviar convite de cadastro para ${nome}?`)) return
+
+  const { data, error } = await db.functions.invoke('convidar-morador', {
+    body: { usuario_id: moradorId },
+  })
+
+  if (error || !data?.ok) {
+    alert('Erro ao enviar convite. Tente novamente.')
+    return
+  }
+
+  cacheMoradores = []
+  alert(`Convite enviado para ${nome}!`)
 }
 
 // ── Apartamentos ──────────────────────────────────────────────
@@ -734,7 +763,124 @@ async function salvarMorador(e) {
     return
   }
 
+  await registrarLog('morador_pre_cadastrado', `Morador pré-cadastrado: ${nome} · Apto ${apto}`)
   cacheMoradores = []
+  fecharModal()
+  renderTab(tabAtiva)
+}
+
+// ── Modal: editar apartamento do morador ─────────────────────
+function abrirModalEditarApto(moradorId, nomeMorador, aptoAtual) {
+  // Reutiliza o modal de morador para edição de apto
+  const overlay = document.getElementById('modal-morador')
+  overlay.querySelector('.modal-title').textContent = 'Editar apartamento'
+  overlay.querySelector('form').innerHTML = `
+    <div style="background:var(--p-50);border:1.5px solid var(--p-200);border-radius:var(--radius-md);
+                padding:12px 14px;margin-bottom:18px;font-size:13px;color:var(--p-700)">
+      Alterando apartamento de <strong>${nomeMorador}</strong><br>
+      <span style="font-size:12px;color:var(--p-500)">Atual: Apto ${aptoAtual}</span>
+    </div>
+
+    <div class="modal-field">
+      <label class="ct-label" for="edit-apto">Novo apartamento</label>
+      <input class="ct-input" type="text" id="edit-apto"
+             placeholder="Ex: B-202" style="text-transform:uppercase"/>
+      <div class="ct-error" id="err-edit-apto" style="display:none"></div>
+    </div>
+
+    <div style="font-size:12px;color:var(--n-400);margin-bottom:4px">
+      O apartamento antigo voltará a ficar disponível automaticamente.
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="ct-btn-primary" onclick="salvarEditarApto('${moradorId}','${aptoAtual}')">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+             style="width:14px;height:14px" stroke-linecap="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Salvar
+      </button>
+    </div>
+  `
+  overlay.classList.add('open')
+  document.getElementById('edit-apto').focus()
+}
+
+async function salvarEditarApto(moradorId, aptoAtual) {
+  limparErro('err-edit-apto')
+  const novoAptoTexto = document.getElementById('edit-apto').value.trim().toUpperCase()
+
+  if (!novoAptoTexto) {
+    mostrarErro('err-edit-apto', 'Informe o novo apartamento.')
+    return
+  }
+
+  if (novoAptoTexto === aptoAtual) {
+    mostrarErro('err-edit-apto', 'O apartamento informado é o mesmo que o atual.')
+    return
+  }
+
+  const btn = document.querySelector('#modal-morador .ct-btn-primary')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
+  const partes = novoAptoTexto.split('-')
+  const bloco  = partes[0]
+  const numero = partes[1] || novoAptoTexto
+
+  // Busca o novo apartamento
+  const { data: novoApto } = await db
+    .from('apartamentos')
+    .select('id, status')
+    .eq('condominio_id', usuarioLogado.condominio_id)
+    .eq('bloco', bloco)
+    .eq('numero', numero)
+    .single()
+
+  if (!novoApto) {
+    mostrarErro('err-edit-apto', 'Apartamento não encontrado.')
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar' }
+    return
+  }
+
+  if (novoApto.status === 'ocupado') {
+    mostrarErro('err-edit-apto', 'Este apartamento já está ocupado.')
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar' }
+    return
+  }
+
+  // Busca o apartamento atual do morador para liberar
+  const { data: morador } = await db
+    .from('usuarios')
+    .select('apartamento_id')
+    .eq('id', moradorId)
+    .single()
+
+  // 1. Libera o apartamento antigo
+  if (morador?.apartamento_id) {
+    await db.from('apartamentos')
+      .update({ status: 'disponivel' })
+      .eq('id', morador.apartamento_id)
+  }
+
+  // 2. Marca o novo como ocupado
+  await db.from('apartamentos')
+    .update({ status: 'ocupado' })
+    .eq('id', novoApto.id)
+
+  // 3. Atualiza o morador
+  const { error } = await db.from('usuarios')
+    .update({ apartamento_id: novoApto.id })
+    .eq('id', moradorId)
+
+  if (error) {
+    mostrarErro('err-edit-apto', 'Erro ao salvar. Tente novamente.')
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar' }
+    return
+  }
+
+  cacheMoradores = []
+  cacheApartamentos = []
   fecharModal()
   renderTab(tabAtiva)
 }
