@@ -20,7 +20,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   mudarTab('dashboard')
   aplicarMascaraCEP()
-  aplicarMascaraCNPJ('c-cnpj')
   bindEvents()
 })
 
@@ -302,27 +301,33 @@ async function salvarResetSenha(e) {
   const confirma = document.getElementById('reset-confirma').value
   let ok = true
 
-  if (nova.length < 6)    { mostrarErro('err-reset-nova',    'Mínimo 6 caracteres.'); ok = false }
-  if (nova !== confirma)  { mostrarErro('err-reset-confirma','Senhas não coincidem.'); ok = false }
+  if (nova.length < 6)   { mostrarErro('err-reset-nova',    'Mínimo 6 caracteres.'); ok = false }
+  if (nova !== confirma) { mostrarErro('err-reset-confirma','Senhas não coincidem.'); ok = false }
   if (!ok) return
 
   const btn = e.submitter
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
 
   try {
-    // Usa a Admin API do Supabase para atualizar a senha
-    const { error } = await db.auth.admin.updateUserById(resetAuthId, {
-      password: nova
+    // Usa a Edge Function reset-senha que tem acesso à service role
+    const session = await db.auth.getSession()
+    const solicitanteAuthId = session.data.session?.user?.id
+
+    const { data, error } = await db.functions.invoke('reset-senha', {
+      body: {
+        auth_id:             resetAuthId,
+        nova_senha:          nova,
+        solicitante_auth_id: solicitanteAuthId,
+      },
     })
 
-    if (error) {
-      // Fallback: atualiza via rpc se admin não disponível no frontend
-      mostrarErro('err-reset-nova', 'Erro: ' + error.message + '. Use o Supabase Dashboard para resetar.')
+    if (error || !data?.ok) {
+      mostrarErro('err-reset-nova', data?.error || 'Erro ao redefinir senha. Tente novamente.')
       if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar nova senha' }
       return
     }
 
-    // Mostra sucesso
+    // Sucesso
     document.getElementById('reset-form').style.display      = 'none'
     document.getElementById('reset-resultado').style.display = 'block'
     document.getElementById('reset-resultado').innerHTML = `
@@ -555,11 +560,7 @@ function abrirModalNovo() {
   condominioEditando = null
   document.getElementById('modal-title').textContent = 'Novo condomínio'
   document.getElementById('form-condo').reset()
-  limparTodosErros('err-nome-c','err-end-c','err-sindico','err-email-s','err-cnpj')
-  // Reseta modo de apartamentos
-  alternarModoApto('auto')
-  const preview = document.getElementById('preview-aptos')
-  if (preview) preview.style.display = 'none'
+  limparTodosErros('err-nome-c','err-end-c','err-sindico','err-email-s')
   document.getElementById('modal-condo').classList.add('open')
 }
 
@@ -569,8 +570,6 @@ async function editarCondo(id) {
   condominioEditando = id
   document.getElementById('modal-title').textContent = 'Editar condomínio'
   document.getElementById('c-nome').value   = data.nome
-  document.getElementById('c-cnpj').value   = data.cnpj || ''
-  document.getElementById('c-razao').value  = data.razao_social || ''
   document.getElementById('c-end').value    = data.endereco
   document.getElementById('c-cidade').value = data.cidade
   document.getElementById('c-uf').value     = data.uf
@@ -586,192 +585,35 @@ function fecharModal() {
   document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open'))
 }
 
-// ── Configuração de apartamentos ─────────────────────────────
-let modoApto = 'auto'
-
-function alternarModoApto(modo) {
-  modoApto = modo
-  document.getElementById('modo-auto').style.display   = modo === 'auto'   ? 'block' : 'none'
-  document.getElementById('modo-manual').style.display = modo === 'manual' ? 'block' : 'none'
-
-  const btnAuto   = document.getElementById('tab-auto')
-  const btnManual = document.getElementById('tab-manual')
-  if (btnAuto && btnManual) {
-    btnAuto.style.background   = modo === 'auto'   ? 'var(--p-100)' : 'var(--n-0)'
-    btnAuto.style.color        = modo === 'auto'   ? 'var(--p-700)' : 'var(--n-500)'
-    btnAuto.style.borderColor  = modo === 'auto'   ? 'var(--p-300)' : 'var(--n-200)'
-    btnManual.style.background = modo === 'manual' ? 'var(--p-100)' : 'var(--n-0)'
-    btnManual.style.color      = modo === 'manual' ? 'var(--p-700)' : 'var(--n-500)'
-    btnManual.style.borderColor= modo === 'manual' ? 'var(--p-300)' : 'var(--n-200)'
-  }
-}
-
-function previewApartamentos() {
-  const andares    = parseInt(document.getElementById('c-andares')?.value) || 0
-  const porAndar   = parseInt(document.getElementById('c-aptos-andar')?.value) || 0
-  const numInicial = parseInt(document.getElementById('c-num-inicial')?.value) ?? 1
-  const formato    = document.getElementById('c-formato')?.value || 'numerico'
-  const preview    = document.getElementById('preview-aptos')
-  const inicio     = document.getElementById('preview-inicio')
-  const blocos     = parseInt(document.getElementById('c-blocos')?.value) || 1
-
-  if (inicio) {
-    const primeiroNum = formato === 'simples' ? numInicial : (1 * 100) + numInicial
-    inicio.textContent = formato === 'simples' ? numInicial : String(primeiroNum)
-  }
-
-  if (!preview || !andares || !porAndar) {
-    if (preview) preview.style.display = 'none'
-    return
-  }
-
-  const aptos = gerarListaAptos(blocos, andares, porAndar, numInicial, formato)
-  const total = aptos.length
-
-  // Atualiza campo total_aptos
-  const campoTotal = document.getElementById('c-aptos')
-  if (campoTotal) campoTotal.value = total
-
-  // Mostra preview dos primeiros e últimos
-  const primeiros = aptos.slice(0, 6).map(a => a.numero).join(', ')
-  const ultimos   = aptos.length > 6 ? '... ' + aptos.slice(-3).map(a => a.numero).join(', ') : ''
-
-  preview.innerHTML = `
-    <strong>${total} apartamentos</strong> serão gerados: 
-    ${primeiros}${ultimos}
-    <br><span style="font-size:11px;color:var(--p-500)">
-      ${blocos} bloco${blocos > 1 ? 's' : ''} · ${andares} andar${andares > 1 ? 'es' : ''} · ${porAndar} apto${porAndar > 1 ? 's' : ''}/andar
-    </span>`
-  preview.style.display = 'block'
-}
-
-function gerarListaAptos(blocos, andares, porAndar, numInicial, formato) {
-  const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  const lista  = []
-
-  for (let b = 0; b < blocos; b++) {
-    const bloco = blocos > 1 ? LETRAS[b] : 'A'
-    for (let a = 1; a <= andares; a++) {
-      for (let u = 0; u < porAndar; u++) {
-        let numero
-        if (formato === 'simples') {
-          numero = String(numInicial + (b * andares * porAndar) + ((a - 1) * porAndar) + u)
-        } else if (formato === 'letra') {
-          const base = (a * 100) + numInicial
-          numero = String(base) + LETRAS[u]
-        } else {
-          // numérico: 101, 102, 201, 202...
-          numero = String((a * 100) + numInicial + u)
-        }
-        lista.push({ bloco, numero })
-      }
-    }
-  }
-  return lista
-}
-
-function contarManual() {
-  const texto = document.getElementById('c-lista-aptos')?.value || ''
-  const aptos = texto.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
-  const el = document.getElementById('count-manual')
-  if (el) el.textContent = aptos.length
-  const campoTotal = document.getElementById('c-aptos')
-  if (campoTotal) campoTotal.value = aptos.length
-}
-
-// ── Salvar condomínio ─────────────────────────────────────────
 async function salvarCondo(e) {
   e.preventDefault()
   limparTodosErros('err-nome-c','err-end-c','err-sindico','err-email-s')
 
-  const nome    = document.getElementById('c-nome').value.trim()
-  const cnpj    = document.getElementById('c-cnpj').value.trim()
-  const razao   = document.getElementById('c-razao').value.trim()
-  const end     = document.getElementById('c-end').value.trim()
-  const cidade  = document.getElementById('c-cidade').value.trim()
-  const uf      = document.getElementById('c-uf').value.trim()
-  const cep     = document.getElementById('c-cep').value.trim()
-  const blocos  = parseInt(document.getElementById('c-blocos').value) || 1
-  const aptos   = parseInt(document.getElementById('c-aptos').value)  || 0
+  const nome   = document.getElementById('c-nome').value.trim()
+  const end    = document.getElementById('c-end').value.trim()
+  const cidade = document.getElementById('c-cidade').value.trim()
+  const uf     = document.getElementById('c-uf').value.trim()
+  const cep    = document.getElementById('c-cep').value.trim()
+  const blocos = parseInt(document.getElementById('c-blocos').value) || 1
+  const aptos  = parseInt(document.getElementById('c-aptos').value)  || 0
   const sindico = document.getElementById('c-sindico')?.value.trim() || ''
   const emailS  = document.getElementById('c-email-s')?.value.trim() || ''
 
   let ok = true
   if (!nome) { mostrarErro('err-nome-c', 'Informe o nome.'); ok = false }
   if (!end)  { mostrarErro('err-end-c',  'Informe o endereço.'); ok = false }
-  if (cnpj && !isCNPJValido(cnpj)) { mostrarErro('err-cnpj', 'CNPJ inválido.'); ok = false }
-  if (!condominioEditando && !sindico)               { mostrarErro('err-sindico',  'Informe o síndico.'); ok = false }
+  if (!condominioEditando && !sindico)          { mostrarErro('err-sindico', 'Informe o síndico.'); ok = false }
   if (!condominioEditando && !isEmailValido(emailS)) { mostrarErro('err-email-s', 'E-mail inválido.'); ok = false }
   if (!ok) return
 
-  const btn = e.submitter
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
-
-  try {
-    let condoId = condominioEditando
-
-    if (condominioEditando) {
-      await db.from('condominios').update({
-        nome, cnpj: cnpj || null, razao_social: razao || null,
-        endereco: end, cidade, uf, cep, blocos, total_aptos: aptos
-      }).eq('id', condominioEditando)
-    } else {
-      const { data: novoCondo, error: errCondo } = await db
-        .from('condominios')
-        .insert({
-          nome, cnpj: cnpj || null, razao_social: razao || null,
-          endereco: end, cidade, uf, cep, blocos, total_aptos: aptos, status: 'ativo'
-        })
-        .select('id').single()
-
-      if (errCondo || !novoCondo) {
-        mostrarErro('err-nome-c', 'Erro ao criar condomínio.')
-        if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar condomínio' }
-        return
-      }
-
-      condoId = novoCondo.id
-
-      // Gera apartamentos conforme modo selecionado
-      let listaAptos = []
-
-      if (modoApto === 'auto') {
-        const andares    = parseInt(document.getElementById('c-andares')?.value) || 0
-        const porAndar   = parseInt(document.getElementById('c-aptos-andar')?.value) || 0
-        const numInicial = parseInt(document.getElementById('c-num-inicial')?.value) ?? 1
-        const formato    = document.getElementById('c-formato')?.value || 'numerico'
-        if (andares && porAndar) {
-          listaAptos = gerarListaAptos(blocos, andares, porAndar, numInicial, formato)
-        }
-      } else {
-        const texto = document.getElementById('c-lista-aptos')?.value || ''
-        const nums  = texto.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
-        listaAptos  = nums.map(n => ({ bloco: 'A', numero: n }))
-      }
-
-      // Insere apartamentos em lotes de 50
-      if (listaAptos.length > 0) {
-        const rows = listaAptos.map(a => ({
-          condominio_id: condoId,
-          numero: a.numero,
-          bloco:  a.bloco,
-          status: 'disponivel',
-        }))
-        for (let i = 0; i < rows.length; i += 50) {
-          await db.from('apartamentos').insert(rows.slice(i, i + 50))
-        }
-      }
-    }
-
-    fecharModal()
-    mudarTab(tabAtiva)
-
-  } catch (err) {
-    console.error('Erro ao salvar condomínio:', err)
-    mostrarErro('err-nome-c', 'Erro inesperado. Tente novamente.')
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar condomínio' }
+  if (condominioEditando) {
+    await db.from('condominios').update({ nome, endereco: end, cidade, uf, cep, blocos, total_aptos: aptos }).eq('id', condominioEditando)
+  } else {
+    await db.from('condominios').insert({ nome, endereco: end, cidade, uf, cep, blocos, total_aptos: aptos, status: 'pendente' })
   }
+
+  fecharModal()
+  mudarTab(tabAtiva)
 }
 
 async function abrirDetalhe(id) {
@@ -875,7 +717,6 @@ function bindEvents() {
     m.addEventListener('click', e => { if (e.target === m) fecharModal() })
   })
   document.getElementById('form-condo')?.addEventListener('submit', salvarCondo)
-  document.getElementById('c-lista-aptos')?.addEventListener('input', contarManual)
   document.getElementById('modal-reset')?.addEventListener('click', e => {
     if (e.target === document.getElementById('modal-reset')) fecharModal()
   })
