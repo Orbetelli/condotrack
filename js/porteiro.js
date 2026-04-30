@@ -393,6 +393,7 @@ async function carregarEntregas() {
   if (!body) return
   if (tabPorteiroAtiva === 'dashboard') renderDashboard(body)
   else if (tabPorteiroAtiva === 'entregas') renderEntregas(body)
+  atualizarDotNotif()
 }
 
 // ── Stats ─────────────────────────────────────────────────────
@@ -502,7 +503,86 @@ function buscarMoradoresApto() {
   }, 500)
 }
 
-// ── Nova entrega ──────────────────────────────────────────────
+// ── Notificações ──────────────────────────────────────────────
+let notifAberto = false
+let notifLidas  = new Set(JSON.parse(localStorage.getItem('notif_lidas') || '[]'))
+
+function toggleNotificacoes() {
+  notifAberto = !notifAberto
+  const dropdown = document.getElementById('notif-dropdown')
+  if (!dropdown) return
+  dropdown.style.display = notifAberto ? 'block' : 'none'
+  if (notifAberto) renderNotificacoes()
+}
+
+function renderNotificacoes() {
+  const lista = document.getElementById('notif-lista')
+  if (!lista) return
+
+  // Últimas 10 entregas aguardando ou notificadas
+  const recentes = todasEntregas
+    .filter(e => e.status === 'aguardando' || e.status === 'notificado')
+    .slice(0, 10)
+
+  if (!recentes.length) {
+    lista.innerHTML = `
+      <div style="padding:24px;text-align:center;font-size:13px;color:var(--n-400)">
+        Nenhuma entrega pendente
+      </div>`
+    return
+  }
+
+  lista.innerHTML = recentes.map(e => {
+    const lida = notifLidas.has(e.id)
+    const cfg  = STATUS_CONFIG[e.status]
+    return `
+      <div onclick="abrirDetalheNotif('${e.id}')" style="display:flex;align-items:center;gap:10px;
+           padding:11px 16px;border-bottom:1px solid var(--n-100);cursor:pointer;
+           background:${lida ? 'var(--n-0)' : 'var(--p-50)'};transition:background .12s"
+           onmouseenter="this.style.background='var(--p-50)'"
+           onmouseleave="this.style.background='${lida ? 'var(--n-0)' : 'var(--p-50)'}'">
+        <div style="width:8px;height:8px;border-radius:50%;background:${lida ? 'var(--n-200)' : cfg.dot};flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:${lida ? '400' : '600'};color:var(--n-900)">
+            Apto ${e.apto} · ${e.trans}
+          </div>
+          <div style="font-size:11px;color:var(--n-500);margin-top:2px">
+            ${e.data} às ${e.hora} · ${e.volumes} volume${e.volumes > 1 ? 's' : ''}
+          </div>
+        </div>
+        <span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;
+              background:${cfg.bg};color:${cfg.color};white-space:nowrap">${cfg.label}</span>
+      </div>`
+  }).join('')
+
+  // Atualiza o dot
+  atualizarDotNotif()
+}
+
+function abrirDetalheNotif(id) {
+  notifLidas.add(id)
+  localStorage.setItem('notif_lidas', JSON.stringify([...notifLidas]))
+  toggleNotificacoes()
+  abrirDetalhe(id)
+  atualizarDotNotif()
+}
+
+function marcarTodasLidas() {
+  todasEntregas.forEach(e => notifLidas.add(e.id))
+  localStorage.setItem('notif_lidas', JSON.stringify([...notifLidas]))
+  renderNotificacoes()
+  atualizarDotNotif()
+}
+
+function atualizarDotNotif() {
+  const naoLidas = todasEntregas.filter(
+    e => (e.status === 'aguardando' || e.status === 'notificado') && !notifLidas.has(e.id)
+  ).length
+  const dot = document.getElementById('notif-dot')
+  if (dot) dot.style.display = naoLidas > 0 ? 'block' : 'none'
+}
+
+// ── Notificações ──────────────────────────────────────────────
 function abrirModalNova() {
   document.getElementById('modal-nova').classList.add('open')
   document.getElementById('form-nova').reset()
@@ -650,5 +730,13 @@ function bindEvents() {
   document.getElementById('form-nova')?.addEventListener('submit', salvarEntrega)
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') { fecharModalNova(); fecharDetalhe() }
+  })
+  // Fecha dropdown de notificações ao clicar fora
+  document.addEventListener('click', e => {
+    if (notifAberto && !e.target.closest('#btn-notif') && !e.target.closest('#notif-dropdown')) {
+      notifAberto = false
+      const dropdown = document.getElementById('notif-dropdown')
+      if (dropdown) dropdown.style.display = 'none'
+    }
   })
 }
