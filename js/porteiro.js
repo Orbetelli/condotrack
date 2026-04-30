@@ -63,19 +63,26 @@ async function carregarEntregas() {
     obs:         e.obs || '',
   }))
 
-  renderStats()
-  renderCards()
+  // Sempre renderiza via tab ativa para garantir que os elementos existam
+  const body = document.getElementById('tab-body-porteiro')
+  if (tabPorteiroAtiva === 'dashboard') {
+    renderDashboard(body)
+  } else if (tabPorteiroAtiva === 'entregas') {
+    renderEntregas(body)
+  }
+  // Moradores e histórico não dependem de todasEntregas diretamente
 }
 
 // ── Stats ─────────────────────────────────────────────────────
 function renderStats() {
-  document.getElementById('stat-aguardando').textContent =
-    todasEntregas.filter(e => e.status === 'aguardando' || e.status === 'notificado').length
-  document.getElementById('stat-retirado').textContent   =
-    todasEntregas.filter(e => e.status === 'retirado').length
-  document.getElementById('stat-expirado').textContent   =
-    todasEntregas.filter(e => e.status === 'expirado').length
-  document.getElementById('stat-total').textContent      = todasEntregas.length
+  const set = (id, val) => {
+    const el = document.getElementById(id)
+    if (el) el.textContent = val
+  }
+  set('stat-aguardando', todasEntregas.filter(e => e.status === 'aguardando' || e.status === 'notificado').length)
+  set('stat-retirado',   todasEntregas.filter(e => e.status === 'retirado').length)
+  set('stat-expirado',   todasEntregas.filter(e => e.status === 'expirado').length)
+  set('stat-total',      todasEntregas.length)
 }
 
 // ── Filtragem ─────────────────────────────────────────────────
