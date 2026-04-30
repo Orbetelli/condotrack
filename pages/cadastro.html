@@ -6,6 +6,16 @@
   <title>CondoTrack — Cadastro de Morador</title>
   <link rel="stylesheet" href="../css/style.css" />
   <link rel="stylesheet" href="../css/cadastro.css" />
+  <style>
+    .condo-option {
+      padding: 10px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--n-100);
+      transition: background .12s;
+    }
+    .condo-option:last-child { border-bottom: none; }
+    .condo-option:hover { background: var(--p-50); }
+  </style>
 </head>
 <body>
 
@@ -14,7 +24,14 @@
 
     <!-- Topo -->
     <div class="reg-top anim-1">
-      <img src="../img/logo.png" alt="CondoTrack" style="height:180px;object-fit:contain;display:block"/>
+      <div class="ct-logo">
+        <div class="ct-logo-icon">
+          <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" fill="none">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          </svg>
+        </div>
+        <span class="ct-logo-name">CondoTrack</span>
+      </div>
       <a href="login.html" class="ct-btn-ghost">
         <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
              style="width:14px;height:14px">
@@ -29,29 +46,68 @@
 
       <div class="reg-header">
         <h2>Criar sua conta</h2>
-        <p>Res. das Palmeiras · Cadastro de morador</p>
+        <p>Cadastro de morador · CondoTrack</p>
       </div>
 
-      <!-- Stepper -->
+      <!-- Stepper 4 passos -->
       <div class="stepper" id="stepper">
         <div class="step-item">
           <div class="step-circle active" id="dot-0">1</div>
-          <div class="step-label active"  id="lbl-0">Seus dados</div>
+          <div class="step-label active"  id="lbl-0">Condomínio</div>
         </div>
         <div class="step-line" id="line-0"></div>
         <div class="step-item">
           <div class="step-circle idle" id="dot-1">2</div>
-          <div class="step-label"      id="lbl-1">Apartamento</div>
+          <div class="step-label"      id="lbl-1">Seus dados</div>
         </div>
         <div class="step-line" id="line-1"></div>
         <div class="step-item">
           <div class="step-circle idle" id="dot-2">3</div>
-          <div class="step-label"      id="lbl-2">Senha</div>
+          <div class="step-label"      id="lbl-2">Apartamento</div>
+        </div>
+        <div class="step-line" id="line-2"></div>
+        <div class="step-item">
+          <div class="step-circle idle" id="dot-3">4</div>
+          <div class="step-label"      id="lbl-3">Senha</div>
         </div>
       </div>
 
-      <!-- Passo 0: dados pessoais -->
+      <!-- Passo 0: condomínio -->
       <div id="step-0">
+        <div class="form-field" style="margin-bottom:8px">
+          <label class="ct-label" for="busca-condo">Seu condomínio</label>
+          <div class="condo-search-wrap" style="position:relative">
+            <input class="ct-input" type="text" id="busca-condo"
+                   placeholder="Digite o nome do condomínio..." autocomplete="off"/>
+            <div id="lista-condos" style="display:none;position:absolute;top:calc(100% + 4px);
+                 left:0;right:0;background:var(--n-0);border:1.5px solid var(--n-200);
+                 border-radius:var(--radius-md);box-shadow:var(--shadow-md);
+                 z-index:20;max-height:200px;overflow-y:auto"></div>
+          </div>
+          <div class="ct-error" id="condo-err" style="display:none"></div>
+        </div>
+        <div id="condo-selecionado" style="display:none;align-items:center;gap:10px;
+             background:var(--p-50);border:1.5px solid var(--p-200);
+             border-radius:var(--radius-md);padding:10px 14px;margin-bottom:4px">
+          <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="var(--p-600)"
+               style="width:16px;height:16px;flex-shrink:0">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;color:var(--p-800)" id="condo-selecionado-nome"></div>
+            <div style="font-size:11px;color:var(--p-600)" id="condo-selecionado-local"></div>
+          </div>
+          <button type="button" onclick="limparCondo()"
+                  style="background:none;border:none;cursor:pointer;color:var(--p-400);font-size:18px;line-height:1">×</button>
+        </div>
+        <div class="action-row">
+          <button class="ct-btn-primary" onclick="irPasso(1)" style="flex:1">Continuar</button>
+        </div>
+      </div>
+
+      <!-- Passo 1: dados pessoais -->
+      <div id="step-1" style="display:none">
         <div class="grid2">
           <div class="form-field col-span-2">
             <label class="ct-label" for="nome">Nome completo</label>
@@ -77,14 +133,19 @@
           </div>
         </div>
         <div class="action-row">
-          <button class="ct-btn-primary" onclick="irPasso(1)" style="flex:1">Continuar</button>
+          <button class="ct-btn-ghost" onclick="irPasso(0)">Voltar</button>
+          <button class="ct-btn-primary" onclick="irPasso(2)">Continuar</button>
         </div>
       </div>
 
-      <!-- Passo 1: apartamento -->
-      <div id="step-1" style="display:none">
+      <!-- Passo 2: apartamento -->
+      <div id="step-2" style="display:none">
         <div class="apt-section-label">
           Selecione seu apartamento. Os riscados já possuem morador cadastrado.
+        </div>
+        <div style="margin-bottom:10px">
+          <input class="ct-input" type="text" id="busca-apto"
+                 placeholder="Buscar apartamento ex: A-101" />
         </div>
         <div class="apt-grid" id="apt-grid"></div>
         <div class="ct-error" id="apto-err" style="display:none"></div>
@@ -106,13 +167,13 @@
           </div>
         </div>
         <div class="action-row">
-          <button class="ct-btn-ghost" onclick="irPasso(0)">Voltar</button>
-          <button class="ct-btn-primary" onclick="irPasso(2)">Continuar</button>
+          <button class="ct-btn-ghost" onclick="irPasso(1)">Voltar</button>
+          <button class="ct-btn-primary" onclick="irPasso(3)">Continuar</button>
         </div>
       </div>
 
-      <!-- Passo 2: senha -->
-      <div id="step-2" style="display:none">
+      <!-- Passo 3: senha -->
+      <div id="step-3" style="display:none">
         <div class="summary-box" id="summary-box"></div>
         <div class="form-field" style="margin-bottom:14px">
           <label class="ct-label" for="senha">Senha</label>
@@ -145,8 +206,8 @@
           <div class="ct-error" id="confirma-err" style="display:none"></div>
         </div>
         <div class="action-row">
-          <button class="ct-btn-ghost" onclick="irPasso(1)">Voltar</button>
-          <button class="ct-btn-primary" onclick="finalizar()">Finalizar cadastro</button>
+          <button class="ct-btn-ghost" onclick="irPasso(2)">Voltar</button>
+          <button class="ct-btn-primary" id="btn-finalizar" onclick="finalizar()">Finalizar cadastro</button>
         </div>
       </div>
 
@@ -181,6 +242,8 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
 <script src="../js/utils.js"></script>
 <script src="../js/cadastro.js"></script>
 </body>
