@@ -1,5 +1,6 @@
 // ============================================================
 //  login.js — autenticação real via Supabase
+//  Identifica o perfil automaticamente pelo e-mail
 // ============================================================
 
 const ROTAS = {
@@ -7,14 +8,6 @@ const ROTAS = {
   admin:      'admin.html',
   porteiro:   'porteiro.html',
   morador:    'morador.html',
-}
-
-let perfilSelecionado = 'morador'
-
-function selecionarPerfil(btn) {
-  document.querySelectorAll('.profile-btn').forEach(b => b.classList.remove('active'))
-  btn.classList.add('active')
-  perfilSelecionado = btn.dataset.profile
 }
 
 function alternarSenha() {
@@ -54,10 +47,10 @@ async function handleLogin(e) {
       return
     }
 
-    // 2. Busca o perfil do usuário na tabela usuarios
+    // 2. Busca o perfil automaticamente
     const { data: usuario, error: userError } = await db
       .from('usuarios')
-      .select('perfil, condominio_id, status')
+      .select('id, perfil, condominio_id, nome, status')
       .eq('auth_id', authData.user.id)
       .single()
 
@@ -75,36 +68,18 @@ async function handleLogin(e) {
       return
     }
 
-    // 3. Valida se o perfil selecionado bate com o perfil real
-    // superadmin e admin compartilham o botão "Admin" no seletor
-    const perfilReal = usuario.perfil
-    const perfilBotao = perfilSelecionado
-
-    const mapaValido = {
-      morador:  ['morador'],
-      porteiro: ['porteiro'],
-      admin:    ['admin', 'superadmin'],
-    }
-
-    if (!mapaValido[perfilBotao]?.includes(perfilReal)) {
-      mostrarErro('form-error', 'Perfil selecionado não corresponde à sua conta.')
-      await db.auth.signOut()
-      setBtnCarregando('login-btn', false)
-      return
-    }
-
-    // 4. Registra histórico de acesso
+    // 3. Registra histórico de acesso
     db.from('acessos').insert({
       usuario_id:    usuario.id,
       condominio_id: usuario.condominio_id,
-      perfil:        perfilReal,
+      perfil:        usuario.perfil,
       nome:          usuario.nome,
       status:        'sucesso',
-    }).then(() => {}).catch(() => {}) // fire-and-forget
+    }).then(() => {}).catch(() => {})
 
-    // 5. Redireciona para o painel correto
-    salvarSessao(perfilReal, { email, perfil: perfilReal })
-    window.location.href = ROTAS[perfilReal]
+    // 4. Redireciona automaticamente para o painel correto
+    salvarSessao(usuario.perfil, { email, perfil: usuario.perfil })
+    window.location.href = ROTAS[usuario.perfil]
 
   } catch (err) {
     console.error('Erro no login:', err)
