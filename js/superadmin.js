@@ -189,16 +189,9 @@ async function carregarCondominios(filtro = '') {
       <div class="condo-footer">
         <button class="mini-btn" onclick="abrirDetalhe('${c.id}')">Detalhes</button>
         <button class="mini-btn" onclick="editarCondo('${c.id}')">Editar</button>
-        ${c.status === 'ativo'
-          ? `<button class="mini-btn" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A"
-               onclick="confirmarAcao('bloquear','${c.id}','${c.nome.replace(/'/g,"\\'")}')">Bloquear</button>`
-          : c.status === 'inativo'
-          ? `<button class="mini-btn primary"
-               onclick="confirmarAcao('ativar','${c.id}','${c.nome.replace(/'/g,"\\'")}')">Reativar</button>`
-          : `<button class="mini-btn primary"
-               onclick="confirmarAcao('ativar','${c.id}','${c.nome.replace(/'/g,"\\'")}')">Ativar</button>`}
-        <button class="mini-btn danger"
-          onclick="confirmarAcao('excluir','${c.id}','${c.nome.replace(/'/g,"\\'")}')">Excluir</button>
+        ${c.status === 'pendente'
+          ? `<button class="mini-btn primary" onclick="alert('Convite por e-mail disponível no tópico 5')">Reenviar convite</button>`
+          : `<button class="mini-btn primary" onclick="alert('Acesso direto disponível em breve')">Acessar painel</button>`}
       </div>`
     grid.insertBefore(card, addCard)
   })
@@ -557,246 +550,15 @@ async function salvarSuperAdmin(e) {
 }
 
 // ── Modal: novo/editar condomínio ─────────────────────────────
-// ── Confirmar ação crítica ─────────────────────────────────────
-function confirmarAcao(tipo, condoId, condoNome) {
-  const cfg = {
-    bloquear: {
-      titulo:  'Bloquear condomínio',
-      msg:     `O condomínio <strong>${condoNome}</strong> será bloqueado. Os usuários não conseguirão fazer login até ser reativado.`,
-      btn:     'Bloquear',
-      estilo:  'background:#FEF3C7;color:#92400E;border:none',
-    },
-    ativar: {
-      titulo:  'Reativar condomínio',
-      msg:     `O condomínio <strong>${condoNome}</strong> será reativado e os usuários poderão fazer login novamente.`,
-      btn:     'Reativar',
-      estilo:  'background:var(--p-600);color:#fff;border:none',
-    },
-    excluir: {
-      titulo:  'Excluir condomínio',
-      msg:     `<span style="color:#991B1B;font-weight:700">Atenção: esta ação é irreversível!</span><br><br>
-                O condomínio <strong>${condoNome}</strong> e todos os seus dados
-                (moradores, porteiros, apartamentos e entregas) serão excluídos permanentemente.`,
-      btn:     'Excluir permanentemente',
-      estilo:  'background:#DC2626;color:#fff;border:none',
-    },
-  }
-
-  const c = cfg[tipo]
-  if (!c) return
-
-  // Reutiliza o modal de detalhe como modal de confirmação
-  document.getElementById('modal-detalhe').classList.add('open')
-  document.getElementById('modal-detalhe').querySelector('.modal').innerHTML = `
-    <div class="modal-header">
-      <div class="modal-title">${c.titulo}</div>
-      <button class="modal-close" onclick="fecharModal()">
-        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      </button>
-    </div>
-    <p style="font-size:13px;color:var(--n-600);line-height:1.7;margin-bottom:20px">${c.msg}</p>
-    <div class="modal-actions">
-      <button class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>
-      <button id="btn-confirmar-acao" style="${c.estilo};padding:10px 20px;border-radius:var(--radius-md);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-sans)"
-        onclick="executarAcao('${tipo}','${condoId}')">
-        ${c.btn}
-      </button>
-    </div>
-  `
-}
-
-async function executarAcao(tipo, condoId) {
-  const btn = document.getElementById('btn-confirmar-acao')
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner" style="border-top-color:#fff"></span>' }
-
-  try {
-    if (tipo === 'bloquear') {
-      await db.from('condominios').update({ status: 'inativo' }).eq('id', condoId)
-
-    } else if (tipo === 'ativar') {
-      await db.from('condominios').update({ status: 'ativo' }).eq('id', condoId)
-
-    } else if (tipo === 'excluir') {
-      // A cascade do banco cuida de apagar apartamentos e entregas vinculados
-      await db.from('condominios').delete().eq('id', condoId)
-    }
-
-    fecharModal()
-    mudarTab(tabAtiva)
-
-  } catch (err) {
-    console.error(err)
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Tentar novamente' }
-  }
-}
-
-// ── Modal: senha temporária do síndico ───────────────────────
-function mostrarSenhaSindico(nomeSindico, email, senha, nomeCondo) {
-  // Reutiliza o modal de detalhe
-  const modal = document.getElementById('modal-detalhe')
-  modal.querySelector('.modal').innerHTML = `
-    <div class="modal-header">
-      <div class="modal-title">Condomínio criado! 🎉</div>
-    </div>
-
-    <div style="background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:var(--radius-md);
-                padding:14px 16px;margin-bottom:18px;display:flex;align-items:flex-start;gap:10px">
-      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="#16A34A"
-           style="width:18px;height:18px;flex-shrink:0;margin-top:1px">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-        <polyline points="22 4 12 14.01 9 11.01"/>
-      </svg>
-      <div>
-        <div style="font-size:13px;font-weight:700;color:#166534;margin-bottom:2px">
-          ${nomeCondo} criado com sucesso!
-        </div>
-        <div style="font-size:12px;color:#15803D;line-height:1.5">
-          O síndico já pode acessar o painel com as credenciais abaixo.
-        </div>
-      </div>
-    </div>
-
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
-                color:var(--n-400);margin-bottom:10px">Credenciais de acesso do síndico</div>
-
-    <div style="background:var(--n-50);border:1px solid var(--n-200);border-radius:var(--radius-md);
-                padding:14px 16px;margin-bottom:18px">
-      ${[
-        ['Síndico', nomeSindico],
-        ['E-mail',  email],
-      ].map(([l, v]) => `
-        <div style="display:flex;justify-content:space-between;align-items:center;
-                    padding:7px 0;border-bottom:1px solid var(--n-100)">
-          <span style="font-size:12px;color:var(--n-500)">${l}</span>
-          <span style="font-size:13px;font-weight:600;color:var(--n-900)">${v}</span>
-        </div>`).join('')}
-
-      <!-- Senha destacada -->
-      <div style="padding:10px 0 2px">
-        <div style="font-size:12px;color:var(--n-500);margin-bottom:6px">Senha temporária</div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div id="senha-temp-box" style="flex:1;background:var(--p-50);border:1.5px solid var(--p-300);
-               border-radius:var(--radius-md);padding:10px 14px;font-size:16px;font-weight:700;
-               color:var(--p-800);letter-spacing:.1em;font-family:monospace">
-            ${senha}
-          </div>
-          <button onclick="copiarSenha('${senha}')" id="btn-copiar"
-            style="background:var(--p-600);color:#fff;border:none;border-radius:var(--radius-md);
-                   padding:10px 14px;font-size:12px;font-weight:600;cursor:pointer;
-                   font-family:var(--font-sans);white-space:nowrap;transition:background .12s"
-            onmouseenter="this.style.background='var(--p-700)'"
-            onmouseleave="this.style.background='var(--p-600)'">
-            Copiar
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:var(--radius-md);
-                padding:10px 14px;font-size:12px;color:#92400E;margin-bottom:20px;
-                display:flex;gap:8px;align-items:flex-start">
-      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="#92400E"
-           style="width:14px;height:14px;flex-shrink:0;margin-top:1px">
-        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-      </svg>
-      Anote ou copie a senha agora. Por segurança ela não será exibida novamente.
-    </div>
-
-    <div class="modal-actions">
-      <button class="ct-btn-ghost" onclick="fecharModal();mudarTab(tabAtiva)">Fechar</button>
-      <button class="ct-btn-primary" onclick="copiarTudo(this)" data-email="${email}" data-senha="${senha}" data-sindico="${nomeSindico}" data-condo="${nomeCondo}" style="flex:2">
-        <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
-             style="width:14px;height:14px" stroke-linecap="round">
-          <rect x="9" y="9" width="13" height="13" rx="2"/>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-        </svg>
-        Copiar e-mail + senha
-      </button>
-    </div>
-  `
-  modal.classList.add('open')
-}
-
-function copiarSenha(senha) {
-  navigator.clipboard.writeText(senha).then(() => {
-    const btn = document.getElementById('btn-copiar')
-    if (btn) {
-      btn.textContent = '✓ Copiado!'
-      btn.style.background = '#16A34A'
-      setTimeout(() => {
-        btn.textContent = 'Copiar'
-        btn.style.background = 'var(--p-600)'
-      }, 2000)
-    }
-  })
-}
-
-function copiarTudo(btn) {
-  const email       = btn.dataset.email
-  const senha       = btn.dataset.senha
-  const nomeSindico = btn.dataset.sindico
-  const nomeCondo   = btn.dataset.condo
-
-  const texto = `Olá, ${nomeSindico}! 👋
-
-Seu acesso ao CondoTrack foi criado com sucesso.
-
-🏢 Condomínio: ${nomeCondo}
-📧 E-mail: ${email}
-🔑 Senha temporária: ${senha}
-
-🔗 Acesse agora: ${window.location.origin}/pages/login.html
-
-⚠️ Por segurança, recomendamos alterar sua senha no primeiro acesso.
-
-Qualquer dúvida, entre em contato com o administrador.
-— CondoTrack`
-
-  navigator.clipboard.writeText(texto).then(() => {
-    btn.innerHTML = `<svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:14px;height:14px" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Copiado!`
-    btn.style.background = '#16A34A'
-    setTimeout(() => {
-      btn.innerHTML = `<svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:14px;height:14px" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copiar e-mail + senha`
-      btn.style.background = 'var(--p-600)'
-    }, 2000)
-  })
-}
-
-// ── Gera apartamentos automaticamente ────────────────────────
-async function gerarApartamentos(condoId, numBlocos, totalAptos) {
-  const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  const aptosPorBloco = Math.ceil(totalAptos / numBlocos)
-  const andares       = Math.ceil(aptosPorBloco / 4) // 4 aptos por andar por padrão
-  const aptosPorAndar = Math.ceil(aptosPorBloco / andares)
-
-  const lista = []
-  for (let b = 0; b < numBlocos; b++) {
-    const bloco = LETRAS[b]
-    for (let a = 1; a <= andares; a++) {
-      for (let u = 1; u <= aptosPorAndar; u++) {
-        const numero = String(a).padStart(1, '0') + String(u).padStart(2, '0')
-        lista.push({ condominio_id: condoId, bloco, numero, status: 'disponivel' })
-        if (lista.length >= totalAptos) break
-      }
-      if (lista.length >= totalAptos) break
-    }
-    if (lista.length >= totalAptos) break
-  }
-
-  // Insere em lotes de 50
-  for (let i = 0; i < lista.length; i += 50) {
-    await db.from('apartamentos').insert(lista.slice(i, i + 50))
-  }
-}
-
 function abrirModalNovo() {
   condominioEditando = null
   document.getElementById('modal-title').textContent = 'Novo condomínio'
   document.getElementById('form-condo').reset()
   limparTodosErros('err-nome-c','err-end-c','err-sindico','err-email-s')
+  // Reseta modo de apartamentos
+  alternarModoApto('auto')
+  const preview = document.getElementById('preview-aptos')
+  if (preview) preview.style.display = 'none'
   document.getElementById('modal-condo').classList.add('open')
 }
 
@@ -821,6 +583,100 @@ function fecharModal() {
   document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open'))
 }
 
+// ── Configuração de apartamentos ─────────────────────────────
+let modoApto = 'auto'
+
+function alternarModoApto(modo) {
+  modoApto = modo
+  document.getElementById('modo-auto').style.display   = modo === 'auto'   ? 'block' : 'none'
+  document.getElementById('modo-manual').style.display = modo === 'manual' ? 'block' : 'none'
+
+  const btnAuto   = document.getElementById('tab-auto')
+  const btnManual = document.getElementById('tab-manual')
+  if (btnAuto && btnManual) {
+    btnAuto.style.background   = modo === 'auto'   ? 'var(--p-100)' : 'var(--n-0)'
+    btnAuto.style.color        = modo === 'auto'   ? 'var(--p-700)' : 'var(--n-500)'
+    btnAuto.style.borderColor  = modo === 'auto'   ? 'var(--p-300)' : 'var(--n-200)'
+    btnManual.style.background = modo === 'manual' ? 'var(--p-100)' : 'var(--n-0)'
+    btnManual.style.color      = modo === 'manual' ? 'var(--p-700)' : 'var(--n-500)'
+    btnManual.style.borderColor= modo === 'manual' ? 'var(--p-300)' : 'var(--n-200)'
+  }
+}
+
+function previewApartamentos() {
+  const andares    = parseInt(document.getElementById('c-andares')?.value) || 0
+  const porAndar   = parseInt(document.getElementById('c-aptos-andar')?.value) || 0
+  const numInicial = parseInt(document.getElementById('c-num-inicial')?.value) ?? 1
+  const formato    = document.getElementById('c-formato')?.value || 'numerico'
+  const preview    = document.getElementById('preview-aptos')
+  const inicio     = document.getElementById('preview-inicio')
+  const blocos     = parseInt(document.getElementById('c-blocos')?.value) || 1
+
+  if (inicio) {
+    const primeiroNum = formato === 'simples' ? numInicial : (1 * 100) + numInicial
+    inicio.textContent = formato === 'simples' ? numInicial : String(primeiroNum)
+  }
+
+  if (!preview || !andares || !porAndar) {
+    if (preview) preview.style.display = 'none'
+    return
+  }
+
+  const aptos = gerarListaAptos(blocos, andares, porAndar, numInicial, formato)
+  const total = aptos.length
+
+  // Atualiza campo total_aptos
+  const campoTotal = document.getElementById('c-aptos')
+  if (campoTotal) campoTotal.value = total
+
+  // Mostra preview dos primeiros e últimos
+  const primeiros = aptos.slice(0, 6).map(a => a.numero).join(', ')
+  const ultimos   = aptos.length > 6 ? '... ' + aptos.slice(-3).map(a => a.numero).join(', ') : ''
+
+  preview.innerHTML = `
+    <strong>${total} apartamentos</strong> serão gerados: 
+    ${primeiros}${ultimos}
+    <br><span style="font-size:11px;color:var(--p-500)">
+      ${blocos} bloco${blocos > 1 ? 's' : ''} · ${andares} andar${andares > 1 ? 'es' : ''} · ${porAndar} apto${porAndar > 1 ? 's' : ''}/andar
+    </span>`
+  preview.style.display = 'block'
+}
+
+function gerarListaAptos(blocos, andares, porAndar, numInicial, formato) {
+  const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  const lista  = []
+
+  for (let b = 0; b < blocos; b++) {
+    const bloco = blocos > 1 ? LETRAS[b] : 'A'
+    for (let a = 1; a <= andares; a++) {
+      for (let u = 0; u < porAndar; u++) {
+        let numero
+        if (formato === 'simples') {
+          numero = String(numInicial + (b * andares * porAndar) + ((a - 1) * porAndar) + u)
+        } else if (formato === 'letra') {
+          const base = (a * 100) + numInicial
+          numero = String(base) + LETRAS[u]
+        } else {
+          // numérico: 101, 102, 201, 202...
+          numero = String((a * 100) + numInicial + u)
+        }
+        lista.push({ bloco, numero })
+      }
+    }
+  }
+  return lista
+}
+
+function contarManual() {
+  const texto = document.getElementById('c-lista-aptos')?.value || ''
+  const aptos = texto.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
+  const el = document.getElementById('count-manual')
+  if (el) el.textContent = aptos.length
+  const campoTotal = document.getElementById('c-aptos')
+  if (campoTotal) campoTotal.value = aptos.length
+}
+
+// ── Salvar condomínio ─────────────────────────────────────────
 async function salvarCondo(e) {
   e.preventDefault()
   limparTodosErros('err-nome-c','err-end-c','err-sindico','err-email-s')
@@ -838,7 +694,7 @@ async function salvarCondo(e) {
   let ok = true
   if (!nome) { mostrarErro('err-nome-c', 'Informe o nome.'); ok = false }
   if (!end)  { mostrarErro('err-end-c',  'Informe o endereço.'); ok = false }
-  if (!condominioEditando && !sindico)               { mostrarErro('err-sindico', 'Informe o síndico.'); ok = false }
+  if (!condominioEditando && !sindico)               { mostrarErro('err-sindico',  'Informe o síndico.'); ok = false }
   if (!condominioEditando && !isEmailValido(emailS)) { mostrarErro('err-email-s', 'E-mail inválido.'); ok = false }
   if (!ok) return
 
@@ -846,64 +702,62 @@ async function salvarCondo(e) {
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
 
   try {
+    let condoId = condominioEditando
+
     if (condominioEditando) {
-      // Apenas atualiza os dados do condomínio
-      await db.from('condominios')
-        .update({ nome, endereco: end, cidade, uf, cep, blocos, total_aptos: aptos })
-        .eq('id', condominioEditando)
-
+      await db.from('condominios').update({ nome, endereco: end, cidade, uf, cep, blocos, total_aptos: aptos }).eq('id', condominioEditando)
     } else {
-      // 1. Gera senha temporária para o síndico
-      const senhaTemp = Math.random().toString(36).slice(-8) + 'Aa1!'
-
-      // 2. Cria o condomínio primeiro (status pendente até síndico ser criado)
-      const { data: condoData, error: condoError } = await db
+      const { data: novoCondo, error: errCondo } = await db
         .from('condominios')
-        .insert({ nome, endereco: end, cidade, uf, cep, blocos, total_aptos: aptos, status: 'pendente' })
-        .select('id')
-        .single()
+        .insert({ nome, endereco: end, cidade, uf, cep, blocos, total_aptos: aptos, status: 'ativo' })
+        .select('id').single()
 
-      if (condoError || !condoData) {
+      if (errCondo || !novoCondo) {
         mostrarErro('err-nome-c', 'Erro ao criar condomínio.')
         if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar condomínio' }
         return
       }
 
-      // 3. Chama a Edge Function para criar o síndico sem confirmação de e-mail
-      const { data: fnData, error: fnError } = await db.functions.invoke('criar-sindico', {
-        body: {
-          nome:          sindico,
-          email:         emailS,
-          senha:         senhaTemp,
-          condominio_id: condoData.id,
-        },
-      })
+      condoId = novoCondo.id
 
-      if (fnError || !fnData?.ok) {
-        // Remove o condomínio criado se o síndico falhou
-        await db.from('condominios').delete().eq('id', condoData.id)
-        mostrarErro('err-email-s', fnData?.error || 'Erro ao criar síndico.')
-        if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar condomínio' }
-        return
+      // Gera apartamentos conforme modo selecionado
+      let listaAptos = []
+
+      if (modoApto === 'auto') {
+        const andares    = parseInt(document.getElementById('c-andares')?.value) || 0
+        const porAndar   = parseInt(document.getElementById('c-aptos-andar')?.value) || 0
+        const numInicial = parseInt(document.getElementById('c-num-inicial')?.value) ?? 1
+        const formato    = document.getElementById('c-formato')?.value || 'numerico'
+        if (andares && porAndar) {
+          listaAptos = gerarListaAptos(blocos, andares, porAndar, numInicial, formato)
+        }
+      } else {
+        const texto = document.getElementById('c-lista-aptos')?.value || ''
+        const nums  = texto.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
+        listaAptos  = nums.map(n => ({ bloco: 'A', numero: n }))
       }
 
-      // 4. Gera os apartamentos automaticamente
-      if (aptos > 0 && blocos > 0) {
-        await gerarApartamentos(condoData.id, blocos, aptos)
+      // Insere apartamentos em lotes de 50
+      if (listaAptos.length > 0) {
+        const rows = listaAptos.map(a => ({
+          condominio_id: condoId,
+          numero: a.numero,
+          bloco:  a.bloco,
+          status: 'disponivel',
+        }))
+        for (let i = 0; i < rows.length; i += 50) {
+          await db.from('apartamentos').insert(rows.slice(i, i + 50))
+        }
       }
-
-      // 5. Exibe modal com a senha temporária do síndico
-      fecharModal()
-      mostrarSenhaSindico(sindico, emailS, senhaTemp, nome)
-      return
     }
 
     fecharModal()
     mudarTab(tabAtiva)
 
   } catch (err) {
-    console.error(err)
+    console.error('Erro ao salvar condomínio:', err)
     mostrarErro('err-nome-c', 'Erro inesperado. Tente novamente.')
+  } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar condomínio' }
   }
 }
@@ -1009,6 +863,7 @@ function bindEvents() {
     m.addEventListener('click', e => { if (e.target === m) fecharModal() })
   })
   document.getElementById('form-condo')?.addEventListener('submit', salvarCondo)
+  document.getElementById('c-lista-aptos')?.addEventListener('input', contarManual)
   document.getElementById('modal-reset')?.addEventListener('click', e => {
     if (e.target === document.getElementById('modal-reset')) fecharModal()
   })
