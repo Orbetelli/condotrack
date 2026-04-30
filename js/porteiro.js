@@ -460,7 +460,90 @@ function entryHTML(e) {
     </div>`
 }
 
-// ── Busca moradores do apartamento digitado ───────────────────
+// ── Modo de busca da entrega ──────────────────────────────────
+let modoBuscaEntrega  = 'apto'
+let moradorSelecionado = null // { id, nome, apto, aptoId, condoId }
+
+function alternarBuscaEntrega(modo) {
+  modoBuscaEntrega = modo
+  document.getElementById('modo-busca-apto').style.display  = modo === 'apto'  ? 'block' : 'none'
+  document.getElementById('modo-busca-nome').style.display  = modo === 'nome'  ? 'block' : 'none'
+
+  const btnApto = document.getElementById('tab-busca-apto')
+  const btnNome = document.getElementById('tab-busca-nome')
+  btnApto.style.background  = modo === 'apto' ? 'var(--p-100)' : 'var(--n-0)'
+  btnApto.style.color       = modo === 'apto' ? 'var(--p-700)' : 'var(--n-500)'
+  btnApto.style.borderColor = modo === 'apto' ? 'var(--p-300)' : 'var(--n-200)'
+  btnNome.style.background  = modo === 'nome' ? 'var(--p-100)' : 'var(--n-0)'
+  btnNome.style.color       = modo === 'nome' ? 'var(--p-700)' : 'var(--n-500)'
+  btnNome.style.borderColor = modo === 'nome' ? 'var(--p-300)' : 'var(--n-200)'
+}
+
+// ── Busca morador por nome ────────────────────────────────────
+let timerNome = null
+function buscarMoradorPorNome() {
+  clearTimeout(timerNome)
+  const q     = document.getElementById('busca-nome-morador').value.trim()
+  const lista = document.getElementById('lista-busca-nome')
+
+  if (q.length < 2) { lista.style.display = 'none'; return }
+
+  timerNome = setTimeout(async () => {
+    lista.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--n-400)">Buscando...</div>'
+    lista.style.display = 'block'
+
+    const { data, error } = await db
+      .from('usuarios')
+      .select('id, nome, apartamento_id, apartamentos(id, numero, bloco, condominio_id)')
+      .eq('condominio_id', usuarioLogado.condominio_id)
+      .eq('perfil', 'morador')
+      .eq('status', 'ativo')
+      .ilike('nome', `%${q}%`)
+      .limit(8)
+
+    if (error || !data?.length) {
+      lista.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--n-400)">Nenhum morador encontrado.</div>'
+      return
+    }
+
+    lista.innerHTML = data.map(m => {
+      const apto = m.apartamentos ? `${m.apartamentos.bloco}-${m.apartamentos.numero}` : '—'
+      return `
+        <div class="busca-nome-item" onclick="selecionarMoradorPorNome('${m.id}','${m.nome.replace(/'/g,"\\'")}','${apto}','${m.apartamentos?.id || ''}','${m.apartamentos?.condominio_id || ''}')">
+          <div style="font-size:13px;font-weight:600;color:var(--n-900)">${m.nome}</div>
+          <div style="font-size:11px;color:var(--n-500);margin-top:2px">Apto ${apto}</div>
+        </div>`
+    }).join('')
+  }, 300)
+}
+
+function selecionarMoradorPorNome(id, nome, apto, aptoId, condoId) {
+  moradorSelecionado = { id, nome, apto, aptoId, condoId }
+
+  document.getElementById('busca-nome-morador').value = ''
+  document.getElementById('lista-busca-nome').style.display = 'none'
+  document.getElementById('morador-sel-nome-txt').textContent = nome
+  document.getElementById('morador-sel-apto-txt').textContent = `Apto ${apto}`
+  document.getElementById('morador-selecionado-nome').style.display = 'flex'
+  limparErro('err-nome-morador')
+}
+
+function limparMoradorSelecionado() {
+  moradorSelecionado = null
+  document.getElementById('busca-nome-morador').value = ''
+  document.getElementById('morador-selecionado-nome').style.display = 'none'
+}
+
+// ── Observações rápidas ───────────────────────────────────────
+function adicionarObs(texto) {
+  const input = document.getElementById('nova-obs')
+  if (!input) return
+  const atual = input.value.trim()
+  input.value = atual ? `${atual}, ${texto}` : texto
+  input.focus()
+}
+
+// ── Busca morador por nome ────────────────────────────────────
 let timerApto = null
 function buscarMoradoresApto() {
   clearTimeout(timerApto)
@@ -588,7 +671,11 @@ function abrirModalNova() {
   document.getElementById('modal-nova').classList.add('open')
   document.getElementById('form-nova').reset()
   document.getElementById('campo-morador').style.display = 'none'
-  limparTodosErros('err-apto','err-trans','err-volumes','err-morador')
+  document.getElementById('morador-selecionado-nome').style.display = 'none'
+  document.getElementById('lista-busca-nome').style.display = 'none'
+  moradorSelecionado = null
+  alternarBuscaEntrega('apto')
+  limparTodosErros('err-apto','err-trans','err-volumes','err-morador','err-nome-morador','err-volumes-nome')
 }
 
 function fecharModalNova() {
@@ -597,44 +684,57 @@ function fecharModalNova() {
 
 async function salvarEntrega(e) {
   e.preventDefault()
-  limparTodosErros('err-apto','err-trans','err-volumes','err-morador')
+  limparTodosErros('err-apto','err-trans','err-volumes','err-morador','err-nome-morador','err-volumes-nome')
 
-  const aptoTexto = document.getElementById('nova-apto').value.trim()
-  const trans     = document.getElementById('nova-trans').value.trim()
-  const volumes   = parseInt(document.getElementById('nova-volumes').value) || 0
-  const obs       = document.getElementById('nova-obs').value.trim()
-  const moradorId = document.getElementById('nova-morador')?.value || ''
-  let valido      = true
+  const trans   = document.getElementById('nova-trans').value.trim()
+  const obs     = document.getElementById('nova-obs').value.trim()
+  let valido    = true
+  let aptoId    = null
+  let moradorId = null
+  let volumes   = 0
 
-  if (!aptoTexto) { mostrarErro('err-apto',    'Informe o apartamento.'); valido = false }
-  if (!trans)     { mostrarErro('err-trans',   'Informe a transportadora.'); valido = false }
-  if (!volumes)   { mostrarErro('err-volumes', 'Informe a quantidade.'); valido = false }
-  if (document.getElementById('campo-morador').style.display !== 'none' && !moradorId) {
-    mostrarErro('err-morador', 'Selecione o destinatário.'); valido = false
+  if (!trans) { mostrarErro('err-trans', 'Informe a transportadora.'); valido = false }
+
+  if (modoBuscaEntrega === 'apto') {
+    const aptoTexto = document.getElementById('nova-apto').value.trim()
+    volumes = parseInt(document.getElementById('nova-volumes').value) || 0
+    if (!aptoTexto) { mostrarErro('err-apto', 'Informe o apartamento.'); valido = false }
+    if (!volumes)   { mostrarErro('err-volumes', 'Informe a quantidade.'); valido = false }
+    if (document.getElementById('campo-morador').style.display !== 'none') {
+      moradorId = document.getElementById('nova-morador')?.value || ''
+      if (!moradorId) { mostrarErro('err-morador', 'Selecione o destinatário.'); valido = false }
+    }
+    if (!valido) return
+
+    const [bloco, numero] = aptoTexto.toUpperCase().split('-')
+    const { data: aptoData } = await db
+      .from('apartamentos')
+      .select('id')
+      .eq('condominio_id', usuarioLogado.condominio_id)
+      .eq('bloco', bloco || 'A')
+      .eq('numero', numero || aptoTexto)
+      .single()
+
+    if (!aptoData) { mostrarErro('err-apto', 'Apartamento não encontrado.'); return }
+    aptoId = aptoData.id
+
+  } else {
+    // Modo por nome
+    volumes = parseInt(document.getElementById('nova-volumes-nome').value) || 0
+    if (!moradorSelecionado) { mostrarErro('err-nome-morador', 'Selecione o morador.'); valido = false }
+    if (!volumes)            { mostrarErro('err-volumes-nome', 'Informe a quantidade.'); valido = false }
+    if (!valido) return
+
+    aptoId    = moradorSelecionado.aptoId
+    moradorId = moradorSelecionado.id
   }
-  if (!valido) return
 
   const btn = e.submitter
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
 
-  const [bloco, numero] = aptoTexto.toUpperCase().split('-')
-  const { data: aptoData } = await db
-    .from('apartamentos')
-    .select('id')
-    .eq('condominio_id', usuarioLogado.condominio_id)
-    .eq('bloco', bloco || 'A')
-    .eq('numero', numero || aptoTexto)
-    .single()
-
-  if (!aptoData) {
-    mostrarErro('err-apto', 'Apartamento não encontrado.')
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Registrar entrega' }
-    return
-  }
-
   const { data: novaEntrega, error } = await db.from('entregas').insert({
     condominio_id:  usuarioLogado.condominio_id,
-    apartamento_id: aptoData.id,
+    apartamento_id: aptoId,
     porteiro_id:    usuarioLogado.id,
     morador_id:     moradorId || null,
     transportadora: trans,

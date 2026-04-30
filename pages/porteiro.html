@@ -6,6 +6,33 @@
   <title>CondoTrack — Porteiro</title>
   <link rel="stylesheet" href="../css/style.css" />
   <link rel="stylesheet" href="../css/porteiro.css" />
+  <style>
+    .obs-chip {
+      padding: 4px 10px;
+      border-radius: 99px;
+      border: 1.5px solid var(--n-200);
+      background: var(--n-50);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--n-600);
+      cursor: pointer;
+      font-family: var(--font-sans);
+      transition: all .12s;
+    }
+    .obs-chip:hover {
+      background: var(--p-100);
+      border-color: var(--p-300);
+      color: var(--p-700);
+    }
+    .busca-nome-item {
+      padding: 10px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--n-100);
+      transition: background .12s;
+    }
+    .busca-nome-item:last-child { border-bottom: none; }
+    .busca-nome-item:hover { background: var(--p-50); }
+  </style>
 </head>
 <body>
 
@@ -159,27 +186,77 @@
     </div>
 
     <form id="form-nova" novalidate>
-      <div class="modal-grid">
-        <div class="modal-field">
-          <label class="ct-label" for="nova-apto">Apartamento</label>
-          <input class="ct-input" type="text" id="nova-apto" placeholder="Ex: A-204"
-                 oninput="buscarMoradoresApto()" autocomplete="off"/>
-          <div class="ct-error" id="err-apto" style="display:none"></div>
+
+      <!-- Tabs: buscar por apartamento ou por nome -->
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button type="button" id="tab-busca-apto" onclick="alternarBuscaEntrega('apto')"
+                style="flex:1;padding:7px;border-radius:var(--radius-md);border:1.5px solid var(--p-300);
+                       background:var(--p-100);color:var(--p-700);font-size:12px;font-weight:600;
+                       cursor:pointer;font-family:var(--font-sans)">
+          🏠 Por apartamento
+        </button>
+        <button type="button" id="tab-busca-nome" onclick="alternarBuscaEntrega('nome')"
+                style="flex:1;padding:7px;border-radius:var(--radius-md);border:1.5px solid var(--n-200);
+                       background:var(--n-0);color:var(--n-500);font-size:12px;font-weight:600;
+                       cursor:pointer;font-family:var(--font-sans)">
+          👤 Por nome
+        </button>
+      </div>
+
+      <!-- Modo: por apartamento -->
+      <div id="modo-busca-apto">
+        <div class="modal-grid">
+          <div class="modal-field">
+            <label class="ct-label" for="nova-apto">Apartamento</label>
+            <input class="ct-input" type="text" id="nova-apto" placeholder="Ex: A-204"
+                   oninput="buscarMoradoresApto()" autocomplete="off"/>
+            <div class="ct-error" id="err-apto" style="display:none"></div>
+          </div>
+          <div class="modal-field">
+            <label class="ct-label" for="nova-volumes">Nº de volumes</label>
+            <input class="ct-input" type="number" id="nova-volumes" placeholder="1" min="1" />
+            <div class="ct-error" id="err-volumes" style="display:none"></div>
+          </div>
         </div>
-        <div class="modal-field">
-          <label class="ct-label" for="nova-volumes">Nº de volumes</label>
-          <input class="ct-input" type="number" id="nova-volumes" placeholder="1" min="1" />
-          <div class="ct-error" id="err-volumes" style="display:none"></div>
+        <div class="modal-field" id="campo-morador" style="display:none">
+          <label class="ct-label" for="nova-morador">Destinatário</label>
+          <select class="ct-input" id="nova-morador">
+            <option value="">Selecione o morador...</option>
+          </select>
+          <div class="ct-error" id="err-morador" style="display:none"></div>
         </div>
       </div>
 
-      <!-- Seleção de morador — aparece após digitar o apto -->
-      <div class="modal-field" id="campo-morador" style="display:none">
-        <label class="ct-label" for="nova-morador">Destinatário</label>
-        <select class="ct-input" id="nova-morador">
-          <option value="">Selecione o morador...</option>
-        </select>
-        <div class="ct-error" id="err-morador" style="display:none"></div>
+      <!-- Modo: por nome -->
+      <div id="modo-busca-nome" style="display:none">
+        <div class="modal-field">
+          <label class="ct-label" for="busca-nome-morador">Nome do morador</label>
+          <div style="position:relative">
+            <input class="ct-input" type="text" id="busca-nome-morador"
+                   placeholder="Digite o nome..." autocomplete="off"
+                   oninput="buscarMoradorPorNome()"/>
+            <div id="lista-busca-nome" style="display:none;position:absolute;top:calc(100% + 4px);
+                 left:0;right:0;background:var(--n-0);border:1.5px solid var(--n-200);
+                 border-radius:var(--radius-md);box-shadow:var(--shadow-md);
+                 z-index:20;max-height:200px;overflow-y:auto"></div>
+          </div>
+          <div class="ct-error" id="err-nome-morador" style="display:none"></div>
+        </div>
+        <div id="morador-selecionado-nome" style="display:none;align-items:center;gap:10px;
+             background:var(--p-50);border:1.5px solid var(--p-200);
+             border-radius:var(--radius-md);padding:10px 14px;margin-bottom:14px">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:var(--p-800)" id="morador-sel-nome-txt"></div>
+            <div style="font-size:11px;color:var(--p-600)" id="morador-sel-apto-txt"></div>
+          </div>
+          <button type="button" onclick="limparMoradorSelecionado()"
+                  style="background:none;border:none;cursor:pointer;color:var(--p-400);font-size:18px">×</button>
+        </div>
+        <div class="modal-field">
+          <label class="ct-label" for="nova-volumes-nome">Nº de volumes</label>
+          <input class="ct-input" type="number" id="nova-volumes-nome" placeholder="1" min="1" />
+          <div class="ct-error" id="err-volumes-nome" style="display:none"></div>
+        </div>
       </div>
 
       <div class="modal-field">
@@ -189,8 +266,16 @@
         <div class="ct-error" id="err-trans" style="display:none"></div>
       </div>
 
+      <!-- Observações com sugestões rápidas -->
       <div class="modal-field">
         <label class="ct-label" for="nova-obs">Observações (opcional)</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+          <button type="button" class="obs-chip" onclick="adicionarObs('Caixa frágil')">📦 Frágil</button>
+          <button type="button" class="obs-chip" onclick="adicionarObs('Refrigerado')">🧊 Refrigerado</button>
+          <button type="button" class="obs-chip" onclick="adicionarObs('Documento')">📄 Documento</button>
+          <button type="button" class="obs-chip" onclick="adicionarObs('Volume grande')">📫 Grande</button>
+          <button type="button" class="obs-chip" onclick="adicionarObs('Urgente')">⚡ Urgente</button>
+        </div>
         <input class="ct-input" type="text" id="nova-obs"
                placeholder="Ex: Caixa frágil, 2 volumes grandes..." />
       </div>
