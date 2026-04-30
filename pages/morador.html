@@ -14,7 +14,6 @@
   <header class="header">
     <div class="header-top">
       <div class="header-logo">
-        <div class="header-logo">
         <div class="header-logo-icon">
           <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
@@ -22,34 +21,14 @@
         </div>
         <span class="header-logo-name">CondoTrack</span>
       </div>
-      </div>
-      <div class="header-actions" style="position:relative">
-        <button class="notif-btn" id="btn-notif-morador" onclick="toggleNotificacoesMorador()">
+      <div class="header-actions">
+        <button class="notif-btn">
           <svg viewBox="0 0 24 24" stroke-width="2">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
           </svg>
-          <div class="notif-dot" id="notif-dot-morador" style="display:none"></div>
+          <div class="notif-dot"></div>
         </button>
-
-        <!-- Painel de notificações -->
-        <div id="notif-painel-morador" style="
-          display:none;position:absolute;top:44px;right:0;
-          width:300px;background:var(--n-0);border:1px solid var(--n-200);
-          border-radius:var(--radius-lg);box-shadow:0 8px 32px rgba(0,0,0,.15);
-          z-index:99;overflow:hidden;max-height:380px;overflow-y:auto">
-          <div style="padding:12px 16px;border-bottom:1px solid var(--n-100);
-                      display:flex;align-items:center;justify-content:space-between">
-            <span style="font-size:13px;font-weight:700;color:var(--n-900)">Notificações</span>
-            <button onclick="toggleNotificacoesMorador()" style="background:none;border:none;
-                    cursor:pointer;color:var(--n-400);font-size:12px">Fechar</button>
-          </div>
-          <div id="notif-lista-morador" style="padding:4px 0">
-            <div style="padding:20px;text-align:center;font-size:12px;color:var(--n-400)">
-              Carregando...
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -95,13 +74,6 @@
         <polyline points="14 2 14 8 20 8"/>
       </svg>
       Histórico
-    </div>
-    <div class="nav-tab" data-tab="notificacoes" onclick="mudarTab('notificacoes')">
-      <svg viewBox="0 0 24 24" stroke-width="2">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-      </svg>
-      Notificações
     </div>
     <div class="nav-tab" data-tab="perfil" onclick="mudarTab('perfil')">
       <svg viewBox="0 0 24 24" stroke-width="2">
@@ -190,6 +162,105 @@
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- ── Modal: editar perfil ── -->
+<div class="modal-overlay" id="modal-editar-perfil">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Editar perfil</div>
+      <button class="modal-close" onclick="fecharModalPerfil()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="edit-nome">Nome completo</label>
+      <input class="ct-input" type="text" id="edit-nome" placeholder="Seu nome completo" />
+      <div class="ct-error" id="err-edit-nome" style="display:none"></div>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="edit-telefone">Telefone / WhatsApp</label>
+      <input class="ct-input" type="tel" id="edit-telefone" placeholder="(11) 99999-0000" maxlength="15" />
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="edit-email">E-mail</label>
+      <input class="ct-input" type="email" id="edit-email" placeholder="seu@email.com" />
+      <div class="ct-error" id="err-edit-email" style="display:none"></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModalPerfil()">Cancelar</button>
+      <button type="button" class="ct-btn-primary" id="btn-salvar-perfil" onclick="salvarPerfil()">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+             style="width:14px;height:14px" stroke-linecap="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Salvar alterações
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: trocar senha ── -->
+<div class="modal-overlay" id="modal-trocar-senha">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Trocar senha</div>
+      <button class="modal-close" onclick="fecharModalPerfil()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="nova-senha-atual">Senha atual</label>
+      <div class="ct-input-wrap">
+        <input class="ct-input" type="password" id="nova-senha-atual" placeholder="••••••••" />
+        <button type="button" class="eye-btn" onclick="toggleSenha('nova-senha-atual','eye-atual')">
+          <svg id="eye-atual" viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:16px;height:16px">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+      <div class="ct-error" id="err-senha-atual" style="display:none"></div>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="nova-senha-nova">Nova senha</label>
+      <div class="ct-input-wrap">
+        <input class="ct-input" type="password" id="nova-senha-nova" placeholder="Mínimo 6 caracteres" />
+        <button type="button" class="eye-btn" onclick="toggleSenha('nova-senha-nova','eye-nova')">
+          <svg id="eye-nova" viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:16px;height:16px">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+      <div class="ct-error" id="err-senha-nova" style="display:none"></div>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="nova-senha-confirma">Confirmar nova senha</label>
+      <div class="ct-input-wrap">
+        <input class="ct-input" type="password" id="nova-senha-confirma" placeholder="Repita a nova senha" />
+        <button type="button" class="eye-btn" onclick="toggleSenha('nova-senha-confirma','eye-confirma')">
+          <svg id="eye-confirma" viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:16px;height:16px">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+      <div class="ct-error" id="err-senha-confirma" style="display:none"></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModalPerfil()">Cancelar</button>
+      <button type="button" class="ct-btn-primary" id="btn-salvar-senha" onclick="salvarSenha()">
+        <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+             style="width:14px;height:14px" stroke-linecap="round">
+          <rect x="3" y="11" width="18" height="11" rx="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        Salvar nova senha
+      </button>
+    </div>
   </div>
 </div>
 
