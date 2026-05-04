@@ -271,24 +271,294 @@ function userRowHTML(u, cores) {
   const cfg      = cores[u.perfil] || { bg:'#F8FAFC', color:'#64748B' }
   const iniciais = u.nome.split(' ').map(n => n[0]).slice(0,2).join('')
   const condo    = u.condominios?.nome || '—'
-  const email    = u.email || '—'
   const isMe     = u.auth_id === usuarioLogado?.auth_id
+  const inativo  = u.status !== 'ativo'
+
+  const perfilLabel = {
+    superadmin: 'Super Admin',
+    admin:      'Síndico',
+    porteiro:   'Porteiro',
+    morador:    'Morador',
+  }
+
   return `
-    <div class="panel-row-sa">
+    <div class="panel-row-sa" style="${inativo ? 'opacity:.55' : ''}">
       <div class="panel-avatar-sa" style="background:${cfg.bg};color:${cfg.color}">${iniciais}</div>
       <div class="panel-row-info-sa">
         <div class="panel-row-name-sa">${u.nome}</div>
-        <div class="panel-row-sub-sa">${email} · ${condo} · ${new Date(u.criado_em).toLocaleDateString('pt-BR')}</div>
+        <div class="panel-row-sub-sa">${u.email || '—'} · ${condo}</div>
       </div>
-      <span class="panel-row-badge-sa" style="background:${cfg.bg};color:${cfg.color}">${u.perfil}</span>
-      <span class="panel-row-badge-sa" style="background:${u.status==='ativo'?'#F0FDF4':'#F8FAFC'};color:${u.status==='ativo'?'#166534':'#94A3B8'}">${u.status}</span>
-      ${!isMe && u.auth_id ? `
-        <button onclick="abrirResetSenha('${u.id}','${u.nome}','${u.auth_id}')"
-          style="background:#FEF3C7;color:#92400E;border:none;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-sans);white-space:nowrap"
-          title="Resetar senha">
-          🔑 Reset
-        </button>` : ''}
+
+      <!-- Badge de perfil legível -->
+      <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;
+                   background:${cfg.bg};color:${cfg.color};white-space:nowrap;flex-shrink:0">
+        ${perfilLabel[u.perfil] || u.perfil}
+      </span>
+
+      <!-- Badge de status -->
+      <span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;
+                   background:${inativo ? '#F4F4F5' : '#F0FDF4'};
+                   color:${inativo ? '#A1A1AA' : '#166534'};
+                   white-space:nowrap;flex-shrink:0">
+        ${inativo ? 'Inativo' : 'Ativo'}
+      </span>
+
+      <!-- Ações (ocultas para o próprio usuário logado) -->
+      ${!isMe ? `
+        <div style="display:flex;gap:5px;flex-shrink:0">
+          <!-- Amarelo: vincular condomínios -->
+          <button onclick="abrirVincular('${u.id}','${u.nome.replace(/'/g,"\\'")}','${u.perfil}')"
+                  title="Vincular condomínios"
+                  style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
+                         background:#FEF3C7;color:#92400E;display:flex;align-items:center;
+                         justify-content:center;transition:background .12s;flex-shrink:0"
+                  onmouseenter="this.style.background='#FDE68A'"
+                  onmouseleave="this.style.background='#FEF3C7'">
+            <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+                 style="width:13px;height:13px">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+          </button>
+          <!-- Azul: visualizar / editar -->
+          <button onclick="abrirEditarUsuario('${u.id}')"
+                  title="Visualizar / Editar perfil"
+                  style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
+                         background:#EFF6FF;color:#1D4ED8;display:flex;align-items:center;
+                         justify-content:center;transition:background .12s;flex-shrink:0"
+                  onmouseenter="this.style.background='#DBEAFE'"
+                  onmouseleave="this.style.background='#EFF6FF'">
+            <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+                 style="width:13px;height:13px">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </button>
+          <!-- Vermelho: inativar (só se ativo) -->
+          ${!inativo ? `
+          <button onclick="abrirInativar('${u.id}','${u.nome.replace(/'/g,"\\'")}')"
+                  title="Inativar usuário"
+                  style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
+                         background:#FEF2F2;color:#DC2626;display:flex;align-items:center;
+                         justify-content:center;transition:background .12s;flex-shrink:0"
+                  onmouseenter="this.style.background='#FECACA'"
+                  onmouseleave="this.style.background='#FEF2F2'">
+            <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+                 style="width:13px;height:13px">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="15" y1="9" x2="9" y2="15" stroke-linecap="round"/>
+              <line x1="9" y1="9" x2="15" y2="15" stroke-linecap="round"/>
+            </svg>
+          </button>` : `
+          <!-- Reativar se inativo -->
+          <button onclick="reativarUsuario('${u.id}','${u.nome.replace(/'/g,"\\'")}')"
+                  title="Reativar usuário"
+                  style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
+                         background:#F0FDF4;color:#166534;display:flex;align-items:center;
+                         justify-content:center;transition:background .12s;flex-shrink:0"
+                  onmouseenter="this.style.background='#BBF7D0'"
+                  onmouseleave="this.style.background='#F0FDF4'">
+            <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+                 style="width:13px;height:13px">
+              <polyline points="23 4 23 10 17 10"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke-linecap="round"/>
+            </svg>
+          </button>`}
+        </div>` : ''}
     </div>`
+}
+
+// ── Vincular condomínios (amarelo) ────────────────────────────
+let vincularUsuarioId = null
+
+async function abrirVincular(userId, nome, perfil) {
+  vincularUsuarioId = userId
+  const perfilLabel = { superadmin:'Super Admin', admin:'Síndico', porteiro:'Porteiro', morador:'Morador' }
+  const iniciais = nome.split(' ').map(n => n[0]).slice(0,2).join('')
+
+  document.getElementById('vinc-avatar').textContent  = iniciais
+  document.getElementById('vinc-nome').textContent    = nome
+  document.getElementById('vinc-perfil-label').textContent = perfilLabel[perfil] || perfil
+  document.getElementById('vinc-err').style.display   = 'none'
+
+  // Carrega condomínios já vinculados (tabela usuario_condominios)
+  const [{ data: vinculos }, { data: condos }] = await Promise.all([
+    db.from('usuario_condominios')
+      .select('condominio_id, condominios(nome)')
+      .eq('usuario_id', userId),
+    db.from('condominios')
+      .select('id, nome')
+      .eq('status', 'ativo')
+      .order('nome'),
+  ])
+
+  // Lista de vinculados
+  const listaEl = document.getElementById('vinc-lista')
+  const vincIds = new Set((vinculos || []).map(v => v.condominio_id))
+
+  if (!vinculos?.length) {
+    listaEl.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:var(--n-400)">Nenhum condomínio vinculado</div>'
+  } else {
+    listaEl.innerHTML = (vinculos || []).map((v, i) => {
+      const borda = i < vinculos.length - 1 ? 'border-bottom:1px solid var(--n-100);' : ''
+      return `
+        <div style="display:flex;align-items:center;justify-content:space-between;
+                    padding:9px 14px;${borda}">
+          <span style="font-size:13px;font-weight:600;color:var(--n-900)">${v.condominios?.nome || '—'}</span>
+          <button onclick="removerVinculo('${userId}','${v.condominio_id}', this)"
+                  style="font-size:11px;color:#DC2626;background:#FEF2F2;border:none;
+                         border-radius:6px;padding:3px 8px;cursor:pointer;font-family:var(--font-sans);
+                         font-weight:600">
+            Remover
+          </button>
+        </div>`
+    }).join('')
+  }
+
+  // Popula select com condos ainda não vinculados
+  const select = document.getElementById('vinc-select')
+  select.innerHTML = '<option value="">Selecione um condomínio...</option>' +
+    (condos || [])
+      .filter(c => !vincIds.has(c.id))
+      .map(c => `<option value="${c.id}">${c.nome}</option>`)
+      .join('')
+
+  document.getElementById('modal-vincular').classList.add('open')
+}
+
+async function salvarVinculo() {
+  const condoId = document.getElementById('vinc-select').value
+  limparErro('vinc-err')
+  if (!condoId) { mostrarErro('vinc-err', 'Selecione um condomínio.'); return }
+
+  const { error } = await db.from('usuario_condominios').insert({
+    usuario_id:    vincularUsuarioId,
+    condominio_id: condoId,
+  })
+
+  if (error) {
+    mostrarErro('vinc-err', 'Erro ao vincular. Tente novamente.')
+    return
+  }
+  // Reabre o modal com dados atualizados
+  const nome   = document.getElementById('vinc-nome').textContent
+  const perfil = document.getElementById('vinc-perfil-label').textContent
+  fecharModal()
+  setTimeout(() => abrirVincular(vincularUsuarioId, nome, perfil), 150)
+}
+
+async function removerVinculo(userId, condoId, btn) {
+  btn.disabled = true
+  btn.textContent = '...'
+  const { error } = await db.from('usuario_condominios')
+    .delete()
+    .eq('usuario_id', userId)
+    .eq('condominio_id', condoId)
+  if (!error) {
+    btn.closest('div').remove()
+  } else {
+    btn.disabled = false
+    btn.textContent = 'Remover'
+  }
+}
+
+// ── Editar perfil do usuário (azul) ──────────────────────────
+let editUsuarioId = null
+
+async function abrirEditarUsuario(userId) {
+  const { data: u } = await db
+    .from('usuarios')
+    .select('id, nome, email, telefone, perfil')
+    .eq('id', userId)
+    .single()
+
+  if (!u) return
+  editUsuarioId = userId
+
+  document.getElementById('edit-user-titulo').textContent = `Editar — ${u.nome}`
+  document.getElementById('edit-user-nome').value         = u.nome   || ''
+  document.getElementById('edit-user-email').value        = u.email  || ''
+  document.getElementById('edit-user-tel').value          = u.telefone || ''
+  document.getElementById('edit-user-perfil').value       = u.perfil || 'morador'
+  limparTodosErros('err-edit-user-nome', 'err-edit-user-email')
+  aplicarMascaraTelefone('edit-user-tel')
+
+  document.getElementById('modal-editar-usuario').classList.add('open')
+}
+
+async function salvarEdicaoUsuario() {
+  limparTodosErros('err-edit-user-nome', 'err-edit-user-email')
+  const nome   = document.getElementById('edit-user-nome').value.trim()
+  const email  = document.getElementById('edit-user-email').value.trim()
+  const tel    = document.getElementById('edit-user-tel').value.trim()
+  const perfil = document.getElementById('edit-user-perfil').value
+  let ok = true
+
+  if (!nome)                { mostrarErro('err-edit-user-nome',  'Informe o nome.'); ok = false }
+  if (!isEmailValido(email)){ mostrarErro('err-edit-user-email', 'E-mail inválido.'); ok = false }
+  if (!ok) return
+
+  const btn = document.getElementById('btn-salvar-edit-user')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
+  const { error } = await db
+    .from('usuarios')
+    .update({ nome, email, telefone: tel, perfil })
+    .eq('id', editUsuarioId)
+
+  if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar alterações' }
+
+  if (error) {
+    mostrarErro('err-edit-user-nome', 'Erro ao salvar. Tente novamente.')
+    return
+  }
+
+  fecharModal()
+  mostrarToast('Perfil atualizado com sucesso!')
+  renderTab(tabAtiva)
+}
+
+// ── Inativar usuário (vermelho) ───────────────────────────────
+let inativarUsuarioId   = null
+let inativarUsuarioNome = null
+
+function abrirInativar(userId, nome) {
+  inativarUsuarioId   = userId
+  inativarUsuarioNome = nome
+  document.getElementById('inativ-nome').textContent = nome
+  document.getElementById('modal-inativar').classList.add('open')
+}
+
+async function confirmarInativacao() {
+  const btn = document.getElementById('btn-confirmar-inativ')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
+  const { error } = await db
+    .from('usuarios')
+    .update({ status: 'inativo' })
+    .eq('id', inativarUsuarioId)
+
+  if (btn) { btn.disabled = false; btn.innerHTML = 'Inativar usuário' }
+
+  if (error) {
+    mostrarToast('Erro ao inativar. Tente novamente.', 'erro')
+    return
+  }
+
+  fecharModal()
+  mostrarToast(`${inativarUsuarioNome} foi inativado.`, 'aviso')
+  renderTab(tabAtiva)
+}
+
+async function reativarUsuario(userId, nome) {
+  const { error } = await db
+    .from('usuarios')
+    .update({ status: 'ativo' })
+    .eq('id', userId)
+
+  if (error) { mostrarToast('Erro ao reativar. Tente novamente.', 'erro'); return }
+  mostrarToast(`${nome} foi reativado!`)
+  renderTab(tabAtiva)
 }
 
 // ── Reset de senha ────────────────────────────────────────────
@@ -567,6 +837,29 @@ async function salvarSuperAdmin(e) {
     mostrarErro('err-sa-email', 'Erro ao criar usuário.')
     if (btn) { btn.disabled = false; btn.innerHTML = 'Criar Super Admin' }
   }
+}
+
+// ── Toast de feedback ─────────────────────────────────────────
+function mostrarToast(msg, tipo = 'sucesso') {
+  const cores = {
+    sucesso: { bg: '#F0FDF4', border: '#BBF7D0', color: '#166534', icon: '✓' },
+    erro:    { bg: '#FEF2F2', border: '#FECACA', color: '#991B1B', icon: '✕' },
+    aviso:   { bg: '#FFFBEB', border: '#FDE68A', color: '#92400E', icon: '!' },
+  }
+  const c = cores[tipo] || cores.sucesso
+  const toast = document.createElement('div')
+  toast.style.cssText = `
+    position:fixed;bottom:24px;right:24px;z-index:9999;
+    background:${c.bg};border:1.5px solid ${c.border};color:${c.color};
+    padding:12px 18px;border-radius:var(--radius-md);
+    font-size:13px;font-weight:600;font-family:var(--font-sans);
+    display:flex;align-items:center;gap:8px;
+    box-shadow:0 4px 16px rgba(0,0,0,.12);
+    animation:fadeUp .2s ease both;
+  `
+  toast.innerHTML = `<span>${c.icon}</span><span>${msg}</span>`
+  document.body.appendChild(toast)
+  setTimeout(() => toast.remove(), 3000)
 }
 
 // ── Modal: novo/editar condomínio ─────────────────────────────

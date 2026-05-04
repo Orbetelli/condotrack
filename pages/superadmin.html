@@ -360,6 +360,145 @@
   </div>
 </div>
 
+<!-- ── Modal: vincular condomínios (ícone amarelo) ── -->
+<div class="modal-overlay" id="modal-vincular">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Vincular condomínios</div>
+      <button class="modal-close" onclick="fecharModal()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div style="background:var(--p-50);border:1.5px solid var(--p-100);border-radius:var(--radius-md);
+                padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+      <div id="vinc-avatar"
+           style="width:36px;height:36px;border-radius:50%;background:var(--p-100);
+                  color:var(--p-700);font-size:13px;font-weight:700;
+                  display:flex;align-items:center;justify-content:center;flex-shrink:0"></div>
+      <div>
+        <div id="vinc-nome" style="font-size:14px;font-weight:700;color:var(--n-900)"></div>
+        <div id="vinc-perfil-label" style="font-size:11px;color:var(--n-500);margin-top:1px"></div>
+      </div>
+    </div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+                color:var(--n-400);margin-bottom:10px">Condomínios vinculados</div>
+    <div id="vinc-lista"
+         style="border:1px solid var(--n-200);border-radius:var(--radius-md);
+                overflow:hidden;margin-bottom:16px;min-height:48px"></div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+                color:var(--n-400);margin-bottom:8px">Adicionar condomínio</div>
+    <select class="ct-input" id="vinc-select" style="margin-bottom:4px">
+      <option value="">Selecione um condomínio...</option>
+    </select>
+    <div class="ct-error" id="vinc-err" style="display:none"></div>
+    <div class="modal-actions">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Fechar</button>
+      <button type="button" class="ct-btn-primary" onclick="salvarVinculo()">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+             style="width:14px;height:14px" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Vincular
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: editar perfil do usuário (ícone azul) ── -->
+<div class="modal-overlay" id="modal-editar-usuario">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="edit-user-titulo">Editar usuário</div>
+      <button class="modal-close" onclick="fecharModal()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="edit-user-nome">Nome completo</label>
+      <input class="ct-input" type="text" id="edit-user-nome" placeholder="Nome completo" />
+      <div class="ct-error" id="err-edit-user-nome" style="display:none"></div>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="edit-user-email">E-mail</label>
+      <input class="ct-input" type="email" id="edit-user-email" placeholder="email@exemplo.com" />
+      <div class="ct-error" id="err-edit-user-email" style="display:none"></div>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="edit-user-tel">Telefone / WhatsApp</label>
+      <input class="ct-input" type="tel" id="edit-user-tel" placeholder="(11) 99999-0000" maxlength="15" />
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="edit-user-perfil">Perfil</label>
+      <select class="ct-input" id="edit-user-perfil">
+        <option value="superadmin">Super Admin</option>
+        <option value="admin">Síndico</option>
+        <option value="porteiro">Porteiro</option>
+        <option value="morador">Morador</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="ct-btn-primary" id="btn-salvar-edit-user" onclick="salvarEdicaoUsuario()">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+             style="width:14px;height:14px" stroke-linecap="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Salvar alterações
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: confirmar inativação (ícone vermelho) ── -->
+<div class="modal-overlay" id="modal-inativar">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title">Inativar usuário</div>
+      <button class="modal-close" onclick="fecharModal()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div style="background:#FEF2F2;border:1.5px solid #FECACA;border-radius:var(--radius-md);
+                padding:14px 16px;margin-bottom:18px;display:flex;gap:12px;align-items:flex-start">
+      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="#DC2626"
+           style="width:20px;height:20px;flex-shrink:0;margin-top:1px">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#991B1B;margin-bottom:4px">Atenção</div>
+        <div style="font-size:13px;color:#991B1B;line-height:1.6">
+          O usuário <strong id="inativ-nome">—</strong> perderá acesso ao sistema imediatamente.
+          Esta ação pode ser revertida depois.
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>
+      <button type="button" id="btn-confirmar-inativ"
+              onclick="confirmarInativacao()"
+              style="flex:2;width:auto;padding:11px 16px;background:#DC2626;color:#fff;
+                     border:none;border-radius:var(--radius-md);font-family:var(--font-sans);
+                     font-size:14px;font-weight:600;cursor:pointer;display:flex;
+                     align-items:center;justify-content:center;gap:8px;
+                     transition:background .15s">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+             style="width:14px;height:14px" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+        Inativar usuário
+      </button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
 <script src="../js/utils.js"></script>
