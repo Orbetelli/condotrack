@@ -31,6 +31,20 @@ async function mudarTab(tab) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'))
   document.querySelector(`[data-tab="${tab}"]`)?.classList.add('active')
 
+  // Sincroniza sidebar (item com mesmo data-tip que o label da aba)
+  const tipMap = {
+    dashboard:   'Dashboard',
+    condominios: 'Condomínios',
+    usuarios:    'Usuários',
+    relatorios:  'Relatórios',
+    equipe:      'Equipe interna',
+  }
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'))
+  const sbTip = tipMap[tab]
+  if (sbTip) {
+    document.querySelector(`.sb-item[data-tip="${sbTip}"]`)?.classList.add('active')
+  }
+
   // Atualiza botão de ação no header
   const acoes = {
     dashboard:    { label: '+ Novo condomínio', fn: 'abrirModalNovo()' },
@@ -310,36 +324,41 @@ async function salvarResetSenha(e) {
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
 
   try {
-    // Usa a Admin API do Supabase para atualizar a senha
-    const { error } = await db.auth.admin.updateUserById(resetAuthId, {
-      password: nova
+    // Usa a Edge Function reset-senha (service_role fica segura no backend)
+    const { data, error } = await db.functions.invoke('reset-senha', {
+      body: { auth_id: resetAuthId, nova_senha: nova },
     })
 
-    if (error) {
-      // Fallback: atualiza via rpc se admin não disponível no frontend
-      mostrarErro('err-reset-nova', 'Erro: ' + error.message + '. Use o Supabase Dashboard para resetar.')
+    if (error || data?.error) {
+      const msg = data?.error || error?.message || 'Erro ao resetar senha.'
+      mostrarErro('err-reset-nova', msg)
       if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar nova senha' }
       return
     }
 
-    // Mostra sucesso
+    // Sucesso
     document.getElementById('reset-form').style.display      = 'none'
     document.getElementById('reset-resultado').style.display = 'block'
     document.getElementById('reset-resultado').innerHTML = `
       <div style="text-align:center;padding:16px 0">
-        <div style="width:56px;height:56px;background:#F0FDF4;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
-          <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="#16A34A" style="width:28px;height:28px">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+        <div style="width:56px;height:56px;background:#F0FDF4;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+          <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round"
+               stroke-linejoin="round" fill="none" stroke="#16A34A" style="width:28px;height:28px">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
           </svg>
         </div>
         <div style="font-size:16px;font-weight:700;color:var(--n-900);margin-bottom:6px">Senha alterada!</div>
-        <div style="font-size:13px;color:var(--n-500);margin-bottom:18px">A nova senha de <strong>${resetUsuarioNome}</strong> foi definida com sucesso.</div>
+        <div style="font-size:13px;color:var(--n-500);margin-bottom:18px">
+          A nova senha de <strong>${resetUsuarioNome}</strong> foi definida com sucesso.
+        </div>
         <button onclick="fecharModal()" class="ct-btn-primary" style="width:auto;padding:9px 24px">Fechar</button>
       </div>`
 
   } catch (err) {
-    console.error(err)
-    mostrarErro('err-reset-nova', 'Erro inesperado ao resetar senha.')
+    console.error('Erro inesperado ao resetar senha:', err)
+    mostrarErro('err-reset-nova', 'Erro inesperado. Tente novamente.')
     if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar nova senha' }
   }
 }
@@ -586,7 +605,26 @@ async function editarCondo(id) {
   document.getElementById('modal-condo').classList.add('open')
 }
 
-function abrirModalSA() { mudarTab('equipe') }
+async function abrirModalSA() {
+  // Se já está na aba equipe, só rola até o formulário
+  if (tabAtiva === 'equipe') {
+    const form = document.getElementById('form-sa')
+    if (form) {
+      form.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setTimeout(() => document.getElementById('sa-nome')?.focus(), 350)
+    }
+    return
+  }
+  // Caso contrário, navega para a aba e depois foca
+  await mudarTab('equipe')
+  setTimeout(() => {
+    const form = document.getElementById('form-sa')
+    if (form) {
+      form.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      document.getElementById('sa-nome')?.focus()
+    }
+  }, 150)
+}
 
 function fecharModal() {
   document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open'))
@@ -705,11 +743,40 @@ async function abrirDetalhe(id) {
   document.getElementById('det-end').textContent    = `${c.endereco}, ${c.cidade} — ${c.uf}`
   document.getElementById('det-blocos').textContent = c.blocos
   document.getElementById('det-aptos').textContent  = c.total_aptos
-  document.getElementById('det-sindico').textContent = '—'
-  document.getElementById('det-email').textContent  = '—'
-  document.getElementById('det-mord').textContent   = '—'
-  document.getElementById('det-port').textContent   = '—'
+
+  // Valores provisórios enquanto carrega
+  document.getElementById('det-sindico').textContent = '...'
+  document.getElementById('det-email').textContent   = '...'
+  document.getElementById('det-mord').textContent    = '...'
+  document.getElementById('det-port').textContent    = '...'
+
   document.getElementById('modal-detalhe').classList.add('open')
+
+  // Busca síndico, moradores e porteiros em paralelo
+  const [sindRes, usersRes] = await Promise.all([
+    db.from('usuarios')
+      .select('nome, email')
+      .eq('condominio_id', id)
+      .eq('perfil', 'admin')
+      .limit(1)
+      .single(),
+    db.from('usuarios')
+      .select('perfil', { count: 'exact' })
+      .eq('condominio_id', id)
+      .in('perfil', ['morador', 'porteiro']),
+  ])
+
+  const sindico  = sindRes.data
+  const usuarios = usersRes.data || []
+
+  document.getElementById('det-sindico').textContent =
+    sindico?.nome  || '—'
+  document.getElementById('det-email').textContent   =
+    sindico?.email || '—'
+  document.getElementById('det-mord').textContent    =
+    usuarios.filter(u => u.perfil === 'morador').length
+  document.getElementById('det-port').textContent    =
+    usuarios.filter(u => u.perfil === 'porteiro').length
 }
 
 // ── Helpers visuais ───────────────────────────────────────────
@@ -866,18 +933,9 @@ function contarManual() {
   if (campoTotal) campoTotal.value = aptos.length
 }
 
-function aplicarMascaraCNPJ(inputId) {
-  const input = document.getElementById(inputId)
-  if (!input) return
-  input.addEventListener('input', function () {
-    let v = this.value.replace(/\D/g, '').slice(0, 14)
-    v = v.replace(/(\d{2})(\d)/, '$1.$2')
-    v = v.replace(/(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-    v = v.replace(/\.(\d{3})(\d)/, '.$1/$2')
-    v = v.replace(/(\d{4})(\d)/, '$1-$2')
-    this.value = v
-  })
-}
+// aplicarMascaraCNPJ já definida em utils.js — não duplicar aqui
+
+
 
 // ── Máscara CEP ───────────────────────────────────────────────
 function aplicarMascaraCEP() {
