@@ -79,11 +79,13 @@ function mudarTab(tab) {
 async function renderTab(tab) {
   const body = document.getElementById('tab-body')
   body.innerHTML = '<div style="padding:40px;text-align:center"><div class="spinner" style="border-color:var(--p-200);border-top-color:var(--p-600);margin:0 auto"></div></div>'
-  if (tab === 'dashboard')    await renderDashboard(body)
-  if (tab === 'porteiros')    await renderPorteiros(body)
-  if (tab === 'moradores')    await renderMoradores(body)
-  if (tab === 'apartamentos') await renderApartamentos(body)
-  if (tab === 'relatorios')   renderRelatorios(body)
+  if (tab === 'dashboard')      await renderDashboard(body)
+  if (tab === 'porteiros')      await renderPorteiros(body)
+  if (tab === 'moradores')      await renderMoradores(body)
+  if (tab === 'apartamentos')   await renderApartamentos(body)
+  if (tab === 'entregas')       await renderEntregas(body)
+  if (tab === 'relatorios')     renderRelatorios(body)
+  if (tab === 'configuracoes')  renderConfiguracoes(body)
 }
 
 // ── Helpers de fetch com cache ────────────────────────────────
@@ -568,6 +570,175 @@ function bindEvents() {
   document.getElementById('form-porteiro')?.addEventListener('submit', salvarPorteiro)
   document.getElementById('form-morador')?.addEventListener('submit', salvarMorador)
   document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal() })
+}
+
+
+// ── Configurações — Perfil do síndico ─────────────────────────
+function renderConfiguracoes(body) {
+  const apto  = usuarioLogado.apartamentos
+  const condo = usuarioLogado.condominios
+
+  body.innerHTML = `
+    <div style="max-width:560px">
+      <div style="font-size:13px;font-weight:700;color:var(--n-900);margin-bottom:14px">Meu perfil</div>
+
+      <!-- Card perfil -->
+      <div style="background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);
+                  overflow:hidden;margin-bottom:14px">
+        <div style="padding:16px;border-bottom:1px solid var(--n-100);display:flex;align-items:center;gap:12px">
+          <div style="width:48px;height:48px;border-radius:50%;background:var(--p-100);color:var(--p-700);
+                      font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            ${usuarioLogado.nome.split(' ').map(n=>n[0]).slice(0,2).join('')}
+          </div>
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:700;color:var(--n-900)">${usuarioLogado.nome}</div>
+            <div style="font-size:12px;color:var(--n-500)">${condo?.nome || '—'} · Síndico</div>
+          </div>
+          <button onclick="abrirEditarPerfilSindico()"
+                  style="font-size:11px;font-weight:600;color:var(--p-600);background:var(--p-50);
+                         border:1px solid var(--p-200);border-radius:var(--radius-md);
+                         padding:5px 10px;cursor:pointer;font-family:var(--font-sans)">
+            Editar
+          </button>
+        </div>
+        ${[
+          ['Nome',      usuarioLogado.nome || '—'],
+          ['E-mail',    usuarioLogado.email || '—'],
+          ['Telefone',  usuarioLogado.telefone || '—'],
+          ['Condomínio', condo?.nome || '—'],
+        ].map(([l,v]) => `
+          <div style="display:flex;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--n-100)">
+            <span style="font-size:13px;color:var(--n-500)">${l}</span>
+            <span style="font-size:13px;font-weight:600;color:var(--n-900);text-align:right;max-width:60%">${v}</span>
+          </div>`).join('')}
+      </div>
+
+      <!-- Trocar senha -->
+      <div style="background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);
+                  padding:14px 16px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--n-900)">Senha de acesso</div>
+            <div style="font-size:12px;color:var(--n-500);margin-top:2px">Altere sua senha quando quiser</div>
+          </div>
+          <button onclick="abrirTrocarSenhaSindico()"
+                  style="font-size:11px;font-weight:600;color:var(--p-600);background:var(--p-50);
+                         border:1px solid var(--p-200);border-radius:var(--radius-md);
+                         padding:5px 10px;cursor:pointer;font-family:var(--font-sans)">
+            Trocar senha
+          </button>
+        </div>
+      </div>
+
+      <!-- Sair -->
+      <button onclick="logout()"
+              style="width:100%;padding:11px;background:var(--n-50);border:1px solid var(--n-200);
+                     border-radius:var(--radius-md);font-size:13px;font-weight:600;color:var(--n-600);
+                     cursor:pointer;font-family:var(--font-sans);display:flex;align-items:center;
+                     justify-content:center;gap:7px">
+        <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:15px;height:15px">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Sair da conta
+      </button>
+    </div>
+  `
+}
+
+function abrirEditarPerfilSindico() {
+  document.getElementById('sindico-nome').value  = usuarioLogado.nome || ''
+  document.getElementById('sindico-tel').value   = usuarioLogado.telefone || ''
+  document.getElementById('sindico-email').value = usuarioLogado.email || ''
+  limparTodosErros('err-sindico-nome','err-sindico-email')
+  aplicarMascaraTelefone('sindico-tel')
+  document.getElementById('modal-perfil-sindico').classList.add('open')
+}
+
+async function salvarPerfilSindico() {
+  limparTodosErros('err-sindico-nome','err-sindico-email')
+  const nome     = document.getElementById('sindico-nome').value.trim()
+  const telefone = document.getElementById('sindico-tel').value.trim()
+  const email    = document.getElementById('sindico-email').value.trim()
+  let ok = true
+
+  if (!nome)                { mostrarErro('err-sindico-nome',  'Informe seu nome.'); ok = false }
+  if (!isEmailValido(email)){ mostrarErro('err-sindico-email', 'E-mail inválido.');  ok = false }
+  if (!ok) return
+
+  const btn = document.getElementById('btn-salvar-perfil-sindico')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
+  const { error } = await db
+    .from('usuarios')
+    .update({ nome, telefone, email })
+    .eq('id', usuarioLogado.id)
+
+  if (error) {
+    mostrarErro('err-sindico-nome', 'Erro ao salvar. Tente novamente.')
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar alterações' }
+    return
+  }
+
+  usuarioLogado.nome     = nome
+  usuarioLogado.telefone = telefone
+  usuarioLogado.email    = email
+
+  document.getElementById('header-sindico').textContent = `Painel do síndico · ${nome}`
+  const iniciais = nome.split(' ').map(n => n[0]).slice(0, 2).join('')
+  const sbAvatar = document.getElementById('sb-avatar')
+  if (sbAvatar) sbAvatar.textContent = iniciais
+
+  fecharModal()
+  renderTab('configuracoes')
+}
+
+function abrirTrocarSenhaSindico() {
+  document.getElementById('sindico-senha-atual').value    = ''
+  document.getElementById('sindico-senha-nova').value     = ''
+  document.getElementById('sindico-senha-confirma').value = ''
+  limparTodosErros('err-sindico-senha-atual','err-sindico-senha-nova','err-sindico-senha-confirma')
+  document.getElementById('modal-senha-sindico').classList.add('open')
+}
+
+async function salvarSenhaSindico() {
+  limparTodosErros('err-sindico-senha-atual','err-sindico-senha-nova','err-sindico-senha-confirma')
+  const atual    = document.getElementById('sindico-senha-atual').value
+  const nova     = document.getElementById('sindico-senha-nova').value
+  const confirma = document.getElementById('sindico-senha-confirma').value
+  let ok = true
+
+  if (!atual)           { mostrarErro('err-sindico-senha-atual',    'Informe a senha atual.'); ok = false }
+  if (nova.length < 6)  { mostrarErro('err-sindico-senha-nova',     'Mínimo 6 caracteres.');   ok = false }
+  if (nova !== confirma){ mostrarErro('err-sindico-senha-confirma', 'Senhas não coincidem.');   ok = false }
+  if (!ok) return
+
+  const btn = document.getElementById('btn-salvar-senha-sindico')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
+  // Verifica senha atual via re-login
+  const { error: loginError } = await db.auth.signInWithPassword({
+    email:    usuarioLogado.email,
+    password: atual,
+  })
+
+  if (loginError) {
+    mostrarErro('err-sindico-senha-atual', 'Senha atual incorreta.')
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar nova senha' }
+    return
+  }
+
+  const { error } = await db.auth.updateUser({ password: nova })
+
+  if (error) {
+    mostrarErro('err-sindico-senha-nova', 'Erro ao alterar senha.')
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar nova senha' }
+    return
+  }
+
+  fecharModal()
+  alert('Senha alterada com sucesso!')
 }
 
 // ── Log simples (fire-and-forget) ────────────────────────────
