@@ -8,7 +8,22 @@ function isEmailValido(email) {
 }
 
 function isCPFValido(cpf) {
-  return cpf.replace(/\D/g, '').length === 11
+  const n = cpf.replace(/\D/g, '')
+  if (n.length !== 11) return false
+  // Rejeita sequências repetidas (111.111.111-11, etc)
+  if (/^(\d)\1+$/.test(n)) return false
+  // Valida 1º dígito verificador
+  let soma = 0
+  for (let i = 0; i < 9; i++) soma += parseInt(n[i]) * (10 - i)
+  let dig = 11 - (soma % 11)
+  if (dig >= 10) dig = 0
+  if (dig !== parseInt(n[9])) return false
+  // Valida 2º dígito verificador
+  soma = 0
+  for (let i = 0; i < 10; i++) soma += parseInt(n[i]) * (11 - i)
+  dig = 11 - (soma % 11)
+  if (dig >= 10) dig = 0
+  return dig === parseInt(n[10])
 }
 
 function isCNPJValido(cnpj) {
