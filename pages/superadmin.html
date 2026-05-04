@@ -107,11 +107,28 @@
       </button>
     </div>
     <form id="form-condo" novalidate>
+
+      <!-- Nome -->
       <div class="modal-field">
         <label class="ct-label" for="c-nome">Nome do condomínio</label>
         <input class="ct-input" type="text" id="c-nome" placeholder="Ex: Residencial das Palmeiras" />
         <div class="ct-error" id="err-nome-c" style="display:none"></div>
       </div>
+
+      <!-- CNPJ + Razão Social -->
+      <div class="modal-grid">
+        <div class="modal-field">
+          <label class="ct-label" for="c-cnpj">CNPJ</label>
+          <input class="ct-input" type="text" id="c-cnpj" placeholder="00.000.000/0000-00" maxlength="18" />
+          <div class="ct-error" id="err-cnpj" style="display:none"></div>
+        </div>
+        <div class="modal-field">
+          <label class="ct-label" for="c-razao">Razão social</label>
+          <input class="ct-input" type="text" id="c-razao" placeholder="Ex: Cond. Res. das Palmeiras LTDA" />
+        </div>
+      </div>
+
+      <!-- CEP + Cidade -->
       <div class="modal-grid">
         <div class="modal-field">
           <label class="ct-label" for="c-cep">CEP</label>
@@ -122,26 +139,32 @@
           <input class="ct-input" type="text" id="c-cidade" placeholder="São Paulo" />
         </div>
       </div>
-      <div class="modal-field">
-        <label class="ct-label" for="c-end">Endereço</label>
-        <input class="ct-input" type="text" id="c-end" placeholder="Rua, número, bairro" />
-        <div class="ct-error" id="err-end-c" style="display:none"></div>
-      </div>
+
+      <!-- Endereço + UF -->
       <div class="modal-grid">
-        <div class="modal-field">
+        <div class="modal-field" style="flex:2">
+          <label class="ct-label" for="c-end">Endereço</label>
+          <input class="ct-input" type="text" id="c-end" placeholder="Rua, número, bairro" />
+          <div class="ct-error" id="err-end-c" style="display:none"></div>
+        </div>
+        <div class="modal-field" style="flex:1">
           <label class="ct-label" for="c-uf">UF</label>
           <input class="ct-input" type="text" id="c-uf" placeholder="SP" maxlength="2" style="text-transform:uppercase" />
         </div>
+      </div>
+
+      <!-- Torres + Total (calculado) -->
+      <div class="modal-grid">
         <div class="modal-field">
           <label class="ct-label" for="c-blocos">Nº de torres / blocos</label>
           <input class="ct-input" type="number" id="c-blocos" placeholder="1" min="1" max="26" value="1"
                  oninput="previewApartamentos()" />
         </div>
-      </div>
-      <div class="modal-field">
-        <label class="ct-label" for="c-aptos">Total de apartamentos</label>
-        <input class="ct-input" type="number" id="c-aptos" placeholder="Calculado automaticamente" min="1"
-               style="background:var(--n-50);color:var(--n-500)" />
+        <div class="modal-field">
+          <label class="ct-label" for="c-aptos">Total de apartamentos</label>
+          <input class="ct-input" type="number" id="c-aptos" placeholder="Calculado automaticamente"
+                 style="background:var(--n-50);color:var(--n-400);cursor:not-allowed" readonly />
+        </div>
       </div>
 
       <!-- Configuração de geração de apartamentos -->
