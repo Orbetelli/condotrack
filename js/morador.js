@@ -25,9 +25,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderTab('pendentes')
   bindEvents()
 
-  // Tempo real
+  // Realtime filtrado pelo apartamento do morador
   db.channel('entregas-morador')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, () => {
+    .on('postgres_changes', {
+      event:  '*',
+      schema: 'public',
+      table:  'entregas',
+      filter: `apartamento_id=eq.${usuarioLogado.apartamento_id}`,
+    }, () => {
       carregarEntregas().then(() => renderTab(tabAtiva))
     })
     .subscribe()
@@ -55,14 +60,15 @@ async function carregarEntregas() {
   if (error) { console.error(error); return }
 
   todasEntregas = (data || []).map(e => ({
-    id:       e.id,
-    trans:    e.transportadora,
-    data:     new Date(e.recebido_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }),
-    hora:     new Date(e.recebido_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
-    volumes:  e.volumes,
-    obs:      e.obs || '',
-    status:   e.status,
-    retiradoEm: e.retirado_em
+    id:          e.id,
+    trans:       e.transportadora,
+    recebidoISO: e.recebido_em,
+    data:        new Date(e.recebido_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }),
+    hora:        new Date(e.recebido_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
+    volumes:     e.volumes,
+    obs:         e.obs || '',
+    status:      e.status,
+    retiradoEm:  e.retirado_em
       ? new Date(e.retirado_em).toLocaleDateString('pt-BR') + ' às ' +
         new Date(e.retirado_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })
       : null,
@@ -178,7 +184,7 @@ function aplicarFiltroHist() {
   if (periodo !== 'todos') {
     const dias  = parseInt(periodo)
     const corte = new Date(Date.now() - dias * 24 * 60 * 60 * 1000)
-    lista = lista.filter(e => new Date(e.dataISO || e.data) >= corte)
+    lista = lista.filter(e => new Date(e.recebidoISO) >= corte)
   }
 
   const container = document.getElementById('lista-historico')
@@ -291,6 +297,28 @@ function renderPerfil(container) {
   `
 }
 
+// ── Toast de feedback (substitui alert) ──────────────────────
+function mostrarToast(msg, tipo = 'sucesso') {
+  const cores = {
+    sucesso: { bg: '#F0FDF4', border: '#BBF7D0', color: '#166534', icon: '✓' },
+    erro:    { bg: '#FEF2F2', border: '#FECACA', color: '#991B1B', icon: '✕' },
+  }
+  const c = cores[tipo] || cores.sucesso
+  const toast = document.createElement('div')
+  toast.style.cssText = `
+    position:fixed;bottom:24px;right:24px;z-index:9999;
+    background:${c.bg};border:1.5px solid ${c.border};color:${c.color};
+    padding:12px 18px;border-radius:var(--radius-md);
+    font-size:13px;font-weight:600;font-family:var(--font-sans);
+    display:flex;align-items:center;gap:8px;
+    box-shadow:0 4px 16px rgba(0,0,0,.12);
+    animation:fadeUp .2s ease both;
+  `
+  toast.innerHTML = `<span>${c.icon}</span><span>${msg}</span>`
+  document.body.appendChild(toast)
+  setTimeout(() => toast.remove(), 3000)
+}
+
 // ── Editar perfil ─────────────────────────────────────────────
 function abrirEditarPerfil() {
   document.getElementById('edit-nome').value     = usuarioLogado.nome || ''
@@ -324,6 +352,17 @@ async function salvarPerfil() {
     mostrarErro('err-edit-nome', 'Erro ao salvar. Tente novamente.')
     if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar alterações' }
     return
+  }
+
+  // Se o e-mail mudou, atualiza também no Supabase Auth
+  if (email !== usuarioLogado.email) {
+    const { error: authError } = await db.auth.updateUser({ email })
+    if (authError) {
+      mostrarErro('err-edit-email',
+        'Dados salvos, mas não foi possível atualizar o e-mail de login: ' + authError.message)
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar alterações' }
+      return
+    }
   }
 
   // Atualiza dados locais
@@ -386,7 +425,7 @@ async function salvarSenha() {
   }
 
   fecharModalPerfil()
-  alert('Senha alterada com sucesso!')
+  mostrarToast('Senha alterada com sucesso!')
 }
 
 // ── Notificações do morador ───────────────────────────────────
@@ -459,12 +498,17 @@ function abrirConfirmar(id) {
 }
 
 function fecharModal() {
-  document.getElementById('modal-confirmar').classList.remove('open')
-  setTimeout(() => {
-    document.getElementById('modal-form').style.display     = 'block'
+  const overlay = document.getElementById('modal-confirmar')
+  if (!overlay) return
+  overlay.classList.remove('open')
+  // Aguarda a animação de saída antes de resetar o conteúdo interno
+  const resetModal = () => {
+    if (overlay.classList.contains('open')) return // foi reaberto antes do timeout
+    document.getElementById('modal-form').style.display      = 'block'
     document.getElementById('confirm-success').style.display = 'none'
     entregaConfirmar = null
-  }, 300)
+  }
+  setTimeout(resetModal, 300)
 }
 
 async function confirmarRetirada() {
@@ -475,7 +519,10 @@ async function confirmarRetirada() {
     .update({ status: 'retirado', retirado_em: new Date().toISOString() })
     .eq('id', entregaConfirmar)
 
-  if (error) { alert('Erro ao confirmar. Tente novamente.'); return }
+  if (error) {
+    mostrarToast('Erro ao confirmar. Tente novamente.', 'erro')
+    return
+  }
 
   document.getElementById('modal-form').style.display      = 'none'
   document.getElementById('confirm-success').style.display = 'block'
