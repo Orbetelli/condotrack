@@ -837,11 +837,17 @@ function gerarListaAptos(torres, andares, porAndar, numInicial, formato) {
       for (let u = 0; u < porAndar; u++) {
         let numero
         if (formato === 'simples') {
+          // Sequencial global: 1, 2, 3, 4, 5...
           numero = String(numInicial + (t * andares * porAndar) + ((a - 1) * porAndar) + u)
+        } else if (formato === 'dezena') {
+          // Por dezena: andar 1 → 1,2,3,4 / andar 2 → 11,12,13,14 / andar 3 → 21,22,23,24
+          numero = String(((a - 1) * 10) + numInicial + u)
         } else if (formato === 'letra') {
-          numero = String((a * 100) + numInicial + u) + LETRAS[u]
+          // Com letra: 101A, 101B, 201A...
+          const base = (a * 100) + numInicial
+          numero = String(base) + LETRAS[u]
         } else {
-          // numérico: 101, 102, 201, 202...
+          // Numérico padrão: andar 1 → 101,102 / andar 2 → 201,202...
           numero = String((a * 100) + numInicial + u)
         }
         lista.push({ bloco, numero })

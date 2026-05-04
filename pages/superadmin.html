@@ -140,8 +140,84 @@
       </div>
       <div class="modal-field">
         <label class="ct-label" for="c-aptos">Total de apartamentos</label>
-        <input class="ct-input" type="number" id="c-aptos" placeholder="Ex: 80" min="1" />
+        <input class="ct-input" type="number" id="c-aptos" placeholder="Calculado automaticamente" min="1"
+               style="background:var(--n-50);color:var(--n-500)" />
       </div>
+
+      <!-- Configuração de geração de apartamentos -->
+      <div style="height:1px;background:var(--n-100);margin:16px 0"></div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--n-400);margin-bottom:12px">
+        Configuração dos apartamentos
+      </div>
+
+      <!-- Tabs: automático / manual -->
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button type="button" id="tab-auto" onclick="alternarModoApto('auto')"
+                style="flex:1;padding:7px;border-radius:var(--radius-md);border:1.5px solid var(--p-300);
+                       background:var(--p-100);color:var(--p-700);font-size:12px;font-weight:600;
+                       cursor:pointer;font-family:var(--font-sans)">
+          ⚙️ Gerar automaticamente
+        </button>
+        <button type="button" id="tab-manual" onclick="alternarModoApto('manual')"
+                style="flex:1;padding:7px;border-radius:var(--radius-md);border:1.5px solid var(--n-200);
+                       background:var(--n-0);color:var(--n-500);font-size:12px;font-weight:600;
+                       cursor:pointer;font-family:var(--font-sans)">
+          ✏️ Inserir manualmente
+        </button>
+      </div>
+
+      <!-- Modo automático -->
+      <div id="modo-auto">
+        <div class="modal-grid">
+          <div class="modal-field">
+            <label class="ct-label" for="c-andares">Andares por torre</label>
+            <input class="ct-input" type="number" id="c-andares" placeholder="Ex: 10" min="1"
+                   oninput="previewApartamentos()" />
+          </div>
+          <div class="modal-field">
+            <label class="ct-label" for="c-aptos-andar">Aptos por andar</label>
+            <input class="ct-input" type="number" id="c-aptos-andar" placeholder="Ex: 4" min="1"
+                   oninput="previewApartamentos()" />
+          </div>
+        </div>
+        <div class="modal-grid">
+          <div class="modal-field">
+            <label class="ct-label" for="c-num-inicial">Número inicial do andar</label>
+            <input class="ct-input" type="number" id="c-num-inicial" placeholder="Ex: 1" min="0" value="1"
+                   oninput="previewApartamentos()" />
+            <div style="font-size:11px;color:var(--n-400);margin-top:4px">
+              1º andar começa em: <span id="preview-inicio" style="font-weight:600;color:var(--p-600)">101</span>
+            </div>
+          </div>
+          <div class="modal-field">
+            <label class="ct-label" for="c-formato">Formato da numeração</label>
+            <select class="ct-input" id="c-formato" onchange="previewApartamentos()">
+              <option value="numerico">Numérico (101, 102, 201, 202...)</option>
+              <option value="dezena">Por dezena (1, 2, 11, 12, 21, 22...)</option>
+              <option value="letra">Com letra (101A, 101B...)</option>
+              <option value="simples">Simples sequencial (1, 2, 3...)</option>
+            </select>
+          </div>
+        </div>
+        <div id="preview-aptos" style="background:var(--p-50);border:1.5px solid var(--p-200);
+             border-radius:var(--radius-md);padding:10px 14px;margin-bottom:4px;
+             font-size:12px;color:var(--p-700);line-height:1.6;display:none">
+        </div>
+      </div>
+
+      <!-- Modo manual -->
+      <div id="modo-manual" style="display:none">
+        <div class="modal-field">
+          <label class="ct-label" for="c-lista-aptos">Lista de apartamentos</label>
+          <textarea class="ct-input" id="c-lista-aptos" rows="4"
+                    placeholder="Digite um por linha ou separados por vírgula:&#10;101, 102, 103&#10;201, 202, 203"
+                    style="resize:vertical;font-family:var(--font-sans)"></textarea>
+          <div style="font-size:11px;color:var(--n-400);margin-top:4px">
+            Total: <span id="count-manual" style="font-weight:600;color:var(--p-600)">0</span> apartamentos
+          </div>
+        </div>
+      </div>
+
       <div style="height:1px;background:var(--n-100);margin:16px 0"></div>
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--n-400);margin-bottom:12px">Síndico responsável</div>
       <div class="modal-field">
