@@ -141,31 +141,48 @@
       <!-- Passo 2: apartamento -->
       <div id="step-2" style="display:none">
         <div class="apt-section-label">
-          Selecione seu apartamento. Os riscados já possuem morador cadastrado.
+          Selecione o seu apartamento. Os riscados já possuem morador cadastrado.
         </div>
-        <div style="margin-bottom:10px">
-          <input class="ct-input" type="text" id="busca-apto"
-                 placeholder="Buscar apartamento ex: A-101" />
+
+        <!-- Abas de bloco -->
+        <div class="apt-blocos" id="apt-blocos"></div>
+
+        <!-- Busca -->
+        <input class="apt-busca" type="text" id="busca-apto"
+               placeholder="Buscar nº do apto..." autocomplete="off" />
+
+        <!-- Mini card do selecionado -->
+        <div class="apt-selecionado-card" id="apt-selecionado-card">
+          <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <span id="apt-selecionado-txt">—</span>
+          <button type="button" onclick="desselecionarApto()" title="Limpar seleção">×</button>
         </div>
-        <div class="apt-grid" id="apt-grid"></div>
+
+        <!-- Grade com scroll -->
+        <div class="apt-bloco-info" id="apt-bloco-info"></div>
+        <div class="apt-scroll">
+          <div class="apt-grid" id="apt-grid"></div>
+        </div>
+
         <div class="ct-error" id="apto-err" style="display:none"></div>
+
         <div class="apt-legend">
           <div class="apt-legend-item">
-            <div class="apt-legend-dot"
-                 style="background:var(--p-600);border-color:var(--p-600)"></div>
+            <div class="apt-legend-dot" style="background:var(--p-600);border-color:var(--p-600)"></div>
             Selecionado
           </div>
           <div class="apt-legend-item">
-            <div class="apt-legend-dot"
-                 style="background:var(--n-50);border-color:var(--n-100)"></div>
+            <div class="apt-legend-dot" style="background:var(--n-100);border-color:var(--n-200)"></div>
             Ocupado
           </div>
           <div class="apt-legend-item">
-            <div class="apt-legend-dot"
-                 style="background:var(--n-0);border-color:var(--n-200)"></div>
+            <div class="apt-legend-dot" style="background:var(--n-0);border-color:var(--n-200)"></div>
             Disponível
           </div>
         </div>
+
         <div class="action-row">
           <button class="ct-btn-ghost" onclick="irPasso(1)">Voltar</button>
           <button class="ct-btn-primary" onclick="irPasso(3)">Continuar</button>

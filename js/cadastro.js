@@ -108,6 +108,8 @@ function limparCondo() {
 }
 
 // ── Carrega apartamentos filtrados pelo condomínio ────────────
+let blocoAtivo = ''
+
 async function carregarApartamentos() {
   const grid = document.getElementById('apt-grid')
   if (!grid) return
@@ -115,7 +117,8 @@ async function carregarApartamentos() {
   TODOS_APTOS.length = 0
   OCUPADOS_SET.clear()
 
-  grid.innerHTML = '<div style="grid-column:span 5;text-align:center;font-size:12px;color:var(--n-400);padding:16px">Carregando apartamentos...</div>'
+  grid.innerHTML = '<div style="grid-column:span 6;text-align:center;font-size:12px;color:var(--n-400);padding:16px">Carregando apartamentos...</div>'
+  document.getElementById('apt-blocos').innerHTML = ''
 
   const { data, error } = await db
     .from('apartamentos')
@@ -124,7 +127,7 @@ async function carregarApartamentos() {
     .order('bloco').order('numero')
 
   if (error || !data?.length) {
-    grid.innerHTML = '<div style="grid-column:span 5;text-align:center;font-size:12px;color:var(--c-danger);padding:16px">Erro ao carregar apartamentos.</div>'
+    grid.innerHTML = '<div style="grid-column:span 6;text-align:center;font-size:12px;color:var(--c-danger);padding:16px">Erro ao carregar apartamentos.</div>'
     return
   }
 
@@ -133,50 +136,109 @@ async function carregarApartamentos() {
     if (a.status === 'ocupado') OCUPADOS_SET.add(a.id)
   })
 
+  // Detecta blocos disponíveis
+  const blocos = [...new Set(TODOS_APTOS.map(a => a.bloco))].sort()
+  // Mantém bloco ativo se ainda existe, senão usa o primeiro
+  if (!blocos.includes(blocoAtivo)) blocoAtivo = blocos[0] || ''
+
+  renderizarBlocos(blocos)
   renderizarGradeAptos()
   iniciarBuscaApto()
 }
 
+function renderizarBlocos(blocos) {
+  const container = document.getElementById('apt-blocos')
+  if (!container) return
+  container.innerHTML = ''
+
+  // Se só tem 1 bloco, não exibe as abas
+  if (blocos.length <= 1) return
+
+  blocos.forEach(b => {
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className = 'apt-bloco-btn' + (b === blocoAtivo ? ' active' : '')
+    btn.textContent = `Bloco ${b}`
+    btn.addEventListener('click', () => {
+      blocoAtivo = b
+      document.querySelectorAll('.apt-bloco-btn').forEach(el => el.classList.remove('active'))
+      btn.classList.add('active')
+      // Limpa busca ao trocar de bloco
+      const busca = document.getElementById('busca-apto')
+      if (busca) busca.value = ''
+      renderizarGradeAptos()
+    })
+    container.appendChild(btn)
+  })
+}
+
 function renderizarGradeAptos(filtro = '') {
   const grid = document.getElementById('apt-grid')
+  const info = document.getElementById('apt-bloco-info')
   if (!grid) return
-  grid.innerHTML = ''
 
-  // Ordena naturalmente (101 antes de 102, não alfabético)
-  const sorted = [...TODOS_APTOS].sort((a, b) => {
-    if (a.bloco !== b.bloco) return a.bloco.localeCompare(b.bloco)
-    return a.numero.localeCompare(b.numero, undefined, { numeric: true })
-  })
+  const listaBloco = TODOS_APTOS.filter(a => a.bloco === blocoAtivo)
+
+  // Ordena naturalmente
+  const sorted = [...listaBloco].sort((a, b) =>
+    a.numero.localeCompare(b.numero, undefined, { numeric: true })
+  )
 
   const lista = filtro
     ? sorted.filter(a => formatarApto(a).toLowerCase().includes(filtro.toLowerCase()))
     : sorted
 
+  // Info do bloco
+  if (info) {
+    const livres = listaBloco.filter(a => !OCUPADOS_SET.has(a.id)).length
+    info.textContent = filtro
+      ? `${lista.length} resultado${lista.length !== 1 ? 's' : ''}`
+      : `Bloco ${blocoAtivo} · ${livres} disponíve${livres !== 1 ? 'is' : 'l'} de ${listaBloco.length}`
+  }
+
   if (!lista.length) {
-    grid.innerHTML = '<div style="grid-column:span 5;text-align:center;font-size:12px;color:var(--n-400);padding:16px">Nenhum apartamento encontrado.</div>'
+    grid.innerHTML = '<div style="grid-column:span 6;text-align:center;font-size:12px;color:var(--n-400);padding:16px">Nenhum apartamento encontrado.</div>'
     return
   }
 
+  grid.innerHTML = ''
   lista.forEach(a => {
+    const ocupado = OCUPADOS_SET.has(a.id)
+    const selecionado = estado.aptoId === a.id
     const btn = document.createElement('button')
     btn.type = 'button'
-    btn.className = 'apt-btn'
+    btn.className = 'apt-btn' + (selecionado ? ' selected' : '')
     btn.textContent = formatarApto(a)
-    btn.title = `Bloco ${a.bloco} · Apto ${a.numero}`
+    btn.title = ocupado ? 'Ocupado' : `Selecionar ${formatarApto(a)}`
+    btn.disabled = ocupado
 
-    if (OCUPADOS_SET.has(a.id)) {
-      btn.disabled = true
-    } else {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.apt-btn').forEach(b => b.classList.remove('selected'))
-        btn.classList.add('selected')
-        estado.aptoSelecionado = formatarApto(a)
-        estado.aptoId          = a.id
-        limparErro('apto-err')
-      })
+    if (!ocupado) {
+      btn.addEventListener('click', () => selecionarApto(a, btn))
     }
     grid.appendChild(btn)
   })
+}
+
+function selecionarApto(a, btnClicado) {
+  // Desmarca visualmente todos
+  document.querySelectorAll('.apt-btn').forEach(b => b.classList.remove('selected'))
+  btnClicado.classList.add('selected')
+
+  estado.aptoSelecionado = formatarApto(a)
+  estado.aptoId          = a.id
+  limparErro('apto-err')
+
+  // Atualiza mini card
+  document.getElementById('apt-selecionado-txt').textContent =
+    `Apto ${estado.aptoSelecionado} selecionado`
+  document.getElementById('apt-selecionado-card').classList.add('visivel')
+}
+
+function desselecionarApto() {
+  estado.aptoSelecionado = ''
+  estado.aptoId          = ''
+  document.querySelectorAll('.apt-btn').forEach(b => b.classList.remove('selected'))
+  document.getElementById('apt-selecionado-card').classList.remove('visivel')
 }
 
 // Formata o apto de forma consistente:
@@ -190,10 +252,11 @@ function formatarApto(a) {
 function iniciarBuscaApto() {
   const input = document.getElementById('busca-apto')
   if (!input) return
-  input.addEventListener('input', () => {
-    estado.aptoSelecionado = ''
-    estado.aptoId          = ''
-    renderizarGradeAptos(input.value.trim())
+  // Remove listener anterior se existir
+  input.replaceWith(input.cloneNode(true))
+  const novoInput = document.getElementById('busca-apto')
+  novoInput.addEventListener('input', () => {
+    renderizarGradeAptos(novoInput.value.trim())
   })
 }
 
@@ -225,7 +288,10 @@ async function irPasso(destino) {
   if (estado.stepAtual === 2) {
     const condoMudou = TODOS_APTOS.length === 0 ||
       TODOS_APTOS[0]?.condominio_id !== estado.condominioId
-    if (condoMudou) await carregarApartamentos()
+    if (condoMudou) {
+      blocoAtivo = '' // reseta bloco ao trocar de condomínio
+      await carregarApartamentos()
+    }
   }
 
   if (estado.stepAtual === 3) {
