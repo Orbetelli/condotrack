@@ -192,7 +192,7 @@ async function carregarCondominios(filtro = '') {
         <button class="mini-btn" onclick="editarCondo('${c.id}')">Editar</button>
         ${c.status === 'pendente'
           ? `<button class="mini-btn primary" onclick="alert('Convite por e-mail disponível no tópico 5')">Reenviar convite</button>`
-          : `<button class="mini-btn primary" onclick="alert('Acesso direto disponível em breve')">Acessar painel</button>`}
+          : `<button class="mini-btn primary" onclick="acessarPainelCondo('${c.id}','${c.nome.replace(/'/g,"\\'")}')">Acessar painel</button>`}
       </div>`
     grid.insertBefore(card, addCard)
   })
@@ -551,15 +551,24 @@ async function salvarSuperAdmin(e) {
 }
 
 // ── Modal: novo/editar condomínio ─────────────────────────────
+function acessarPainelCondo(condoId, condoNome) {
+  sessionStorage.setItem('sa_impersonate_condo_id',   condoId)
+  sessionStorage.setItem('sa_impersonate_condo_nome', condoNome)
+  window.location.href = 'admin.html'
+}
+
 function abrirModalNovo() {
   condominioEditando = null
   document.getElementById('modal-title').textContent = 'Novo condomínio'
   document.getElementById('form-condo').reset()
   limparTodosErros('err-nome-c','err-end-c','err-sindico','err-email-s','err-cnpj')
-  alternarModoApto('auto')
-  const preview = document.getElementById('preview-aptos')
-  if (preview) preview.style.display = 'none'
   document.getElementById('modal-condo').classList.add('open')
+  // Reseta modo após abrir para garantir que os elementos existem no DOM
+  setTimeout(() => {
+    alternarModoApto('auto')
+    const preview = document.getElementById('preview-aptos')
+    if (preview) preview.style.display = 'none'
+  }, 50)
 }
 
 async function editarCondo(id) {
