@@ -104,6 +104,19 @@ function mudarTab(tab) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'))
   document.querySelector(`[data-tab="${tab}"]`)?.classList.add('active')
 
+  // Sincroniza sidebar
+  const tipMap = {
+    dashboard:    'Dashboard',
+    porteiros:    'Porteiros',
+    moradores:    'Moradores',
+    apartamentos: 'Apartamentos',
+    relatorios:   'Relatórios',
+    configuracoes:'Configurações',
+  }
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'))
+  const sbTip = tipMap[tab]
+  if (sbTip) document.querySelector(`.sb-item[data-tip="${sbTip}"]`)?.classList.add('active')
+
   const acoes = {
     dashboard:    null,
     porteiros:    { label: '+ Novo porteiro', fn: 'abrirModalPorteiro()' },
@@ -467,7 +480,17 @@ function abrirModalPorteiro(id = null) {
   document.getElementById('p-email').value   = editando?.email   || ''
   document.getElementById('p-turno').value   = editando?.turno   || 'A'
   document.getElementById('p-periodo').value = editando?.periodo || 'Manhã'
-  limparTodosErros('err-p-nome', 'err-p-email')
+  limparTodosErros('err-p-nome', 'err-p-email', 'err-p-senha')
+
+  // Campo senha só aparece ao criar novo porteiro
+  document.getElementById('campo-senha-porteiro').style.display = editando ? 'none' : 'block'
+
+  // Reseta a caixa de credenciais
+  document.getElementById('credenciais-box').style.display  = 'none'
+  document.getElementById('credenciais-texto').textContent  = ''
+  const actions = document.querySelector('#form-porteiro .modal-actions')
+  if (actions) actions.style.display = 'flex'
+
   document.getElementById('modal-porteiro').classList.add('open')
   document.getElementById('modal-porteiro').dataset.editId = id || ''
 }
@@ -500,7 +523,10 @@ async function salvarPorteiro(e) {
       return
     }
   } else {
-    const senhaTemp = Math.random().toString(36).slice(-8) + 'Aa1!'
+    // Gera senha temporária segura
+    const senhaTemp = Math.random().toString(36).slice(-6).toUpperCase() +
+                      Math.random().toString(36).slice(-6) + 'A1!'
+
     const { data: authData, error: authError } = await db.auth.signUp({
       email,
       password: senhaTemp,
@@ -512,8 +538,15 @@ async function salvarPorteiro(e) {
       return
     }
 
+    const userId = authData.user?.id ?? authData.session?.user?.id
+    if (!userId) {
+      mostrarErro('err-p-email', 'Não foi possível criar a conta. Verifique se o e-mail já está cadastrado.')
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar porteiro' }
+      return
+    }
+
     const { error: dbError } = await db.from('usuarios').insert({
-      auth_id:       authData.user?.id,
+      auth_id:       userId,
       condominio_id: usuarioLogado.condominio_id,
       perfil:        'porteiro',
       nome, email, turno, periodo,
@@ -524,11 +557,48 @@ async function salvarPorteiro(e) {
       if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar porteiro' }
       return
     }
+
+    // Exibe credenciais para o síndico copiar/compartilhar
+    cachePorteiros = []
+    const textoCredenciais =
+      `Porteiro: ${nome}\nE-mail: ${email}\nSenha temporária: ${senhaTemp}\n\nAcesso: ${window.location.origin}/pages/login.html`
+    document.getElementById('credenciais-texto').textContent = textoCredenciais
+    document.getElementById('credenciais-box').style.display = 'block'
+    document.getElementById('campo-senha-porteiro').style.display = 'none'
+    // Esconde os botões de ação enquanto exibe credenciais
+    const actions = document.querySelector('#form-porteiro .modal-actions')
+    if (actions) actions.style.display = 'none'
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar porteiro' }
+    return
   }
 
   cachePorteiros = []
   fecharModal()
   renderTab(tabAtiva)
+}
+
+function copiarCredenciais() {
+  const texto = document.getElementById('credenciais-texto')?.textContent || ''
+  navigator.clipboard.writeText(texto).then(() => {
+    const btnCopiar = document.getElementById('btn-copiar-texto')
+    if (btnCopiar) {
+      btnCopiar.textContent = '✓ Copiado!'
+      setTimeout(() => { btnCopiar.textContent = 'Copiar credenciais' }, 2000)
+    }
+  }).catch(() => {
+    // Fallback para navegadores sem clipboard API
+    const ta = document.createElement('textarea')
+    ta.value = texto
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    document.body.removeChild(ta)
+    const btnCopiar = document.getElementById('btn-copiar-texto')
+    if (btnCopiar) {
+      btnCopiar.textContent = '✓ Copiado!'
+      setTimeout(() => { btnCopiar.textContent = 'Copiar credenciais' }, 2000)
+    }
+  })
 }
 
 // ── Modal morador (pré-cadastro) ──────────────────────────────
@@ -600,8 +670,12 @@ async function salvarMorador(e) {
 
 // ── Fechar modais ─────────────────────────────────────────────
 function fecharModal() {
+  const temCredenciais =
+    document.getElementById('credenciais-box')?.style.display === 'block'
   document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open'))
   modalAtivo = null
+  // Se fechou após criar porteiro (credenciais visíveis), atualiza a lista
+  if (temCredenciais) renderTab(tabAtiva)
 }
 
 // ── Sidebar ───────────────────────────────────────────────────
@@ -786,7 +860,7 @@ async function salvarSenhaSindico() {
   }
 
   fecharModal()
-  alert('Senha alterada com sucesso!')
+  mostrarToast('Senha alterada com sucesso!')
 }
 
 function voltarSuperAdmin() {
@@ -806,4 +880,26 @@ async function registrarLog(tipo, descricao) {
       status:        'sucesso',
     })
   } catch (_) {}
+}
+
+// ── Toast de feedback (substitui alert) ──────────────────────
+function mostrarToast(msg, tipo = 'sucesso') {
+  const cores = {
+    sucesso: { bg: '#F0FDF4', border: '#BBF7D0', color: '#166534', icon: '✓' },
+    erro:    { bg: '#FEF2F2', border: '#FECACA', color: '#991B1B', icon: '✕' },
+  }
+  const c = cores[tipo] || cores.sucesso
+  const toast = document.createElement('div')
+  toast.style.cssText = `
+    position:fixed;bottom:24px;right:24px;z-index:9999;
+    background:${c.bg};border:1.5px solid ${c.border};color:${c.color};
+    padding:12px 18px;border-radius:var(--radius-md);
+    font-size:13px;font-weight:600;font-family:var(--font-sans);
+    display:flex;align-items:center;gap:8px;
+    box-shadow:0 4px 16px rgba(0,0,0,.12);
+    animation:fadeUp .2s ease both;
+  `
+  toast.innerHTML = `<span>${c.icon}</span><span>${msg}</span>`
+  document.body.appendChild(toast)
+  setTimeout(() => toast.remove(), 3000)
 }
