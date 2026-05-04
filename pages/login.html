@@ -38,7 +38,7 @@
         <div class="form-field anim-3">
           <div class="field-row">
             <label class="ct-label" for="senha" style="margin:0">Senha</label>
-            <button type="button" class="forgot-link">Esqueci minha senha</button>
+            <button type="button" class="forgot-link" onclick="abrirEsqueciSenha()">Esqueci minha senha</button>
           </div>
           <div class="ct-input-wrap">
             <input class="ct-input" type="password" id="senha"
@@ -57,8 +57,7 @@
 
         <div class="anim-4" style="margin-top:4px">
           <div class="ct-error" id="form-error" style="display:none"></div>
-          <button type="submit" class="ct-btn-primary" id="login-btn"
-                  onclick="handleLogin(event)">
+          <button type="submit" class="ct-btn-primary" id="login-btn">
             <span data-texto style="display:flex;align-items:center;gap:8px">
               Entrar
               <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none"
@@ -96,5 +95,77 @@
 <script src="../js/supabase.js"></script>
 <script src="../js/utils.js"></script>
 <script src="../js/login.js"></script>
+
+<!-- ── Modal: esqueci minha senha ── -->
+<div id="modal-reset" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);
+     z-index:50;align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--n-0);border-radius:var(--radius-xl);width:100%;max-width:400px;
+              padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.25);
+              animation:fadeUp .2s ease both">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div style="font-size:17px;font-weight:700;color:var(--n-900)">Recuperar senha</div>
+      <button onclick="fecharEsqueciSenha()"
+              style="width:28px;height:28px;border-radius:8px;background:var(--n-100);
+                     border:none;cursor:pointer;display:flex;align-items:center;
+                     justify-content:center;transition:background .12s"
+              onmouseenter="this.style.background='var(--n-200)'"
+              onmouseleave="this.style.background='var(--n-100)'">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"
+             fill="none" stroke="var(--n-500)" style="width:14px;height:14px">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Formulário de envio -->
+    <div id="reset-form">
+      <p style="font-size:13px;color:var(--n-500);line-height:1.6;margin-bottom:18px">
+        Informe seu e-mail cadastrado. Enviaremos um link para você criar uma nova senha.
+      </p>
+      <div style="margin-bottom:14px">
+        <label class="ct-label" for="reset-email">E-mail</label>
+        <input class="ct-input" type="email" id="reset-email" placeholder="seu@email.com" />
+        <div class="ct-error" id="reset-email-error" style="display:none"></div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button type="button" class="ct-btn-ghost" onclick="fecharEsqueciSenha()"
+                style="flex:1;justify-content:center">Cancelar</button>
+        <button type="button" class="ct-btn-primary" id="btn-enviar-reset"
+                onclick="enviarResetSenha()" style="flex:2">
+          <span id="reset-btn-texto" style="display:flex;align-items:center;gap:8px">
+            Enviar link
+            <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+                 style="width:14px;height:14px" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </span>
+          <span id="reset-btn-spinner" class="spinner" style="display:none"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tela de sucesso -->
+    <div id="reset-sucesso" style="display:none;text-align:center;padding:8px 0">
+      <div style="width:56px;height:56px;background:#F0FDF4;border-radius:50%;
+                  display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round"
+             stroke-linejoin="round" fill="none" stroke="#16A34A" style="width:28px;height:28px">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+      </div>
+      <div style="font-size:16px;font-weight:700;color:var(--n-900);margin-bottom:8px">Link enviado!</div>
+      <p style="font-size:13px;color:var(--n-500);line-height:1.6;margin-bottom:20px">
+        Verifique sua caixa de entrada (e o spam) e clique no link para criar uma nova senha.
+      </p>
+      <button onclick="fecharEsqueciSenha()" class="ct-btn-primary"
+              style="width:auto;padding:9px 24px">Fechar</button>
+    </div>
+
+  </div>
+</div>
 </body>
 </html>
