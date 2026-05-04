@@ -369,9 +369,9 @@ async function carregarEntregas() {
     .from('entregas')
     .select(`
       id, transportadora, volumes, status, obs,
-      recebido_em, retirado_em,
+      recebido_em, retirado_em, morador_id,
       apartamentos ( numero, bloco ),
-      usuarios!porteiro_id ( nome )
+      morador:usuarios!morador_id ( nome )
     `)
     .eq('condominio_id', usuarioLogado.condominio_id)
     .order('recebido_em', { ascending: false })
@@ -379,21 +379,32 @@ async function carregarEntregas() {
   if (error) { console.error('Erro ao carregar entregas:', error); return }
 
   todasEntregas = (data || []).map(e => ({
-    id:      e.id,
-    apto:    e.apartamentos ? `${e.apartamentos.bloco}-${e.apartamentos.numero}` : '—',
-    morador: '—',
-    trans:   e.transportadora,
-    data:    new Date(e.recebido_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }),
-    hora:    new Date(e.recebido_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
-    volumes: e.volumes,
-    status:  e.status,
-    obs:     e.obs || '',
+    id:        e.id,
+    apto:      e.apartamentos ? `${e.apartamentos.bloco}-${e.apartamentos.numero}` : '—',
+    morador:   e.morador?.nome || '—',
+    moradorId: e.morador_id    || null,
+    trans:     e.transportadora,
+    data:      new Date(e.recebido_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }),
+    hora:      new Date(e.recebido_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
+    volumes:   e.volumes,
+    status:    e.status,
+    obs:       e.obs || '',
   }))
 
   const body = document.getElementById('tab-body-porteiro')
   if (!body) return
-  if (tabPorteiroAtiva === 'dashboard') renderDashboard(body)
-  else if (tabPorteiroAtiva === 'entregas') renderEntregas(body)
+
+  if (tabPorteiroAtiva === 'dashboard') {
+    // Se o dashboard já está montado, só atualiza stats e cards sem recriar o HTML
+    if (document.getElementById('stat-aguardando')) {
+      renderStats()
+      renderCards()
+    } else {
+      renderDashboard(body)
+    }
+  } else if (tabPorteiroAtiva === 'entregas') {
+    renderEntregas(body)
+  }
   atualizarDotNotif()
 }
 
@@ -589,7 +600,7 @@ function buscarMoradoresApto() {
 
 // ── Notificações ──────────────────────────────────────────────
 let notifAberto = false
-let notifLidas  = new Set(JSON.parse(localStorage.getItem('notif_lidas') || '[]'))
+let notifLidas  = new Set(JSON.parse(sessionStorage.getItem('notif_lidas') || '[]'))
 
 function toggleNotificacoes() {
   notifAberto = !notifAberto
@@ -645,7 +656,7 @@ function renderNotificacoes() {
 
 function abrirDetalheNotif(id) {
   notifLidas.add(id)
-  localStorage.setItem('notif_lidas', JSON.stringify([...notifLidas]))
+  sessionStorage.setItem('notif_lidas', JSON.stringify([...notifLidas]))
   toggleNotificacoes()
   abrirDetalhe(id)
   atualizarDotNotif()
@@ -653,7 +664,7 @@ function abrirDetalheNotif(id) {
 
 function marcarTodasLidas() {
   todasEntregas.forEach(e => notifLidas.add(e.id))
-  localStorage.setItem('notif_lidas', JSON.stringify([...notifLidas]))
+  sessionStorage.setItem('notif_lidas', JSON.stringify([...notifLidas]))
   renderNotificacoes()
   atualizarDotNotif()
 }
@@ -764,6 +775,8 @@ async function salvarEntrega(e) {
 
   fecharModalNova()
   await carregarEntregas()
+  // Garante que o porteiro veja a entrega recém-registrada no dashboard
+  if (tabPorteiroAtiva !== 'dashboard') mudarTabPorteiro('dashboard')
 }
 
 // ── Detalhe ───────────────────────────────────────────────────
@@ -836,7 +849,9 @@ async function confirmarRetirada() {
 }
 
 function ativarFiltro(chip, status) {
-  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'))
+  // Restringe ao container do dashboard para não afetar chips de outras abas
+  const container = document.getElementById('tab-body-porteiro')
+  container?.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'))
   chip.classList.add('active')
   filtroAtivo = status
   renderCards()
