@@ -316,6 +316,67 @@
   </div>
 </div>
 
+<!-- ── Modal: detalhe do morador ── -->
+<div class="modal-overlay" id="modal-detalhe-morador">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Detalhes do morador</div>
+      <button class="modal-close" onclick="fecharModal()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Avatar + nome -->
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;
+                background:var(--p-50);border:1.5px solid var(--p-100);
+                border-radius:var(--radius-md);padding:14px 16px">
+      <div id="det-mor-avatar"
+           style="width:44px;height:44px;border-radius:50%;background:var(--p-100);
+                  color:var(--p-700);font-size:16px;font-weight:700;
+                  display:flex;align-items:center;justify-content:center;flex-shrink:0"></div>
+      <div>
+        <div id="det-mor-nome"   style="font-size:15px;font-weight:700;color:var(--n-900)"></div>
+        <div id="det-mor-status" style="font-size:11px;font-weight:600;margin-top:3px"></div>
+      </div>
+    </div>
+
+    <!-- Campos de informação -->
+    <div style="display:flex;flex-direction:column;gap:0;border:1px solid var(--n-200);
+                border-radius:var(--radius-md);overflow:hidden;margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--n-100)">
+        <span style="font-size:12px;color:var(--n-500)">Apartamento</span>
+        <strong id="det-mor-apto"     style="font-size:12px;color:var(--n-900)">—</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--n-100)">
+        <span style="font-size:12px;color:var(--n-500)">E-mail</span>
+        <strong id="det-mor-email"    style="font-size:12px;color:var(--p-600);word-break:break-all">—</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--n-100)">
+        <span style="font-size:12px;color:var(--n-500)">Telefone</span>
+        <strong id="det-mor-tel"      style="font-size:12px;color:var(--n-900)">—</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:10px 14px">
+        <span style="font-size:12px;color:var(--n-500)">CPF</span>
+        <strong id="det-mor-cpf"      style="font-size:12px;color:var(--n-900)">—</strong>
+      </div>
+    </div>
+
+    <!-- Últimas entregas do morador -->
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+                color:var(--n-400);margin-bottom:8px">Últimas entregas</div>
+    <div id="det-mor-entregas"
+         style="border:1px solid var(--n-200);border-radius:var(--radius-md);
+                overflow:hidden;margin-bottom:20px;min-height:44px">
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
 <script src="../js/utils.js"></script>

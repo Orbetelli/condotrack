@@ -166,7 +166,7 @@ async function getMoradores() {
   if (cacheMoradores.length) return cacheMoradores
   const { data } = await db
     .from('usuarios')
-    .select('id, nome, email, status, apartamentos(numero, bloco)')
+    .select('id, nome, email, status, apartamento_id, apartamentos(numero, bloco)')
     .eq('condominio_id', usuarioLogado.condominio_id)
     .eq('perfil', 'morador')
     .order('nome')
@@ -367,7 +367,7 @@ function moradorRows(lista) {
             <div class="panel-row-sub">Apto ${m.apto} · ${m.email || '—'}</div>
           </div>
           <span class="panel-row-badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>
-          <button class="panel-row-btn" title="Ver detalhes">
+          <button class="panel-row-btn" title="Ver detalhes" onclick="abrirDetalhesMorador('${m.id}')">
             <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
           </button>
         </div>`
@@ -422,10 +422,101 @@ function renderGradeAptos(aptos) {
   const lista = aptos.filter(a => a.bloco === blocoAtivo)
   grid.innerHTML = lista.map(a => {
     const oc = a.status === 'ocupado'
-    return `<div class="apto-item ${oc ? 'ocupado' : 'disponivel'}" title="${oc ? 'Ocupado' : 'Disponível'}">${a.numero}</div>`
+    return `<div
+      class="apto-item ${oc ? 'ocupado' : 'disponivel'}"
+      title="${oc ? 'Clique para ver o morador' : 'Disponível'}"
+      style="${oc ? 'cursor:pointer' : ''}"
+      onclick="${oc ? `abrirDetalhesPorApto('${a.id}','${a.bloco}-${a.numero}')` : ''}"
+    >${a.numero}</div>`
   }).join('')
   const ocQtd = lista.filter(a => a.status === 'ocupado').length
   if (info) info.textContent = `Bloco ${blocoAtivo}: ${ocQtd} ocupados · ${lista.length - ocQtd} disponíveis`
+}
+
+// ── Detalhe do morador (via lista) ───────────────────────────
+async function abrirDetalhesMorador(moradorId) {
+  // Busca dados completos do morador (cache pode não ter telefone/cpf)
+  const { data: m } = await db
+    .from('usuarios')
+    .select('id, nome, email, telefone, cpf, status, apartamentos(numero, bloco)')
+    .eq('id', moradorId)
+    .single()
+  if (!m) return
+  await preencherModalMorador(m, m.apartamentos
+    ? `${m.apartamentos.bloco}-${m.apartamentos.numero}` : '—')
+}
+
+// ── Detalhe do morador (via clique no apartamento) ────────────
+async function abrirDetalhesPorApto(aptoId, aptoLabel) {
+  const { data: m } = await db
+    .from('usuarios')
+    .select('id, nome, email, telefone, cpf, status')
+    .eq('apartamento_id', aptoId)
+    .eq('perfil', 'morador')
+    .single()
+
+  if (!m) {
+    // Apartamento ocupado mas sem morador vinculado na tabela usuarios
+    mostrarToast('Morador não encontrado para este apartamento.', 'erro')
+    return
+  }
+  await preencherModalMorador(m, aptoLabel)
+}
+
+// ── Preenche e abre o modal de detalhe ───────────────────────
+async function preencherModalMorador(m, aptoLabel) {
+  const ini = m.nome.split(' ').map(n => n[0]).slice(0, 2).join('')
+  const cfg = STATUS_CFG[m.status] || STATUS_CFG.pendente
+
+  document.getElementById('det-mor-avatar').textContent    = ini
+  document.getElementById('det-mor-nome').textContent      = m.nome
+  document.getElementById('det-mor-status').textContent    = cfg.label
+  document.getElementById('det-mor-status').style.color    = cfg.color
+  document.getElementById('det-mor-apto').textContent      = aptoLabel
+  document.getElementById('det-mor-email').textContent     = m.email    || '—'
+  document.getElementById('det-mor-tel').textContent       = m.telefone || '—'
+
+  // Formata CPF se existir
+  const cpfNum = (m.cpf || '').replace(/\D/g, '')
+  document.getElementById('det-mor-cpf').textContent = cpfNum.length === 11
+    ? cpfNum.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+    : (m.cpf || '—')
+
+  // Carrega últimas 5 entregas deste morador
+  const entregasEl = document.getElementById('det-mor-entregas')
+  entregasEl.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--n-400)">Carregando...</div>'
+
+  document.getElementById('modal-detalhe-morador').classList.add('open')
+
+  const { data: entregas } = await db
+    .from('entregas')
+    .select('transportadora, status, recebido_em, volumes')
+    .eq('morador_id', m.id)
+    .order('recebido_em', { ascending: false })
+    .limit(5)
+
+  if (!entregas?.length) {
+    entregasEl.innerHTML =
+      '<div style="padding:10px 14px;font-size:12px;color:var(--n-400)">Nenhuma entrega registrada</div>'
+    return
+  }
+
+  entregasEl.innerHTML = entregas.map((e, i) => {
+    const cfg = STATUS_CFG[e.status] || STATUS_CFG.aguardando
+    const data = new Date(e.recebido_em).toLocaleDateString('pt-BR',
+      { day: '2-digit', month: '2-digit', year: '2-digit' })
+    const borda = i < entregas.length - 1 ? 'border-bottom:1px solid var(--n-100);' : ''
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;${borda}">
+        <div style="width:7px;height:7px;border-radius:50%;background:${cfg.dot||'#ccc'};flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;color:var(--n-900)">${e.transportadora}</div>
+          <div style="font-size:11px;color:var(--n-500)">${data} · ${e.volumes} volume${e.volumes > 1 ? 's' : ''}</div>
+        </div>
+        <span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;
+                     background:${cfg.bg};color:${cfg.color};white-space:nowrap">${cfg.label}</span>
+      </div>`
+  }).join('')
 }
 
 // ── Relatórios ────────────────────────────────────────────────
