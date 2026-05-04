@@ -89,10 +89,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   await renderTab('dashboard')
   bindEvents()
 
-  // Tempo real — entregas
+  // Tempo real — entregas, moradores e porteiros
   db.channel('admin-entregas')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, () => {
       cacheEntregas = []
+      renderTab(tabAtiva)
+    })
+    .subscribe()
+
+  db.channel('admin-usuarios')
+    .on('postgres_changes', {
+      event:  '*',
+      schema: 'public',
+      table:  'usuarios',
+      filter: `condominio_id=eq.${usuarioLogado.condominio_id}`,
+    }, () => {
+      cacheMoradores  = []
+      cachePorteiros  = []
       renderTab(tabAtiva)
     })
     .subscribe()
@@ -708,13 +721,35 @@ async function salvarMorador(e) {
   const apto  = document.getElementById('m-apto').value.trim().toUpperCase()
   const cpf   = document.getElementById('m-cpf')?.value.replace(/\D/g, '') || null
   let ok = true
-  if (!nome)                 { mostrarErro('err-m-nome',  'Informe o nome.'); ok = false }
-  if (!isEmailValido(email)) { mostrarErro('err-m-email', 'Informe um e-mail válido.'); ok = false }
-  if (!apto)                 { mostrarErro('err-m-apto',  'Informe o apartamento.'); ok = false }
+
+  if (!nome) { mostrarErro('err-m-nome', 'Informe o nome.'); ok = false }
+
+  // E-mail é opcional — se informado, precisa ser válido
+  if (email && !isEmailValido(email)) {
+    mostrarErro('err-m-email', 'E-mail informado é inválido.')
+    ok = false
+  }
+
+  if (!apto) { mostrarErro('err-m-apto', 'Informe o apartamento.'); ok = false }
   if (!ok) return
 
   const btn = e.submitter
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
+  // Verifica e-mail duplicado (apenas se informado)
+  if (email) {
+    const { data: existente } = await db
+      .from('usuarios')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle()
+
+    if (existente) {
+      mostrarErro('err-m-email', 'Este e-mail já está cadastrado no sistema.')
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Pré-cadastrar' }
+      return
+    }
+  }
 
   const partes = apto.split('-')
   const bloco  = partes[0]
@@ -743,9 +778,11 @@ async function salvarMorador(e) {
     condominio_id:  usuarioLogado.condominio_id,
     apartamento_id: aptoData.id,
     perfil:         'morador',
-    nome, email,
-    cpf:            cpf || null,
-    status:         'pendente',
+    nome,
+    email:          email || null,
+    cpf:            cpf   || null,
+    // Sem e-mail → pendente (sem acesso ainda); com e-mail → convite pode ser enviado
+    status:         email ? 'pendente' : 'sem_email',
   })
 
   if (error) {
@@ -757,6 +794,13 @@ async function salvarMorador(e) {
   cacheMoradores = []
   fecharModal()
   renderTab(tabAtiva)
+
+  // Feedback visual informando sobre o status do cadastro
+  if (!email) {
+    mostrarToast('Morador cadastrado sem e-mail — acesso pendente.', 'aviso')
+  } else {
+    mostrarToast('Morador pré-cadastrado com sucesso!')
+  }
 }
 
 // ── Fechar modais ─────────────────────────────────────────────

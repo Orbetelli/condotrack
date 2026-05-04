@@ -189,27 +189,94 @@ async function carregarCondominios(filtro = '') {
   lista.forEach(c => {
     const card = document.createElement('div')
     card.className = 'condo-card'
-    card.innerHTML = `
-      <div class="condo-card-top">
-        <div>
-          <div class="condo-card-name">${c.nome}</div>
-          <div class="condo-card-addr">${c.endereco} · ${c.cidade}/${c.uf}</div>
-        </div>
-        <span class="status-pill s-${c.status}">${statusLabel(c.status)}</span>
-      </div>
-      <div class="condo-stats">
-        <div class="condo-stat">${iconAptos()} <strong>${c.total_aptos}</strong> aptos</div>
-        <div class="condo-stat">${iconRelogio()} Criado: ${new Date(c.criado_em).toLocaleDateString('pt-BR')}</div>
-      </div>
-      <div class="condo-footer">
-        <button class="mini-btn" onclick="abrirDetalhe('${c.id}')">Detalhes</button>
-        <button class="mini-btn" onclick="editarCondo('${c.id}')">Editar</button>
-        ${c.status === 'pendente'
-          ? `<button class="mini-btn primary" onclick="alert('Convite por e-mail disponível no tópico 5')">Reenviar convite</button>`
-          : `<button class="mini-btn primary" onclick="acessarPainelCondo('${c.id}','${c.nome.replace(/'/g,"\\'")}')">Acessar painel</button>`}
-      </div>`
+
+    // Textos inseridos via textContent — sem risco de XSS
+    const nomeEl  = document.createElement('div')
+    nomeEl.className = 'condo-card-name'
+    nomeEl.textContent = c.nome
+
+    const addrEl  = document.createElement('div')
+    addrEl.className = 'condo-card-addr'
+    addrEl.textContent = `${c.endereco} · ${c.cidade}/${c.uf}`
+
+    const pillEl  = document.createElement('span')
+    pillEl.className = `status-pill s-${c.status}`
+    pillEl.textContent = statusLabel(c.status)
+
+    const topDiv  = document.createElement('div')
+    topDiv.className = 'condo-card-top'
+    const topInfo = document.createElement('div')
+    topInfo.appendChild(nomeEl)
+    topInfo.appendChild(addrEl)
+    topDiv.appendChild(topInfo)
+    topDiv.appendChild(pillEl)
+
+    const statsDiv = document.createElement('div')
+    statsDiv.className = 'condo-stats'
+    statsDiv.innerHTML = `
+      <div class="condo-stat">${iconAptos()} <strong>${c.total_aptos}</strong> aptos</div>
+      <div class="condo-stat">${iconRelogio()} Criado: ${new Date(c.criado_em).toLocaleDateString('pt-BR')}</div>`
+
+    const footerDiv = document.createElement('div')
+    footerDiv.className = 'condo-footer'
+
+    const btnDetalhe = document.createElement('button')
+    btnDetalhe.className = 'mini-btn'
+    btnDetalhe.textContent = 'Detalhes'
+    btnDetalhe.addEventListener('click', () => abrirDetalhe(c.id))
+
+    const btnEditar = document.createElement('button')
+    btnEditar.className = 'mini-btn'
+    btnEditar.textContent = 'Editar'
+    btnEditar.addEventListener('click', () => editarCondo(c.id))
+
+    // Botão contextual: reenviar convite (pendente) ou acessar painel (ativo)
+    const btnAcao = document.createElement('button')
+    btnAcao.className = 'mini-btn primary'
+
+    if (c.status === 'pendente') {
+      btnAcao.textContent = 'Reenviar convite'
+      btnAcao.addEventListener('click', () => reenviarConvite(c.id, c.nome, btnAcao))
+    } else {
+      btnAcao.textContent = 'Acessar painel'
+      btnAcao.addEventListener('click', () => acessarPainelCondo(c.id, c.nome))
+    }
+
+    footerDiv.appendChild(btnDetalhe)
+    footerDiv.appendChild(btnEditar)
+    footerDiv.appendChild(btnAcao)
+
+    card.appendChild(topDiv)
+    card.appendChild(statsDiv)
+    card.appendChild(footerDiv)
+
     grid.insertBefore(card, addCard)
   })
+}
+
+// ── Reenviar convite ao síndico ───────────────────────────────
+async function reenviarConvite(condoId, condoNome, btn) {
+  const original = btn.textContent
+  btn.disabled    = true
+  btn.textContent = '...'
+
+  try {
+    const { data, error } = await db.functions.invoke('convidar-sindico', {
+      body: { condominio_id: condoId },
+    })
+
+    if (error || data?.error) {
+      mostrarToast(`Erro ao reenviar convite: ${data?.error || error?.message}`, 'erro')
+    } else {
+      mostrarToast(`Convite reenviado para ${condoNome}!`)
+    }
+  } catch (err) {
+    console.error('Erro ao reenviar convite:', err)
+    mostrarToast('Erro inesperado ao reenviar convite.', 'erro')
+  }
+
+  btn.disabled    = false
+  btn.textContent = original
 }
 
 // ── USUÁRIOS ─────────────────────────────────────────────────
