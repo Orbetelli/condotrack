@@ -191,7 +191,7 @@ async function carregarCondominios(filtro = '') {
         <button class="mini-btn" onclick="editarCondo('${c.id}')">Editar</button>
         ${c.status === 'pendente'
           ? `<button class="mini-btn primary" onclick="alert('Convite por e-mail disponível no tópico 5')">Reenviar convite</button>`
-          : `<button class="mini-btn primary" onclick="alert('Acesso direto disponível em breve')">Acessar painel</button>`}
+          : `<button class="mini-btn primary" onclick="acessarPainelCondo('${c.id}','${c.nome.replace(/'/g,"\\'")}')">Acessar painel</button>`}
       </div>`
     grid.insertBefore(card, addCard)
   })
@@ -301,33 +301,27 @@ async function salvarResetSenha(e) {
   const confirma = document.getElementById('reset-confirma').value
   let ok = true
 
-  if (nova.length < 6)   { mostrarErro('err-reset-nova',    'Mínimo 6 caracteres.'); ok = false }
-  if (nova !== confirma) { mostrarErro('err-reset-confirma','Senhas não coincidem.'); ok = false }
+  if (nova.length < 6)    { mostrarErro('err-reset-nova',    'Mínimo 6 caracteres.'); ok = false }
+  if (nova !== confirma)  { mostrarErro('err-reset-confirma','Senhas não coincidem.'); ok = false }
   if (!ok) return
 
   const btn = e.submitter
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
 
   try {
-    // Usa a Edge Function reset-senha que tem acesso à service role
-    const session = await db.auth.getSession()
-    const solicitanteAuthId = session.data.session?.user?.id
-
-    const { data, error } = await db.functions.invoke('reset-senha', {
-      body: {
-        auth_id:             resetAuthId,
-        nova_senha:          nova,
-        solicitante_auth_id: solicitanteAuthId,
-      },
+    // Usa a Admin API do Supabase para atualizar a senha
+    const { error } = await db.auth.admin.updateUserById(resetAuthId, {
+      password: nova
     })
 
-    if (error || !data?.ok) {
-      mostrarErro('err-reset-nova', data?.error || 'Erro ao redefinir senha. Tente novamente.')
+    if (error) {
+      // Fallback: atualiza via rpc se admin não disponível no frontend
+      mostrarErro('err-reset-nova', 'Erro: ' + error.message + '. Use o Supabase Dashboard para resetar.')
       if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar nova senha' }
       return
     }
 
-    // Sucesso
+    // Mostra sucesso
     document.getElementById('reset-form').style.display      = 'none'
     document.getElementById('reset-resultado').style.display = 'block'
     document.getElementById('reset-resultado').innerHTML = `
@@ -553,6 +547,14 @@ async function salvarSuperAdmin(e) {
     mostrarErro('err-sa-email', 'Erro ao criar usuário.')
     if (btn) { btn.disabled = false; btn.innerHTML = 'Criar Super Admin' }
   }
+}
+
+function acessarPainelCondo(condoId, condoNome) {
+  // Salva impersonação no sessionStorage
+  sessionStorage.setItem('sa_impersonate_condo_id',   condoId)
+  sessionStorage.setItem('sa_impersonate_condo_nome', condoNome)
+  // Redireciona para o painel do síndico
+  window.location.href = 'admin.html'
 }
 
 // ── Modal: novo/editar condomínio ─────────────────────────────

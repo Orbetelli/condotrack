@@ -26,8 +26,56 @@ let cacheApartamentos = []
 
 // ── Init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  usuarioLogado = await requireAuth(['admin'])
+  usuarioLogado = await requireAuth(['admin', 'superadmin'])
   if (!usuarioLogado) return
+
+  // Verifica impersonação do superadmin
+  const impersonateCondoId   = sessionStorage.getItem('sa_impersonate_condo_id')
+  const impersonateCondoNome = sessionStorage.getItem('sa_impersonate_condo_nome')
+
+  if (usuarioLogado.perfil === 'superadmin' && impersonateCondoId) {
+    // Sobrescreve condominio_id e nome para o condomínio selecionado
+    usuarioLogado.condominio_id = impersonateCondoId
+    usuarioLogado.condominios   = { nome: impersonateCondoNome }
+
+    // Busca dados completos do condomínio
+    const { data: condoData } = await db
+      .from('condominios')
+      .select('*')
+      .eq('id', impersonateCondoId)
+      .single()
+    if (condoData) usuarioLogado.condominios = condoData
+
+    // Mostra banner de impersonação
+    const banner = document.createElement('div')
+    banner.id = 'banner-impersonacao'
+    banner.style.cssText = `
+      position:fixed;top:0;left:0;right:0;z-index:9999;
+      background:#7C3AED;color:#fff;padding:8px 16px;
+      display:flex;align-items:center;justify-content:space-between;
+      font-size:12px;font-weight:600;
+    `
+    banner.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px">
+        <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="#fff" style="width:14px;height:14px">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        Visualizando como Super Admin — ${impersonateCondoNome}
+      </div>
+      <button onclick="voltarSuperAdmin()" style="background:rgba(255,255,255,.2);border:none;
+              color:#fff;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;
+              cursor:pointer;font-family:var(--font-sans)">
+        ← Voltar ao Super Admin
+      </button>
+    `
+    document.body.prepend(banner)
+    // Ajusta o layout para não sobrepor o header
+    document.querySelector('.shell').style.marginTop = '36px'
+  } else if (usuarioLogado.perfil === 'superadmin' && !impersonateCondoId) {
+    // Superadmin sem impersonação — volta para o painel
+    window.location.href = 'superadmin.html'
+    return
+  }
 
   // Header
   document.getElementById('header-condo').textContent   = usuarioLogado.condominios?.nome || '—'
@@ -739,6 +787,12 @@ async function salvarSenhaSindico() {
 
   fecharModal()
   alert('Senha alterada com sucesso!')
+}
+
+function voltarSuperAdmin() {
+  sessionStorage.removeItem('sa_impersonate_condo_id')
+  sessionStorage.removeItem('sa_impersonate_condo_nome')
+  window.location.href = 'superadmin.html'
 }
 
 // ── Log simples (fire-and-forget) ────────────────────────────
