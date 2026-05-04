@@ -26,20 +26,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (condoId) {
     const { data } = await db
       .from('condominios')
-      .select('nome')
+      .select('nome, status')
       .eq('id', condoId)
       .single()
-    if (data) {
+
+    if (data && data.status === 'ativo') {
       document.getElementById('nome-condo-convite').textContent = data.nome
+      document.getElementById('nome-condo-convite').dataset.condoId = condoId
     } else {
       document.getElementById('nome-condo-convite').textContent = 'condomínio não encontrado'
+      document.getElementById('nome-condo-convite').dataset.condoId = ''
+      document.getElementById('erro-link').textContent =
+        'Este link de convite é inválido ou o condomínio está inativo. Solicite um novo link ao administrador.'
+      document.getElementById('erro-link').style.display = 'block'
+      // Desabilita o formulário inteiro
+      document.querySelectorAll('#step-0 input, #step-0 button').forEach(el => el.disabled = true)
     }
-    document.getElementById('nome-condo-convite').dataset.condoId = condoId
   } else {
-    // Link de convite inválido ou acessado diretamente sem parâmetro
     document.getElementById('nome-condo-convite').textContent = '—'
     document.getElementById('nome-condo-convite').dataset.condoId = ''
-    mostrarErro('err-email', 'Link de convite inválido. Solicite um novo link ao administrador.')
+    document.getElementById('erro-link').textContent =
+      'Link de convite inválido. Solicite um novo link ao administrador.'
+    document.getElementById('erro-link').style.display = 'block'
+    document.querySelectorAll('#step-0 input, #step-0 button').forEach(el => el.disabled = true)
   }
 
   renderStep(0)
@@ -101,9 +110,21 @@ function validarPasso0() {
 
 function preencherResumo() {
   const el = document.getElementById('resumo-box')
-  if (el) el.innerHTML =
-    `Criando conta para <strong>${dadosSindico.nome}</strong><br>
-     <span style="font-size:12px;color:var(--p-600)">${dadosSindico.email}</span>`
+  if (!el) return
+  el.textContent = ''
+
+  const linha1 = document.createElement('div')
+  const strong = document.createElement('strong')
+  strong.textContent = dadosSindico.nome
+  linha1.appendChild(document.createTextNode('Criando conta para '))
+  linha1.appendChild(strong)
+
+  const linha2 = document.createElement('span')
+  linha2.style.cssText = 'font-size:12px;color:var(--p-600);display:block;margin-top:2px'
+  linha2.textContent = dadosSindico.email
+
+  el.appendChild(linha1)
+  el.appendChild(linha2)
 }
 
 // ── Finalizar — salva no Supabase ────────────────────────────
@@ -116,10 +137,15 @@ async function finalizar() {
   if (senha !== confirma) { mostrarErro('err-confirma', 'As senhas não coincidem.'); ok = false }
   if (!ok) return
 
-  const condoId = document.getElementById('nome-condo-convite')?.dataset.condoId || null
+  const condoId     = document.getElementById('nome-condo-convite')?.dataset.condoId || null
+  const btnFinalizar = document.getElementById('btn-finalizar')
 
-  // Bloqueia o botão durante o processo
-  const btnFinalizar = document.querySelector('#step-1 .ct-btn-primary')
+  // Segurança extra: bloqueia se condoId estiver vazio
+  if (!condoId) {
+    mostrarErro('err-senha', 'Link de convite inválido. Não é possível concluir o cadastro.')
+    return
+  }
+
   if (btnFinalizar) {
     btnFinalizar.disabled = true
     btnFinalizar.innerHTML = '<span class="spinner"></span>'
@@ -133,8 +159,12 @@ async function finalizar() {
     })
 
     if (authError) {
-      const msg = authError.message === 'User already registered'
-        ? 'Este e-mail já possui uma conta.'
+      const msg = (
+        authError.message?.toLowerCase().includes('already registered') ||
+        authError.message?.toLowerCase().includes('already exists') ||
+        authError.status === 422
+      )
+        ? 'Este e-mail já possui uma conta. Tente fazer login.'
         : 'Erro ao criar conta: ' + authError.message
       mostrarErro('err-senha', msg)
       if (btnFinalizar) { btnFinalizar.disabled = false; btnFinalizar.innerHTML = 'Acessar o painel' }
@@ -169,9 +199,12 @@ async function finalizar() {
     }
 
     // 3. Tela de sucesso
-    document.getElementById('step-1').style.display      = 'none'
-    document.getElementById('stepper').style.display     = 'none'
-    document.getElementById('reg-header').style.display  = 'none'
+    const nomeCondo = document.getElementById('nome-condo-convite')?.textContent || ''
+    document.getElementById('step-1').style.display       = 'none'
+    document.getElementById('stepper').style.display      = 'none'
+    document.getElementById('reg-header').style.display   = 'none'
+    document.getElementById('success-msg').textContent    =
+      `Olá, ${dadosSindico.nome}! Seu acesso ao painel do ${nomeCondo} foi criado. Confirme seu e-mail se necessário e faça o login.`
     document.getElementById('success-screen').style.display = 'block'
 
   } catch (err) {
