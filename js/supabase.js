@@ -34,11 +34,20 @@ async function getUsuarioLogado() {
   return data
 }
 
+// ── Caminho absoluto para o login — funciona de qualquer pasta ─
+function rotaLogin() {
+  // Detecta se está dentro de /pages/ ou na raiz e monta o path correto
+  const base = window.location.pathname.includes('/pages/')
+    ? '/pages/login.html'
+    : window.location.pathname.replace(/\/[^/]*$/, '/pages/login.html')
+  return window.location.origin + base
+}
+
 async function logout() {
   sessionStorage.removeItem('sa_impersonate_condo_id')
   sessionStorage.removeItem('sa_impersonate_condo_nome')
   await db.auth.signOut()
-  window.location.href = '../pages/login.html'
+  window.location.href = rotaLogin()
 }
 
 // ── Guard: redireciona se não estiver logado ─────────────────
@@ -46,12 +55,12 @@ async function requireAuth(perfilEsperado = null) {
   const usuario = await getUsuarioLogado()
 
   if (!usuario) {
-    window.location.href = 'login.html'
+    window.location.href = rotaLogin()
     return null
   }
 
   if (perfilEsperado && !perfilEsperado.includes(usuario.perfil)) {
-    window.location.href = 'login.html'
+    window.location.href = rotaLogin()
     return null
   }
 
