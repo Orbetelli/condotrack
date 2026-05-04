@@ -63,12 +63,29 @@ async function buscarCondominios(q) {
     return
   }
 
-  lista.innerHTML = data.map(c => `
-    <div class="condo-option" onclick="selecionarCondo('${c.id}', '${c.nome.replace(/'/g, "\\'")}', '${c.cidade} — ${c.uf}')">
-      <div style="font-size:13px;font-weight:600;color:var(--n-900)">${c.nome}</div>
-      <div style="font-size:11px;color:var(--n-500);margin-top:2px">${c.endereco}, ${c.cidade} — ${c.uf}</div>
-    </div>
-  `).join('')
+  lista.innerHTML = ''
+  data.forEach(c => {
+    const div = document.createElement('div')
+    div.className = 'condo-option'
+    div.dataset.id    = c.id
+    div.dataset.nome  = c.nome
+    div.dataset.local = `${c.cidade} — ${c.uf}`
+
+    const titulo = document.createElement('div')
+    titulo.style.cssText = 'font-size:13px;font-weight:600;color:var(--n-900)'
+    titulo.textContent = c.nome
+
+    const sub = document.createElement('div')
+    sub.style.cssText = 'font-size:11px;color:var(--n-500);margin-top:2px'
+    sub.textContent = `${c.endereco}, ${c.cidade} — ${c.uf}`
+
+    div.appendChild(titulo)
+    div.appendChild(sub)
+    div.addEventListener('click', () =>
+      selecionarCondo(div.dataset.id, div.dataset.nome, div.dataset.local)
+    )
+    lista.appendChild(div)
+  })
 }
 
 function selecionarCondo(id, nome, local) {
@@ -162,14 +179,11 @@ function renderizarGradeAptos(filtro = '') {
   })
 }
 
-// Formata o apto de forma inteligente:
-// Se o número já contém o bloco (ex: "101" com bloco "A") → mostra "A-101"
-// Se o condomínio tem apenas 1 bloco e número é livre → mostra só o número
+// Formata o apto de forma consistente:
+// Se o número já começa com a letra do bloco (ex: bloco "A", numero "A101") → mostra só numero
+// Caso contrário → mostra "Bloco-Numero" (ex: "A-101")
 function formatarApto(a) {
-  // Se bloco é 'A' e o número já parece incluir o bloco, mostra só o número
-  if (a.bloco === 'A' && /^\d/.test(a.numero)) return `${a.bloco}-${a.numero}`
-  // Se o número já tem letra de bloco embutida, mostra só o número
-  if (a.numero.startsWith(a.bloco)) return a.numero
+  if (a.numero.toUpperCase().startsWith(a.bloco.toUpperCase())) return a.numero
   return `${a.bloco}-${a.numero}`
 }
 
@@ -206,7 +220,13 @@ async function irPasso(destino) {
   document.getElementById('step-' + estado.stepAtual).style.display = 'block'
   atualizarStepper(estado.stepAtual)
 
-  if (estado.stepAtual === 2) await carregarApartamentos()
+  // Só recarrega apartamentos se chegou no passo 2 vindo de frente
+  // ou se o condomínio mudou (TODOS_APTOS vazio ou condoId diferente)
+  if (estado.stepAtual === 2) {
+    const condoMudou = TODOS_APTOS.length === 0 ||
+      TODOS_APTOS[0]?.condominio_id !== estado.condominioId
+    if (condoMudou) await carregarApartamentos()
+  }
 
   if (estado.stepAtual === 3) {
     const nome = document.getElementById('nome').value
@@ -262,8 +282,14 @@ async function finalizar() {
     const { data: authData, error: authError } = await db.auth.signUp({ email, password: senha })
 
     if (authError) {
-      mostrarErro('senha-err', authError.message === 'User already registered'
-        ? 'Este e-mail já está cadastrado.' : 'Erro ao criar conta: ' + authError.message)
+      const msg = (
+        authError.message?.toLowerCase().includes('already registered') ||
+        authError.message?.toLowerCase().includes('already exists') ||
+        authError.status === 422
+      )
+        ? 'Este e-mail já está cadastrado. Tente fazer login.'
+        : 'Erro ao criar conta: ' + authError.message
+      mostrarErro('senha-err', msg)
       setBtnCarregando('btn-finalizar', false)
       return
     }
@@ -299,9 +325,10 @@ async function finalizar() {
     await db.from('apartamentos').update({ status: 'ocupado' }).eq('id', estado.aptoId)
 
     // 4. Sucesso
-    document.getElementById('step-3').style.display     = 'none'
-    document.getElementById('stepper').style.display    = 'none'
-    document.getElementById('success-msg').innerHTML    =
+    document.getElementById('step-3').style.display      = 'none'
+    document.getElementById('stepper').style.display     = 'none'
+    document.getElementById('reg-header').style.display  = 'none'
+    document.getElementById('success-msg').innerHTML     =
       `Sua conta foi criada para o <strong>Apto ${estado.aptoSelecionado}</strong>, ${nome}.<br>
        Confirme seu e-mail se necessário e faça o login.`
     document.getElementById('success-screen').style.display = 'block'

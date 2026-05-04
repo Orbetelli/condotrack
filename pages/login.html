@@ -1,171 +1,180 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CondoTrack — Login</title>
-  <link rel="stylesheet" href="../css/style.css" />
-  <link rel="stylesheet" href="../css/login.css" />
-</head>
-<body>
+// ============================================================
+//  login.js — autenticação real via Supabase
+//  Identifica o perfil automaticamente pelo e-mail
+// ============================================================
 
-<div class="login-shell">
-  <div class="login-box">
+const ROTAS = {
+  superadmin: 'superadmin.html',
+  admin:      'admin.html',
+  porteiro:   'porteiro.html',
+  morador:    'morador.html',
+}
 
-    <!-- Logo centralizado -->
-    <div class="login-top anim-1">
-      <img src="../img/logo.png" alt="CondoTrack" style="height:180px;object-fit:contain;display:block;margin:0 auto"/>
-    </div>
+// ── Init ─────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('login-form')?.addEventListener('submit', handleLogin)
+})
 
-    <!-- Card de login -->
-    <div class="ct-card login-card anim-2">
+function alternarSenha() {
+  toggleSenha('senha', 'eye-icon')
+}
 
-      <div class="login-heading">
-        <h2>Bem-vindo de volta</h2>
-        <p>Entre com seu e-mail e senha para acessar</p>
-      </div>
+async function handleLogin(e) {
+  e.preventDefault()
+  limparTodosErros('email-error', 'senha-error', 'form-error')
 
-      <!-- Formulário -->
-      <form id="login-form" novalidate>
+  const email = document.getElementById('email').value.trim()
+  const senha = document.getElementById('senha').value
+  let valido  = true
 
-        <div class="form-field anim-3">
-          <label class="ct-label" for="email">E-mail</label>
-          <input class="ct-input" type="email" id="email"
-                 placeholder="seu@email.com" autocomplete="email" />
-          <div class="ct-error" id="email-error" style="display:none"></div>
-        </div>
+  if (!email || !isEmailValido(email)) {
+    mostrarErro('email-error', 'Informe um e-mail válido.')
+    valido = false
+  }
+  if (!senha || senha.length < 6) {
+    mostrarErro('senha-error', 'Mínimo 6 caracteres.')
+    valido = false
+  }
+  if (!valido) return
 
-        <div class="form-field anim-3">
-          <div class="field-row">
-            <label class="ct-label" for="senha" style="margin:0">Senha</label>
-            <button type="button" class="forgot-link" onclick="abrirEsqueciSenha()">Esqueci minha senha</button>
-          </div>
-          <div class="ct-input-wrap">
-            <input class="ct-input" type="password" id="senha"
-                   placeholder="••••••••" autocomplete="current-password" />
-            <button type="button" class="eye-btn" onclick="alternarSenha()">
-              <svg id="eye-icon" viewBox="0 0 24 24" stroke-width="2"
-                   stroke-linecap="round" fill="none"
-                   style="width:16px;height:16px;stroke:currentColor">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-            </button>
-          </div>
-          <div class="ct-error" id="senha-error" style="display:none"></div>
-        </div>
+  setBtnCarregando('login-btn', true)
 
-        <div class="anim-4" style="margin-top:4px">
-          <div class="ct-error" id="form-error" style="display:none"></div>
-          <button type="submit" class="ct-btn-primary" id="login-btn">
-            <span data-texto style="display:flex;align-items:center;gap:8px">
-              Entrar
-              <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none"
-                   stroke="currentColor" style="width:15px;height:15px">
-                <path d="M5 12h14M12 5l7 7-7 7"
-                      stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </span>
-            <span data-spinner class="spinner" style="display:none"></span>
-          </button>
-        </div>
+  try {
+    // 1. Login no Supabase Auth
+    const { data: authData, error: authError } = await db.auth.signInWithPassword({
+      email,
+      password: senha,
+    })
 
-      </form>
+    if (authError) {
+      // Correção 5: mensagem específica para e-mail não confirmado
+      const msg = authError.message?.includes('Email not confirmed')
+        ? 'Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.'
+        : 'E-mail ou senha incorretos.'
+      mostrarErro('form-error', msg)
+      setBtnCarregando('login-btn', false)
+      return
+    }
 
-    </div>
+    // 2. Busca o perfil automaticamente
+    const { data: usuario, error: userError } = await db
+      .from('usuarios')
+      .select('id, perfil, condominio_id, nome, status')
+      .eq('auth_id', authData.user.id)
+      .single()
 
-    <!-- Rodapé -->
-    <div class="login-footer anim-5">
-      Ainda não tem conta?
-      <a href="cadastro.html">Cadastre-se como morador</a>
-    </div>
+    if (userError || !usuario) {
+      mostrarErro('form-error', 'Usuário não encontrado no sistema.')
+      await db.auth.signOut()
+      setBtnCarregando('login-btn', false)
+      return
+    }
 
-    <div class="login-bottom anim-6">
-      <svg viewBox="0 0 24 24" stroke-width="2">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-        <polyline points="9 22 9 12 15 12 15 22"/>
-      </svg>
-      CondoTrack v1.0
-    </div>
+    if (usuario.status === 'inativo') {
+      mostrarErro('form-error', 'Sua conta está inativa. Entre em contato com o administrador.')
+      await db.auth.signOut()
+      setBtnCarregando('login-btn', false)
+      return
+    }
 
-  </div>
-</div>
+    // Correção 4: rota inválida — perfil desconhecido
+    if (!ROTAS[usuario.perfil]) {
+      mostrarErro('form-error', 'Perfil de acesso não reconhecido. Contate o administrador.')
+      await db.auth.signOut()
+      setBtnCarregando('login-btn', false)
+      return
+    }
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../js/supabase.js"></script>
-<script src="../js/utils.js"></script>
-<script src="../js/login.js"></script>
+    // 3. Registra histórico de acesso (fire-and-forget)
+    db.from('acessos').insert({
+      usuario_id:    usuario.id,
+      condominio_id: usuario.condominio_id,
+      perfil:        usuario.perfil,
+      nome:          usuario.nome,
+      status:        'sucesso',
+    }).then(() => {}).catch(() => {})
 
-<!-- ── Modal: esqueci minha senha ── -->
-<div id="modal-reset" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);
-     z-index:50;align-items:center;justify-content:center;padding:16px">
-  <div style="background:var(--n-0);border-radius:var(--radius-xl);width:100%;max-width:400px;
-              padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.25);
-              animation:fadeUp .2s ease both">
+    // 4. Correção 6: salva sessão com dados completos
+    salvarSessao(usuario.perfil, {
+      id:     usuario.id,
+      nome:   usuario.nome,
+      email,
+      perfil: usuario.perfil,
+    })
 
-    <!-- Header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-      <div style="font-size:17px;font-weight:700;color:var(--n-900)">Recuperar senha</div>
-      <button onclick="fecharEsqueciSenha()"
-              style="width:28px;height:28px;border-radius:8px;background:var(--n-100);
-                     border:none;cursor:pointer;display:flex;align-items:center;
-                     justify-content:center;transition:background .12s"
-              onmouseenter="this.style.background='var(--n-200)'"
-              onmouseleave="this.style.background='var(--n-100)'">
-        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"
-             fill="none" stroke="var(--n-500)" style="width:14px;height:14px">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      </button>
-    </div>
+    // 5. Redireciona para o painel correto
+    window.location.href = ROTAS[usuario.perfil]
 
-    <!-- Formulário de envio -->
-    <div id="reset-form">
-      <p style="font-size:13px;color:var(--n-500);line-height:1.6;margin-bottom:18px">
-        Informe seu e-mail cadastrado. Enviaremos um link para você criar uma nova senha.
-      </p>
-      <div style="margin-bottom:14px">
-        <label class="ct-label" for="reset-email">E-mail</label>
-        <input class="ct-input" type="email" id="reset-email" placeholder="seu@email.com" />
-        <div class="ct-error" id="reset-email-error" style="display:none"></div>
-      </div>
-      <div style="display:flex;gap:10px">
-        <button type="button" class="ct-btn-ghost" onclick="fecharEsqueciSenha()"
-                style="flex:1;justify-content:center">Cancelar</button>
-        <button type="button" class="ct-btn-primary" id="btn-enviar-reset"
-                onclick="enviarResetSenha()" style="flex:2">
-          <span id="reset-btn-texto" style="display:flex;align-items:center;gap:8px">
-            Enviar link
-            <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
-                 style="width:14px;height:14px" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13"/>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-            </svg>
-          </span>
-          <span id="reset-btn-spinner" class="spinner" style="display:none"></span>
-        </button>
-      </div>
-    </div>
+  } catch (err) {
+    console.error('Erro no login:', err)
+    mostrarErro('form-error', 'Erro inesperado. Tente novamente.')
+    setBtnCarregando('login-btn', false)
+  }
+}
 
-    <!-- Tela de sucesso -->
-    <div id="reset-sucesso" style="display:none;text-align:center;padding:8px 0">
-      <div style="width:56px;height:56px;background:#F0FDF4;border-radius:50%;
-                  display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
-        <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round"
-             stroke-linejoin="round" fill="none" stroke="#16A34A" style="width:28px;height:28px">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-          <polyline points="22 4 12 14.01 9 11.01"/>
-        </svg>
-      </div>
-      <div style="font-size:16px;font-weight:700;color:var(--n-900);margin-bottom:8px">Link enviado!</div>
-      <p style="font-size:13px;color:var(--n-500);line-height:1.6;margin-bottom:20px">
-        Verifique sua caixa de entrada (e o spam) e clique no link para criar uma nova senha.
-      </p>
-      <button onclick="fecharEsqueciSenha()" class="ct-btn-primary"
-              style="width:auto;padding:9px 24px">Fechar</button>
-    </div>
+// ── Correção 1: Esqueci minha senha ──────────────────────────
+function abrirEsqueciSenha() {
+  const modal = document.getElementById('modal-reset')
+  if (!modal) return
+  // Reseta estado
+  document.getElementById('reset-email').value        = ''
+  document.getElementById('reset-email-error').style.display = 'none'
+  document.getElementById('reset-form').style.display    = 'block'
+  document.getElementById('reset-sucesso').style.display = 'none'
+  // Pré-preenche o e-mail se já foi digitado
+  const emailDigitado = document.getElementById('email')?.value.trim()
+  if (emailDigitado) document.getElementById('reset-email').value = emailDigitado
+  modal.style.display = 'flex'
+  setTimeout(() => document.getElementById('reset-email')?.focus(), 50)
+}
 
-  </div>
-</div>
-</body>
-</html>
+function fecharEsqueciSenha() {
+  const modal = document.getElementById('modal-reset')
+  if (modal) modal.style.display = 'none'
+}
+
+async function enviarResetSenha() {
+  limparErro('reset-email-error')
+  const email = document.getElementById('reset-email').value.trim()
+
+  if (!email || !isEmailValido(email)) {
+    mostrarErro('reset-email-error', 'Informe um e-mail válido.')
+    return
+  }
+
+  // Botão carregando
+  const btnTexto   = document.getElementById('reset-btn-texto')
+  const btnSpinner = document.getElementById('reset-btn-spinner')
+  const btn        = document.getElementById('btn-enviar-reset')
+  btn.disabled          = true
+  btnTexto.style.display   = 'none'
+  btnSpinner.style.display = 'block'
+
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '/pages/login.html',
+  })
+
+  btn.disabled          = false
+  btnTexto.style.display   = 'flex'
+  btnSpinner.style.display = 'none'
+
+  if (error) {
+    mostrarErro('reset-email-error', 'Não foi possível enviar o link. Tente novamente.')
+    return
+  }
+
+  // Mostra tela de sucesso
+  document.getElementById('reset-form').style.display    = 'none'
+  document.getElementById('reset-sucesso').style.display = 'block'
+}
+
+// Fecha modal ao clicar fora
+document.addEventListener('click', e => {
+  const modal = document.getElementById('modal-reset')
+  if (modal && e.target === modal) fecharEsqueciSenha()
+})
+
+// Fecha modal com Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') fecharEsqueciSenha()
+})

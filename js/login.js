@@ -10,25 +10,8 @@ const ROTAS = {
   morador:    'morador.html',
 }
 
-// ── Correção 3: redireciona se já estiver logado ──────────────
-document.addEventListener('DOMContentLoaded', async () => {
-  // Checa sessão ativa — se existir, redireciona direto para o painel
-  const session = await getSession()
-  if (session) {
-    const { data: usuario } = await db
-      .from('usuarios')
-      .select('perfil, status')
-      .eq('auth_id', session.user.id)
-      .single()
-
-    if (usuario?.status === 'ativo' && ROTAS[usuario.perfil]) {
-      window.location.href = ROTAS[usuario.perfil]
-      return
-    }
-    // Sessão inválida ou perfil desconhecido — faz signOut silencioso
-    await db.auth.signOut()
-  }
-
+// ── Init ─────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('login-form')?.addEventListener('submit', handleLogin)
 })
 
