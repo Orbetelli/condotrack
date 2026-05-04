@@ -31,9 +31,6 @@
       <button class="sb-item" data-tip="Apartamentos" onclick="ativarSidebar(this);mudarTab('apartamentos')">
         <svg viewBox="0 0 24 24" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       </button>
-      <button class="sb-item" data-tip="Entregas" onclick="ativarSidebar(this);mudarTab('entregas')">
-        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-      </button>
       <button class="sb-item" data-tip="Relatórios" onclick="ativarSidebar(this);mudarTab('relatorios')">
         <svg viewBox="0 0 24 24" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       </button>
@@ -41,7 +38,7 @@
       <button class="sb-item" data-tip="Configurações" onclick="ativarSidebar(this)">
         <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
       </button>
-      <button class="sb-item" data-tip="Sair" onclick="encerrarSessao()">
+      <button class="sb-item" data-tip="Sair" onclick="logout()">
         <svg viewBox="0 0 24 24" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>
     </nav>
@@ -83,10 +80,6 @@
       <div class="nav-tab" data-tab="apartamentos" onclick="mudarTab('apartamentos')">
         <svg viewBox="0 0 24 24" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         Apartamentos
-      </div>
-      <div class="nav-tab" data-tab="entregas" onclick="mudarTab('entregas')">
-        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-        Entregas
       </div>
       <div class="nav-tab" data-tab="relatorios"   onclick="mudarTab('relatorios')">
         <svg viewBox="0 0 24 24" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -140,6 +133,25 @@
       </div>
       <div style="font-size:12px;color:var(--n-400);margin-bottom:4px">
         Uma senha temporária será enviada por e-mail ao porteiro.
+      </div>
+      <!-- Campo senha (só no cadastro novo) -->
+      <div class="modal-field" id="campo-senha-porteiro">
+        <label class="ct-label" for="p-senha">Senha temporária</label>
+        <input class="ct-input" type="password" id="p-senha" placeholder="Mínimo 6 caracteres" />
+        <div class="ct-error" id="err-p-senha" style="display:none"></div>
+      </div>
+      <!-- Box de credenciais após cadastro -->
+      <div id="credenciais-box" style="display:none;background:var(--p-50);border:1.5px solid var(--p-200);
+           border-radius:var(--radius-md);padding:14px;margin-bottom:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--p-700);margin-bottom:8px">
+          ✅ Porteiro cadastrado! Copie as credenciais abaixo:
+        </div>
+        <pre id="credenciais-texto" style="font-size:11px;color:var(--n-700);white-space:pre-wrap;
+             background:var(--n-0);border-radius:6px;padding:10px;margin-bottom:10px;line-height:1.6"></pre>
+        <button type="button" class="ct-btn-primary" onclick="copiarCredenciais()"
+                style="width:100%;padding:9px" id="btn-copiar-texto">
+          Copiar credenciais
+        </button>
       </div>
       <div class="modal-actions">
         <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>

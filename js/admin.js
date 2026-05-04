@@ -29,9 +29,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   usuarioLogado = await requireAuth(['admin'])
   if (!usuarioLogado) return
 
-  iniciarTimeoutInatividade()
-  await registrarLog('acesso', 'Painel do síndico acessado')
-
   // Header
   document.getElementById('header-condo').textContent   = usuarioLogado.condominios?.nome || '—'
   document.getElementById('header-sindico').textContent = `Painel do síndico · ${usuarioLogado.nome}`
@@ -64,7 +61,6 @@ function mudarTab(tab) {
     porteiros:    { label: '+ Novo porteiro', fn: 'abrirModalPorteiro()' },
     moradores:    { label: '+ Novo morador',  fn: 'abrirModalMorador()' },
     apartamentos: null,
-    entregas:     null,
     relatorios:   null,
   }
   const btn  = document.getElementById('btn-acao')
@@ -87,7 +83,6 @@ async function renderTab(tab) {
   if (tab === 'porteiros')    await renderPorteiros(body)
   if (tab === 'moradores')    await renderMoradores(body)
   if (tab === 'apartamentos') await renderApartamentos(body)
-  if (tab === 'entregas')     await renderEntregas(body)
   if (tab === 'relatorios')   renderRelatorios(body)
 }
 
@@ -309,38 +304,12 @@ function moradorRows(lista) {
             <div class="panel-row-sub">Apto ${m.apto} · ${m.email || '—'}</div>
           </div>
           <span class="panel-row-badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>
-          ${m.status === 'pendente' ? `
-            <button class="panel-row-btn" onclick="enviarConvite('${m.id}', '${m.nome.replace(/'/g, "\'")}')"
-                    title="Enviar convite" style="background:var(--p-100);border-color:var(--p-300)">
-              <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="var(--p-600)" style="width:12px;height:12px">
-                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.36 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16.92z"/>
-              </svg>
-            </button>` : ''}
-          <button class="panel-row-btn" onclick="abrirModalEditarApto('${m.id}','${m.nome.replace(/'/g, "\'")}','${m.apto}')" title="Editar apartamento">
-            <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" stroke-linecap="round">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-              <polyline points="9 22 9 12 15 12 15 22"/>
-            </svg>
+          <button class="panel-row-btn" title="Ver detalhes">
+            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
           </button>
         </div>`
     }).join('')}
   `
-}
-
-async function enviarConvite(moradorId, nome) {
-  if (!confirm(`Enviar convite de cadastro para ${nome}?`)) return
-
-  const { data, error } = await db.functions.invoke('convidar-morador', {
-    body: { usuario_id: moradorId },
-  })
-
-  if (error || !data?.ok) {
-    alert('Erro ao enviar convite. Tente novamente.')
-    return
-  }
-
-  cacheMoradores = []
-  alert(`Convite enviado para ${nome}!`)
 }
 
 // ── Apartamentos ──────────────────────────────────────────────
@@ -396,172 +365,6 @@ function renderGradeAptos(aptos) {
   if (info) info.textContent = `Bloco ${blocoAtivo}: ${ocQtd} ocupados · ${lista.length - ocQtd} disponíveis`
 }
 
-// ── Entregas ──────────────────────────────────────────────────
-const STATUS_ENTREGA = {
-  aguardando: { label: 'Aguardando', bg: '#FEF3C7', color: '#92400E', dot: '#F59E0B' },
-  notificado: { label: 'Notificado', bg: '#EDE9FE', color: '#5B21B6', dot: '#A78BFA' },
-  retirado:   { label: 'Retirado',   bg: '#F0FDF4', color: '#166534', dot: '#34D399' },
-  expirado:   { label: 'Expirado',   bg: '#FEF2F2', color: '#991B1B', dot: '#F87171' },
-}
-
-let todasEntregasAdmin = []
-let filtroEntregaAdmin = 'todos'
-let buscaEntregaAdmin  = ''
-
-async function renderEntregas(body) {
-  // Busca todas as entregas do condomínio
-  const { data, error } = await db
-    .from('entregas')
-    .select(`
-      id, transportadora, volumes, status, obs,
-      recebido_em, retirado_em,
-      apartamentos ( numero, bloco )
-    `)
-    .eq('condominio_id', usuarioLogado.condominio_id)
-    .order('recebido_em', { ascending: false })
-
-  if (error) {
-    body.innerHTML = '<div style="padding:20px;text-align:center;color:var(--c-danger)">Erro ao carregar entregas.</div>'
-    return
-  }
-
-  todasEntregasAdmin = (data || []).map(e => ({
-    id:    e.id,
-    apto:  e.apartamentos ? `${e.apartamentos.bloco}-${e.apartamentos.numero}` : '—',
-    trans: e.transportadora,
-    vol:   e.volumes,
-    status: e.status,
-    obs:   e.obs || '',
-    data:  new Date(e.recebido_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit', timeZone:'America/Sao_Paulo' }),
-    hora:  new Date(e.recebido_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', timeZone:'America/Sao_Paulo' }),
-    retiradoEm: e.retirado_em
-      ? new Date(e.retirado_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', timeZone:'America/Sao_Paulo' })
-      : null,
-  }))
-
-  // Stats
-  const pendentes = todasEntregasAdmin.filter(e => e.status === 'aguardando' || e.status === 'notificado').length
-  const retiradas = todasEntregasAdmin.filter(e => e.status === 'retirado').length
-  const expiradas = todasEntregasAdmin.filter(e => e.status === 'expirado').length
-
-  body.innerHTML = `
-    <div class="stats-grid" style="margin-bottom:16px">
-      <div class="stat-card">
-        <div class="stat-top">
-          <div class="stat-num" style="color:#F59E0B">${pendentes}</div>
-          <div class="stat-icon" style="background:#FEF3C7">
-            <svg viewBox="0 0 24 24" stroke="#92400E" stroke-width="2" fill="none">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-            </svg>
-          </div>
-        </div>
-        <div class="stat-label">Aguardando retirada</div>
-        <span class="stat-badge" style="background:#FEF3C7;color:#92400E">Pendentes</span>
-      </div>
-      <div class="stat-card">
-        <div class="stat-top">
-          <div class="stat-num" style="color:#16A34A">${retiradas}</div>
-          <div class="stat-icon" style="background:#F0FDF4">
-            <svg viewBox="0 0 24 24" stroke="#166534" stroke-width="2.5" fill="none">
-              <polyline points="20 6 9 17 4 12" stroke-linecap="round"/>
-            </svg>
-          </div>
-        </div>
-        <div class="stat-label">Retiradas</div>
-        <span class="stat-badge" style="background:#F0FDF4;color:#166534">Concluído</span>
-      </div>
-      <div class="stat-card">
-        <div class="stat-top">
-          <div class="stat-num" style="color:#DC2626">${expiradas}</div>
-          <div class="stat-icon" style="background:#FEF2F2">
-            <svg viewBox="0 0 24 24" stroke="#991B1B" stroke-width="2" fill="none">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-          </div>
-        </div>
-        <div class="stat-label">Expiradas</div>
-        <span class="stat-badge" style="background:#FEF2F2;color:#991B1B">Atenção</span>
-      </div>
-      <div class="stat-card">
-        <div class="stat-top">
-          <div class="stat-num">${todasEntregasAdmin.length}</div>
-          <div class="stat-icon" style="background:#EDE9FE">
-            <svg viewBox="0 0 24 24" stroke="#6D28D9" stroke-width="2" fill="none">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke-linecap="round"/>
-            </svg>
-          </div>
-        </div>
-        <div class="stat-label">Total registrado</div>
-        <span class="stat-badge" style="background:#EDE9FE;color:#5B21B6">Geral</span>
-      </div>
-    </div>
-
-    <!-- Busca e filtros -->
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
-      <input class="search-input" type="text" id="busca-entregas-admin"
-             placeholder="Buscar por apartamento ou transportadora..." style="flex:1;min-width:200px"/>
-      ${['todos','aguardando','notificado','retirado','expirado'].map(f =>
-        `<span class="filter-chip${f === 'todos' ? ' active' : ''}"
-               onclick="filtrarEntregasAdmin(this,'${f}')">${f.charAt(0).toUpperCase() + f.slice(1)}</span>`
-      ).join('')}
-    </div>
-
-    <!-- Lista -->
-    <div class="panel-card" id="lista-entregas-admin"></div>
-  `
-
-  renderListaEntregasAdmin()
-
-  document.getElementById('busca-entregas-admin')?.addEventListener('input', function() {
-    buscaEntregaAdmin = this.value
-    renderListaEntregasAdmin()
-  })
-}
-
-function filtrarEntregasAdmin(chip, filtro) {
-  document.querySelectorAll('#tab-body .filter-chip').forEach(c => c.classList.remove('active'))
-  chip.classList.add('active')
-  filtroEntregaAdmin = filtro
-  renderListaEntregasAdmin()
-}
-
-function renderListaEntregasAdmin() {
-  const lista = todasEntregasAdmin.filter(e => {
-    const matchFiltro = filtroEntregaAdmin === 'todos' || e.status === filtroEntregaAdmin
-    const termo = buscaEntregaAdmin.toLowerCase()
-    const matchBusca = !termo || e.apto.toLowerCase().includes(termo) || e.trans.toLowerCase().includes(termo)
-    return matchFiltro && matchBusca
-  })
-
-  const container = document.getElementById('lista-entregas-admin')
-  if (!container) return
-
-  if (!lista.length) {
-    container.innerHTML = '<div class="panel-empty">Nenhuma entrega encontrada</div>'
-    return
-  }
-
-  container.innerHTML = lista.map(e => {
-    const cfg = STATUS_ENTREGA[e.status] || STATUS_ENTREGA.aguardando
-    return `
-      <div class="panel-row">
-        <div class="panel-dot" style="background:${cfg.dot}"></div>
-        <div class="panel-row-info">
-          <div class="panel-row-name">Apto ${e.apto} — ${e.trans}</div>
-          <div class="panel-row-sub">
-            ${e.data} às ${e.hora}
-            · ${e.vol} volume${e.vol > 1 ? 's' : ''}
-            ${e.retiradoEm ? ` · Retirado em ${e.retiradoEm}` : ''}
-            ${e.obs ? ` · ${e.obs}` : ''}
-          </div>
-        </div>
-        <span class="panel-row-badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>
-      </div>`
-  }).join('')
-}
-
 // ── Relatórios ────────────────────────────────────────────────
 function renderRelatorios(body) {
   body.innerHTML = `
@@ -612,33 +415,29 @@ function abrirModalPorteiro(id = null) {
   document.getElementById('modal-port-title').textContent = editando ? 'Editar porteiro' : 'Novo porteiro'
   document.getElementById('p-nome').value    = editando?.nome    || ''
   document.getElementById('p-email').value   = editando?.email   || ''
-  document.getElementById('p-senha').value   = ''
   document.getElementById('p-turno').value   = editando?.turno   || 'A'
   document.getElementById('p-periodo').value = editando?.periodo || 'Manhã'
-  document.getElementById('credenciais-box').style.display = 'none'
-  limparTodosErros('err-p-nome', 'err-p-email', 'err-p-senha')
+  limparTodosErros('err-p-nome', 'err-p-email')
   document.getElementById('modal-porteiro').classList.add('open')
   document.getElementById('modal-porteiro').dataset.editId = id || ''
 }
 
 async function salvarPorteiro(e) {
   e.preventDefault()
-  limparTodosErros('err-p-nome', 'err-p-email', 'err-p-senha')
+  limparTodosErros('err-p-nome', 'err-p-email')
   const nome    = document.getElementById('p-nome').value.trim()
   const email   = document.getElementById('p-email').value.trim()
-  const senha   = document.getElementById('p-senha').value
   const turno   = document.getElementById('p-turno').value
   const periodo = document.getElementById('p-periodo').value
-  const editId  = document.getElementById('modal-porteiro').dataset.editId
   let ok = true
-
   if (!nome)                 { mostrarErro('err-p-nome',  'Informe o nome.'); ok = false }
   if (!isEmailValido(email)) { mostrarErro('err-p-email', 'Informe um e-mail válido.'); ok = false }
-  if (!editId && senha.length < 6) { mostrarErro('err-p-senha', 'Mínimo 6 caracteres.'); ok = false }
   if (!ok) return
 
   const btn = e.submitter
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
+  const editId = document.getElementById('modal-porteiro').dataset.editId
 
   if (editId) {
     const { error } = await db
@@ -650,13 +449,11 @@ async function salvarPorteiro(e) {
       if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar porteiro' }
       return
     }
-    cachePorteiros = []
-    fecharModal()
-    renderTab(tabAtiva)
   } else {
+    const senhaTemp = Math.random().toString(36).slice(-8) + 'Aa1!'
     const { data: authData, error: authError } = await db.auth.signUp({
       email,
-      password: senha,
+      password: senhaTemp,
     })
 
     if (authError) {
@@ -672,33 +469,16 @@ async function salvarPorteiro(e) {
       nome, email, turno, periodo,
       status:        'ativo',
     })
-
     if (dbError) {
       mostrarErro('err-p-nome', 'Erro ao salvar porteiro.')
       if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar porteiro' }
       return
     }
-
-    // Mostra credenciais para copiar
-    const saudacao = periodo === 'Manhã' ? 'bom dia' : periodo === 'Tarde' ? 'boa tarde' : 'boa noite'
-    const template = `Olá, ${nome.split(' ')[0]}! 👋\n\nSeja bem-vindo ao CondoTrack. Aqui estão suas credenciais de acesso:\n\n🌐 Link: ${window.location.origin}/pages/login.html\n📧 E-mail: ${email}\n🔑 Senha: ${senha}\n🕐 Turno ${turno} · ${periodo}\n\nAo entrar, selecione o perfil "Porteiro".\n\n${saudacao.charAt(0).toUpperCase() + saudacao.slice(1)} e bom trabalho! 😊`
-
-    document.getElementById('credenciais-texto').textContent = template
-    document.getElementById('credenciais-box').style.display = 'block'
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar porteiro' }
-
-    cachePorteiros = []
-    renderTab(tabAtiva)
   }
-}
 
-function copiarCredenciais() {
-  const texto = document.getElementById('credenciais-texto').textContent
-  navigator.clipboard.writeText(texto).then(() => {
-    const btnTexto = document.getElementById('btn-copiar-texto')
-    btnTexto.textContent = '✓ Copiado!'
-    setTimeout(() => { btnTexto.textContent = 'Copiar credenciais' }, 2000)
-  })
+  cachePorteiros = []
+  fecharModal()
+  renderTab(tabAtiva)
 }
 
 // ── Modal morador (pré-cadastro) ──────────────────────────────
@@ -763,124 +543,7 @@ async function salvarMorador(e) {
     return
   }
 
-  await registrarLog('morador_pre_cadastrado', `Morador pré-cadastrado: ${nome} · Apto ${apto}`)
   cacheMoradores = []
-  fecharModal()
-  renderTab(tabAtiva)
-}
-
-// ── Modal: editar apartamento do morador ─────────────────────
-function abrirModalEditarApto(moradorId, nomeMorador, aptoAtual) {
-  // Reutiliza o modal de morador para edição de apto
-  const overlay = document.getElementById('modal-morador')
-  overlay.querySelector('.modal-title').textContent = 'Editar apartamento'
-  overlay.querySelector('form').innerHTML = `
-    <div style="background:var(--p-50);border:1.5px solid var(--p-200);border-radius:var(--radius-md);
-                padding:12px 14px;margin-bottom:18px;font-size:13px;color:var(--p-700)">
-      Alterando apartamento de <strong>${nomeMorador}</strong><br>
-      <span style="font-size:12px;color:var(--p-500)">Atual: Apto ${aptoAtual}</span>
-    </div>
-
-    <div class="modal-field">
-      <label class="ct-label" for="edit-apto">Novo apartamento</label>
-      <input class="ct-input" type="text" id="edit-apto"
-             placeholder="Ex: B-202" style="text-transform:uppercase"/>
-      <div class="ct-error" id="err-edit-apto" style="display:none"></div>
-    </div>
-
-    <div style="font-size:12px;color:var(--n-400);margin-bottom:4px">
-      O apartamento antigo voltará a ficar disponível automaticamente.
-    </div>
-
-    <div class="modal-actions">
-      <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>
-      <button type="button" class="ct-btn-primary" onclick="salvarEditarApto('${moradorId}','${aptoAtual}')">
-        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
-             style="width:14px;height:14px" stroke-linecap="round">
-          <polyline points="20 6 9 17 4 12"/>
-        </svg>
-        Salvar
-      </button>
-    </div>
-  `
-  overlay.classList.add('open')
-  document.getElementById('edit-apto').focus()
-}
-
-async function salvarEditarApto(moradorId, aptoAtual) {
-  limparErro('err-edit-apto')
-  const novoAptoTexto = document.getElementById('edit-apto').value.trim().toUpperCase()
-
-  if (!novoAptoTexto) {
-    mostrarErro('err-edit-apto', 'Informe o novo apartamento.')
-    return
-  }
-
-  if (novoAptoTexto === aptoAtual) {
-    mostrarErro('err-edit-apto', 'O apartamento informado é o mesmo que o atual.')
-    return
-  }
-
-  const btn = document.querySelector('#modal-morador .ct-btn-primary')
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
-
-  const partes = novoAptoTexto.split('-')
-  const bloco  = partes[0]
-  const numero = partes[1] || novoAptoTexto
-
-  // Busca o novo apartamento
-  const { data: novoApto } = await db
-    .from('apartamentos')
-    .select('id, status')
-    .eq('condominio_id', usuarioLogado.condominio_id)
-    .eq('bloco', bloco)
-    .eq('numero', numero)
-    .single()
-
-  if (!novoApto) {
-    mostrarErro('err-edit-apto', 'Apartamento não encontrado.')
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar' }
-    return
-  }
-
-  if (novoApto.status === 'ocupado') {
-    mostrarErro('err-edit-apto', 'Este apartamento já está ocupado.')
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar' }
-    return
-  }
-
-  // Busca o apartamento atual do morador para liberar
-  const { data: morador } = await db
-    .from('usuarios')
-    .select('apartamento_id')
-    .eq('id', moradorId)
-    .single()
-
-  // 1. Libera o apartamento antigo
-  if (morador?.apartamento_id) {
-    await db.from('apartamentos')
-      .update({ status: 'disponivel' })
-      .eq('id', morador.apartamento_id)
-  }
-
-  // 2. Marca o novo como ocupado
-  await db.from('apartamentos')
-    .update({ status: 'ocupado' })
-    .eq('id', novoApto.id)
-
-  // 3. Atualiza o morador
-  const { error } = await db.from('usuarios')
-    .update({ apartamento_id: novoApto.id })
-    .eq('id', moradorId)
-
-  if (error) {
-    mostrarErro('err-edit-apto', 'Erro ao salvar. Tente novamente.')
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar' }
-    return
-  }
-
-  cacheMoradores = []
-  cacheApartamentos = []
   fecharModal()
   renderTab(tabAtiva)
 }
@@ -905,4 +568,17 @@ function bindEvents() {
   document.getElementById('form-porteiro')?.addEventListener('submit', salvarPorteiro)
   document.getElementById('form-morador')?.addEventListener('submit', salvarMorador)
   document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal() })
+}
+
+// ── Log simples (fire-and-forget) ────────────────────────────
+async function registrarLog(tipo, descricao) {
+  try {
+    await db.from('acessos').insert({
+      usuario_id:    usuarioLogado?.id,
+      condominio_id: usuarioLogado?.condominio_id,
+      perfil:        usuarioLogado?.perfil,
+      nome:          descricao,
+      status:        'sucesso',
+    })
+  } catch (_) {}
 }
