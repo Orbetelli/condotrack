@@ -637,6 +637,7 @@ async function salvarPorteiro(e) {
       .from('usuarios')
       .update({ nome, email, turno, periodo })
       .eq('id', editId)
+      .eq('condominio_id', usuarioLogado.condominio_id) // segurança: só edita do próprio condomínio
     if (error) {
       mostrarErro('err-p-nome', 'Erro ao salvar. Tente novamente.')
       if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar porteiro' }

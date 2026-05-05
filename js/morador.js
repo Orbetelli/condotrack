@@ -347,6 +347,7 @@ async function salvarPerfil() {
     .from('usuarios')
     .update({ nome, telefone, email })
     .eq('id', usuarioLogado.id)
+    .eq('auth_id', (await getSession())?.user?.id) // dupla verificação: id + auth_id da sessão
 
   if (error) {
     mostrarErro('err-edit-nome', 'Erro ao salvar. Tente novamente.')
@@ -515,10 +516,33 @@ function fecharModal() {
 async function confirmarRetirada() {
   if (!entregaConfirmar) return
 
+  // Segurança: verifica que a entrega pertence ao apartamento do morador logado
+  // antes de atualizar — previne que um morador confirme entrega de outro apartamento
+  const { data: entrega, error: errCheck } = await db
+    .from('entregas')
+    .select('id, apartamento_id, status')
+    .eq('id', entregaConfirmar)
+    .eq('apartamento_id', usuarioLogado.apartamento_id)
+    .single()
+
+  if (errCheck || !entrega) {
+    mostrarToast('Entrega não encontrada ou não pertence ao seu apartamento.', 'erro')
+    fecharModal()
+    return
+  }
+
+  if (entrega.status === 'retirado') {
+    mostrarToast('Esta entrega já foi confirmada anteriormente.', 'aviso')
+    fecharModal()
+    await carregarEntregas()
+    return
+  }
+
   const { error } = await db
     .from('entregas')
     .update({ status: 'retirado', retirado_em: new Date().toISOString() })
     .eq('id', entregaConfirmar)
+    .eq('apartamento_id', usuarioLogado.apartamento_id) // dupla verificação
 
   if (error) {
     mostrarToast('Erro ao confirmar. Tente novamente.', 'erro')

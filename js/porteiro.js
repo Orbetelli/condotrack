@@ -763,6 +763,12 @@ async function salvarEntrega(e) {
     if (!volumes)            { mostrarErro('err-volumes-nome', 'Informe a quantidade.'); valido = false }
     if (!valido) return
 
+    // Segurança: verifica que o apartamento selecionado pertence ao condomínio do porteiro
+    if (moradorSelecionado.condoId !== usuarioLogado.condominio_id) {
+      mostrarErro('err-nome-morador', 'Apartamento não pertence a este condomínio.')
+      return
+    }
+
     aptoId    = moradorSelecionado.aptoId
     moradorId = moradorSelecionado.id
   }
