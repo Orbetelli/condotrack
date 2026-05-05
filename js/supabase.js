@@ -53,8 +53,10 @@ async function getUsuarioLogado() {
   const cached = _lerCacheUsuario()
   if (cached) return cached
 
+  // Tenta obter a sessão — o Supabase pode demorar alguns ms
+  // para propagar após um redirect de login
   const session = await getSession()
-  if (!session) return null
+  if (!session?.user?.id) return null
 
   const { data, error } = await db
     .from('usuarios')
@@ -66,7 +68,10 @@ async function getUsuarioLogado() {
     .eq('auth_id', session.user.id)
     .single()
 
-  if (error) { console.error('Erro ao buscar usuário:', error); return null }
+  if (error || !data) {
+    console.error('Erro ao buscar usuário:', error)
+    return null
+  }
 
   _gravarCacheUsuario(data)
   return data
@@ -74,11 +79,8 @@ async function getUsuarioLogado() {
 
 // ── Caminho absoluto para o login — funciona de qualquer pasta ─
 function rotaLogin() {
-  // Detecta se está dentro de /pages/ ou na raiz e monta o path correto
-  const base = window.location.pathname.includes('/pages/')
-    ? '/pages/login.html'
-    : window.location.pathname.replace(/\/[^/]*$/, '/pages/login.html')
-  return window.location.origin + base
+  // Sempre usa caminho absoluto a partir da raiz do site
+  return window.location.origin + '/pages/login.html'
 }
 
 async function logout() {
@@ -91,7 +93,16 @@ async function logout() {
 
 // ── Guard: redireciona se não estiver logado ─────────────────
 async function requireAuth(perfilEsperado = null) {
-  const usuario = await getUsuarioLogado()
+  // Tenta até 3 vezes com pequeno delay — garante que a sessão
+  // foi propagada após redirect do login (race condition comum)
+  let usuario = null
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
+    invalidarCacheUsuario() // força re-fetch em cada tentativa
+    usuario = await getUsuarioLogado()
+    if (usuario) break
+    // Aguarda 500ms antes de tentar de novo
+    if (tentativa < 2) await new Promise(r => setTimeout(r, 500))
+  }
 
   if (!usuario) {
     window.location.href = rotaLogin()
