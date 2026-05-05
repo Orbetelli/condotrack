@@ -37,8 +37,10 @@ function _lerCacheUsuario() {
 
 function _gravarCacheUsuario(data) {
   try {
+    // Remove campos sensíveis antes de gravar no cache do browser
+    const { cpf, ...dadosSeguros } = data
     sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-      data,
+      data:      dadosSeguros,
       expiresAt: Date.now() + CACHE_TTL,
     }))
   } catch { /* sessionStorage indisponível — sem cache */ }
@@ -61,9 +63,11 @@ async function getUsuarioLogado() {
   const { data, error } = await db
     .from('usuarios')
     .select(`
-      *,
-      condominios (*),
-      apartamentos (*)
+      id, auth_id, perfil, nome, email, telefone,
+      status, turno, periodo,
+      condominio_id, apartamento_id,
+      condominios ( id, nome, endereco, cidade, uf ),
+      apartamentos ( id, numero, bloco )
     `)
     .eq('auth_id', session.user.id)
     .single()
@@ -87,6 +91,7 @@ async function logout() {
   sessionStorage.removeItem('sa_impersonate_condo_id')
   sessionStorage.removeItem('sa_impersonate_condo_nome')
   invalidarCacheUsuario()
+  await registrarLogout()
   await db.auth.signOut()
   window.location.href = rotaLogin()
 }

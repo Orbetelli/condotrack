@@ -42,6 +42,7 @@ async function mudarTab(tab) {
     relatorios:  'Relatórios',
     equipe:      'Equipe interna',
     alertas:     'Alertas',
+    auditlog:    'Audit Log',
   }
   document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'))
   const sbTip = tipMap[tab]
@@ -78,6 +79,7 @@ async function mudarTab(tab) {
   if (tab === 'relatorios')  await renderRelatorios(body)
   if (tab === 'equipe')      await renderEquipe(body)
   if (tab === 'alertas')     await renderAlertas(body)
+  if (tab === 'auditlog')    await renderAuditLog(body)
 }
 
 // ── DASHBOARD ────────────────────────────────────────────────
@@ -685,6 +687,13 @@ async function salvarEdicaoUsuario() {
   mostrarToast('Perfil atualizado com sucesso!')
   // Se editou o próprio usuário logado, invalida o cache
   if (editUsuarioId === usuarioLogado?.id) invalidarCacheUsuario()
+  registrarAudit({
+    acao:       'editar',
+    tabela:     'usuarios',
+    registroId: editUsuarioId,
+    descricao:  `Perfil de ${nome} editado`,
+    valorDepois: { nome, email, perfil },
+  })
   renderTab(tabAtiva)
 }
 
@@ -717,6 +726,13 @@ async function confirmarInativacao() {
 
   fecharModal()
   mostrarToast(`${inativarUsuarioNome} foi inativado.`, 'aviso')
+  registrarAudit({
+    acao:       'inativar',
+    tabela:     'usuarios',
+    registroId: inativarUsuarioId,
+    descricao:  `Usuário ${inativarUsuarioNome} inativado`,
+    valorDepois: { status: 'inativo' },
+  })
   renderTab(tabAtiva)
 }
 
@@ -728,6 +744,13 @@ async function reativarUsuario(userId, nome) {
 
   if (error) { mostrarToast('Erro ao reativar. Tente novamente.', 'erro'); return }
   mostrarToast(`${nome} foi reativado!`)
+  registrarAudit({
+    acao:       'reativar',
+    tabela:     'usuarios',
+    registroId: userId,
+    descricao:  `Usuário ${nome} reativado`,
+    valorDepois: { status: 'ativo' },
+  })
   renderTab(tabAtiva)
 }
 
@@ -1156,6 +1179,185 @@ async function deletarAlerta(id) {
   if (error) { mostrarToast('Erro ao excluir alerta.', 'erro'); return }
   mostrarToast('Alerta excluído.')
   mudarTab('alertas')
+}
+
+// ── AUDIT LOG ────────────────────────────────────────────────
+const AUDIT_POR_PAGINA = 25
+let paginaAudit = 1
+let totalAudit  = 0
+
+async function renderAuditLog(body) {
+  paginaAudit = 1
+  body.innerHTML = `<div style="text-align:center;padding:40px;color:var(--n-400)">Carregando logs...</div>`
+  await carregarPaginaAudit(body)
+}
+
+async function carregarPaginaAudit(body, acao = '', busca = '') {
+  const offset = (paginaAudit - 1) * AUDIT_POR_PAGINA
+
+  let query = db
+    .from('audit_log')
+    .select('*', { count: 'exact' })
+    .order('criado_em', { ascending: false })
+    .range(offset, offset + AUDIT_POR_PAGINA - 1)
+
+  if (acao)  query = query.eq('acao', acao)
+  if (busca) query = query.ilike('descricao', `%${busca}%`)
+
+  const { data: logs, count, error } = await query
+
+  if (error) {
+    body.innerHTML = `<div style="text-align:center;padding:40px;color:var(--c-danger)">Erro ao carregar logs.</div>`
+    return
+  }
+
+  totalAudit = count || 0
+  const totalPag = Math.ceil(totalAudit / AUDIT_POR_PAGINA)
+  const lista    = logs || []
+
+  const ACAO_CFG = {
+    login_sucesso: { label: 'Login',      bg: '#F0FDF4', color: '#166534', icon: '→' },
+    login_falha:   { label: 'Login falha',bg: '#FEF2F2', color: '#991B1B', icon: '✕' },
+    logout:        { label: 'Logout',     bg: '#F5F5F5', color: '#737373', icon: '←' },
+    criar:         { label: 'Criação',    bg: '#EFF6FF', color: '#1D4ED8', icon: '+' },
+    editar:        { label: 'Edição',     bg: '#FEF3C7', color: '#92400E', icon: '✎' },
+    inativar:      { label: 'Inativação', bg: '#FEF2F2', color: '#DC2626', icon: '○' },
+    reativar:      { label: 'Reativação', bg: '#F0FDF4', color: '#166534', icon: '●' },
+    deletar:       { label: 'Exclusão',   bg: '#FEF2F2', color: '#991B1B', icon: '✕' },
+  }
+
+  body.innerHTML = `
+    <div style="max-width:900px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--n-900)">Audit Log</div>
+          <div style="font-size:12px;color:var(--n-500);margin-top:2px">
+            Histórico completo de ações no sistema · ${totalAudit} registros
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <input class="search-box" type="text" id="audit-busca"
+               placeholder="Buscar na descrição..." style="flex:1;min-width:200px" />
+        <select class="search-box" id="audit-acao" style="flex:none;width:160px">
+          <option value="">Todas as ações</option>
+          <option value="login_sucesso">Login</option>
+          <option value="login_falha">Login falha</option>
+          <option value="logout">Logout</option>
+          <option value="criar">Criação</option>
+          <option value="editar">Edição</option>
+          <option value="inativar">Inativação</option>
+          <option value="reativar">Reativação</option>
+          <option value="deletar">Exclusão</option>
+        </select>
+      </div>
+
+      <!-- Lista -->
+      <div class="panel-card-sa" id="audit-lista" style="margin-bottom:12px">
+        ${lista.length === 0
+          ? '<div class="panel-empty-sa" style="padding:32px">Nenhum registro encontrado</div>'
+          : lista.map((l, i) => {
+              const cfg  = ACAO_CFG[l.acao] || { label: l.acao, bg:'#F5F5F5', color:'#737373', icon:'•' }
+              const data = new Date(l.criado_em).toLocaleString('pt-BR', {
+                day:'2-digit', month:'2-digit', year:'2-digit',
+                hour:'2-digit', minute:'2-digit'
+              })
+              const borda = i < lista.length - 1 ? 'border-bottom:1px solid var(--n-100);' : ''
+              return `
+                <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 16px;${borda}">
+                  <span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;
+                               background:${cfg.bg};color:${cfg.color};flex-shrink:0;margin-top:1px">
+                    ${cfg.label}
+                  </span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:13px;font-weight:600;color:var(--n-900)">
+                      ${_escaparHTMLsa(l.descricao || l.acao)}
+                    </div>
+                    <div style="font-size:11px;color:var(--n-500);margin-top:2px;display:flex;gap:10px;flex-wrap:wrap">
+                      ${l.usuario_nome
+                        ? `<span>👤 ${_escaparHTMLsa(l.usuario_nome)} (${l.usuario_perfil || '—'})</span>`
+                        : '<span style="color:var(--n-300)">Anônimo</span>'}
+                      ${l.tabela ? `<span>🗄 ${l.tabela}</span>` : ''}
+                      <span>🕐 ${data}</span>
+                    </div>
+                  </div>
+                </div>`
+            }).join('')}
+      </div>
+
+      <!-- Paginação -->
+      ${totalPag > 1 ? `
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <span style="font-size:12px;color:var(--n-400)">
+            Página ${paginaAudit} de ${totalPag} · ${totalAudit} registros
+          </span>
+          <div style="display:flex;gap:6px" id="audit-pagbtns"></div>
+        </div>` : ''}
+    </div>
+  `
+
+  // Bind filtros
+  let timerBusca = null
+  const filtrar = () => {
+    clearTimeout(timerBusca)
+    timerBusca = setTimeout(() => {
+      paginaAudit = 1
+      carregarPaginaAudit(
+        body,
+        document.getElementById('audit-acao')?.value  || '',
+        document.getElementById('audit-busca')?.value || '',
+      )
+    }, 350)
+  }
+  document.getElementById('audit-busca')?.addEventListener('input', filtrar)
+  document.getElementById('audit-acao')?.addEventListener('change', () => {
+    paginaAudit = 1
+    carregarPaginaAudit(
+      body,
+      document.getElementById('audit-acao')?.value  || '',
+      document.getElementById('audit-busca')?.value || '',
+    )
+  })
+
+  // Bind paginação
+  const pagBtns = document.getElementById('audit-pagbtns')
+  if (pagBtns) {
+    const mkBtn = (label, disabled, onClick) => {
+      const b = document.createElement('button')
+      b.textContent   = label
+      b.disabled      = disabled
+      b.style.cssText = `
+        padding:5px 12px;border-radius:var(--radius-md);
+        border:1.5px solid ${disabled ? 'var(--n-200)' : 'var(--p-300)'};
+        background:${disabled ? 'var(--n-50)' : 'var(--p-50)'};
+        color:${disabled ? 'var(--n-300)' : 'var(--p-700)'};
+        font-size:12px;font-weight:600;
+        cursor:${disabled ? 'not-allowed' : 'pointer'};
+        font-family:var(--font-sans);
+      `
+      if (!disabled) b.addEventListener('click', onClick)
+      return b
+    }
+
+    pagBtns.appendChild(mkBtn('← Anterior', paginaAudit === 1, () => {
+      paginaAudit--
+      carregarPaginaAudit(
+        body,
+        document.getElementById('audit-acao')?.value  || '',
+        document.getElementById('audit-busca')?.value || '',
+      )
+    }))
+    pagBtns.appendChild(mkBtn('Próxima →', paginaAudit >= totalPag, () => {
+      paginaAudit++
+      carregarPaginaAudit(
+        body,
+        document.getElementById('audit-acao')?.value  || '',
+        document.getElementById('audit-busca')?.value || '',
+      )
+    }))
+  }
 }
 
 // ── EQUIPE INTERNA ────────────────────────────────────────────

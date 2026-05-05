@@ -52,6 +52,7 @@ async function handleLogin(e) {
         ? 'Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.'
         : 'E-mail ou senha incorretos.'
       mostrarErro('form-error', msg)
+      registrarLoginFalha(email, msg)
       setBtnCarregando('login-btn', false)
       return
     }
@@ -65,6 +66,7 @@ async function handleLogin(e) {
 
     if (userError || !usuario) {
       mostrarErro('form-error', 'Usuário não encontrado no sistema.')
+      registrarLoginFalha(email, 'Usuário não encontrado na tabela usuarios')
       await db.auth.signOut()
       setBtnCarregando('login-btn', false)
       return
@@ -72,6 +74,7 @@ async function handleLogin(e) {
 
     if (usuario.status === 'inativo') {
       mostrarErro('form-error', 'Sua conta está inativa. Entre em contato com o administrador.')
+      registrarLoginFalha(email, 'Conta inativa')
       await db.auth.signOut()
       setBtnCarregando('login-btn', false)
       return
@@ -80,12 +83,14 @@ async function handleLogin(e) {
     // Correção 4: rota inválida — perfil desconhecido
     if (!ROTAS[usuario.perfil]) {
       mostrarErro('form-error', 'Perfil de acesso não reconhecido. Contate o administrador.')
+      registrarLoginFalha(email, `Perfil desconhecido: ${usuario.perfil}`)
       await db.auth.signOut()
       setBtnCarregando('login-btn', false)
       return
     }
 
-    // 3. Registra histórico de acesso (fire-and-forget)
+    // 3. Registra login com sucesso no audit log e na tabela acessos
+    registrarLoginSucesso(usuario)
     db.from('acessos').insert({
       usuario_id:    usuario.id,
       condominio_id: usuario.condominio_id,
@@ -94,7 +99,7 @@ async function handleLogin(e) {
       status:        'sucesso',
     }).then(() => {}).catch(() => {})
 
-    // 4. Correção 6: salva sessão com dados completos
+    // 4. Salva sessão com dados completos
     salvarSessao(usuario.perfil, {
       id:     usuario.id,
       nome:   usuario.nome,

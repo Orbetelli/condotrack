@@ -480,6 +480,13 @@ async function salvarEmailMorador() {
   cacheMoradores = []
   fecharModal()
   mostrarToast('E-mail adicionado! Morador pode receber convite agora.')
+  registrarAudit({
+    acao:       'editar',
+    tabela:     'usuarios',
+    registroId: emailMoradorId,
+    descricao:  `E-mail adicionado ao morador sem e-mail`,
+    valorDepois: { email, status: 'pendente' },
+  })
   renderTab(tabAtiva)
 }
 
@@ -597,14 +604,12 @@ async function preencherModalMorador(m, aptoLabel) {
   document.getElementById('det-mor-status').textContent    = cfg.label
   document.getElementById('det-mor-status').style.color    = cfg.color
   document.getElementById('det-mor-apto').textContent      = aptoLabel
-  document.getElementById('det-mor-email').textContent     = m.email    || '—'
-  document.getElementById('det-mor-tel').textContent       = m.telefone || '—'
+  document.getElementById('det-mor-email').textContent     = mascararEmail(m.email)
+  document.getElementById('det-mor-tel').textContent       = mascararTelefone(m.telefone)
 
-  // Formata CPF se existir
+  // CPF mascarado — síndico vê formato parcial (LGPD)
   const cpfNum = (m.cpf || '').replace(/\D/g, '')
-  document.getElementById('det-mor-cpf').textContent = cpfNum.length === 11
-    ? cpfNum.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-    : (m.cpf || '—')
+  document.getElementById('det-mor-cpf').textContent = mascararCPF(cpfNum)
 
   // Carrega últimas 5 entregas deste morador
   const entregasEl = document.getElementById('det-mor-entregas')

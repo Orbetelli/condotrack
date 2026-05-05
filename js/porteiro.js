@@ -217,7 +217,7 @@ async function renderMoradores(body) {
 
   const { data, error } = await db
     .from('usuarios')
-    .select('id, nome, email, status, apartamentos(numero, bloco)')
+    .select('id, nome, status, apartamentos(numero, bloco)')
     .eq('condominio_id', usuarioLogado.condominio_id)
     .eq('perfil', 'morador')
     .order('nome')
@@ -260,7 +260,7 @@ function moradorRowsPorteiro(lista) {
                     font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${ini}</div>
         <div class="entry-info">
           <div class="entry-apto">${m.nome}</div>
-          <div class="entry-sub">Apto ${m.apto} · ${m.email || 'Sem e-mail'}</div>
+          <div class="entry-sub">Apto ${m.apto}</div>
         </div>
         <span class="entry-badge" style="background:${ativo ? '#F0FDF4' : '#F5F5F5'};color:${ativo ? '#166534' : '#737373'}">
           ${ativo ? 'Ativo' : 'Pendente'}
