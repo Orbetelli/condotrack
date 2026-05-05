@@ -377,6 +377,47 @@
   </div>
 </div>
 
+<!-- ── Modal: adicionar e-mail ao morador ── -->
+<div class="modal-overlay" id="modal-add-email">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title">Adicionar e-mail</div>
+      <button class="modal-close" onclick="fecharModal()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div style="background:var(--p-50);border:1.5px solid var(--p-100);
+                border-radius:var(--radius-md);padding:12px 14px;margin-bottom:16px;
+                font-size:13px;color:var(--p-700)">
+      Adicionando e-mail para
+      <strong id="add-email-nome">—</strong>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="add-email-input">E-mail do morador</label>
+      <input class="ct-input" type="email" id="add-email-input"
+             placeholder="morador@email.com" />
+      <div class="ct-error" id="err-add-email" style="display:none"></div>
+    </div>
+    <div style="font-size:12px;color:var(--n-500);margin-bottom:4px;line-height:1.5">
+      Após salvar, o status do morador mudará para <strong>Pendente</strong>
+      e ele poderá receber o convite de acesso.
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="ct-btn-primary"
+              id="btn-salvar-add-email" onclick="salvarEmailMorador()">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+             style="width:14px;height:14px" stroke-linecap="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Salvar e-mail
+      </button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
 <script src="../js/utils.js"></script>

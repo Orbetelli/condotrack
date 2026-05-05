@@ -285,13 +285,19 @@ async function reenviarConvite(condoId, condoNome, btn) {
 }
 
 // ── USUÁRIOS ─────────────────────────────────────────────────
+const USUARIOS_POR_PAGINA = 20
+let paginaAtualUsuarios   = 1
+let listaUsuariosFiltrada = []
+
 async function renderUsuarios(body) {
-  const { data } = await db
+  const { data, count } = await db
     .from('usuarios')
-    .select('*, condominios(nome)')
+    .select('*, condominios(nome)', { count: 'exact' })
     .order('criado_em', { ascending: false })
 
   const lista = data || []
+  listaUsuariosFiltrada = lista
+  paginaAtualUsuarios   = 1
 
   const perfilCores = {
     superadmin: { bg:'#EDE9FE', color:'#5B21B6' },
@@ -307,7 +313,7 @@ async function renderUsuarios(body) {
       <select class="search-box" id="filtro-perfil" style="flex:none;width:160px">
         <option value="">Todos os perfis</option>
         <option value="superadmin">Super Admin</option>
-        <option value="admin">Admin</option>
+        <option value="admin">Síndico</option>
         <option value="porteiro">Porteiro</option>
         <option value="morador">Morador</option>
       </select>
@@ -315,15 +321,14 @@ async function renderUsuarios(body) {
     <div class="panel-card-sa" id="lista-usuarios">
       <div class="panel-card-sa-head">
         <span class="panel-card-sa-title">Usuários cadastrados</span>
-        <span style="font-size:11px;color:var(--n-400)">${lista.length} total</span>
+        <span style="font-size:11px;color:var(--n-400)" id="users-count">${lista.length} total</span>
       </div>
-      <div id="users-body">
-        ${lista.map(u => userRowHTML(u, perfilCores)).join('') || '<div class="panel-empty-sa">Nenhum usuário encontrado</div>'}
-      </div>
+      <div id="users-body"></div>
+      <div id="users-paginacao" style="display:flex;align-items:center;justify-content:space-between;
+           padding:12px 16px;border-top:1px solid var(--n-100);flex-wrap:wrap;gap:8px"></div>
     </div>
   `
 
-  // Delegação de eventos para os botões de ação — captura dataset sem onclick inline
   const bindAcoes = (container) => {
     container.querySelectorAll('.sa-btn-acao').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -336,20 +341,91 @@ async function renderUsuarios(body) {
     })
   }
 
-  const usersBody = document.getElementById('users-body')
-  bindAcoes(usersBody)
+  const renderPagina = () => {
+    const inicio   = (paginaAtualUsuarios - 1) * USUARIOS_POR_PAGINA
+    const fim      = inicio + USUARIOS_POR_PAGINA
+    const pagina   = listaUsuariosFiltrada.slice(inicio, fim)
+    const total    = listaUsuariosFiltrada.length
+    const totalPag = Math.ceil(total / USUARIOS_POR_PAGINA)
 
-  // Filtros — rebinda ações após filtrar
-  const filtrar = () => {
-    const q     = document.getElementById('busca-user').value.toLowerCase()
-    const perf  = document.getElementById('filtro-perfil').value
-    const filt  = lista.filter(u =>
-      (!q    || u.nome.toLowerCase().includes(q)) &&
-      (!perf || u.perfil === perf))
-    usersBody.innerHTML =
-      filt.map(u => userRowHTML(u, perfilCores)).join('') ||
+    const usersBody = document.getElementById('users-body')
+    usersBody.innerHTML = pagina.map(u => userRowHTML(u, perfilCores)).join('') ||
       '<div class="panel-empty-sa">Nenhum usuário encontrado</div>'
     bindAcoes(usersBody)
+
+    // Contador
+    document.getElementById('users-count').textContent =
+      `${total} resultado${total !== 1 ? 's' : ''}`
+
+    // Paginação
+    const pagEl = document.getElementById('users-paginacao')
+    if (totalPag <= 1) { pagEl.innerHTML = ''; return }
+
+    pagEl.innerHTML = ''
+
+    // Info
+    const info = document.createElement('span')
+    info.style.cssText = 'font-size:12px;color:var(--n-400)'
+    info.textContent   = `Página ${paginaAtualUsuarios} de ${totalPag} · ${total} usuários`
+    pagEl.appendChild(info)
+
+    // Botões
+    const btns = document.createElement('div')
+    btns.style.cssText = 'display:flex;gap:6px'
+
+    const mkBtn = (label, disabled, onClick) => {
+      const b = document.createElement('button')
+      b.textContent  = label
+      b.disabled     = disabled
+      b.style.cssText = `
+        padding:5px 12px;border-radius:var(--radius-md);
+        border:1.5px solid ${disabled ? 'var(--n-200)' : 'var(--p-300)'};
+        background:${disabled ? 'var(--n-50)' : 'var(--p-50)'};
+        color:${disabled ? 'var(--n-300)' : 'var(--p-700)'};
+        font-size:12px;font-weight:600;cursor:${disabled ? 'not-allowed' : 'pointer'};
+        font-family:var(--font-sans);transition:all .12s;
+      `
+      if (!disabled) b.addEventListener('click', onClick)
+      return b
+    }
+
+    btns.appendChild(mkBtn('← Anterior', paginaAtualUsuarios === 1, () => {
+      paginaAtualUsuarios--; renderPagina()
+    }))
+
+    // Páginas numeradas (máximo 5 visíveis)
+    const inicio2 = Math.max(1, paginaAtualUsuarios - 2)
+    const fim2    = Math.min(totalPag, inicio2 + 4)
+    for (let i = inicio2; i <= fim2; i++) {
+      const atual = i === paginaAtualUsuarios
+      const nb = mkBtn(String(i), false, () => { paginaAtualUsuarios = i; renderPagina() })
+      if (atual) {
+        nb.style.background   = 'var(--p-600)'
+        nb.style.color        = '#fff'
+        nb.style.borderColor  = 'var(--p-600)'
+        nb.style.cursor       = 'default'
+      }
+      btns.appendChild(nb)
+    }
+
+    btns.appendChild(mkBtn('Próxima →', paginaAtualUsuarios === totalPag, () => {
+      paginaAtualUsuarios++; renderPagina()
+    }))
+
+    pagEl.appendChild(btns)
+  }
+
+  renderPagina()
+
+  // Filtros — reseta para página 1 ao filtrar
+  const filtrar = () => {
+    const q    = document.getElementById('busca-user').value.toLowerCase()
+    const perf = document.getElementById('filtro-perfil').value
+    listaUsuariosFiltrada = lista.filter(u =>
+      (!q    || u.nome.toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)) &&
+      (!perf || u.perfil === perf))
+    paginaAtualUsuarios = 1
+    renderPagina()
   }
 
   document.getElementById('busca-user')?.addEventListener('input', filtrar)

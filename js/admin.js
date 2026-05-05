@@ -4,12 +4,14 @@
 // ============================================================
 
 const STATUS_CFG = {
-  aguardando: { label: 'Aguardando', bg: '#FEF3C7', color: '#92400E', dot: '#F59E0B' },
-  notificado: { label: 'Notificado', bg: '#EDE9FE', color: '#5B21B6', dot: '#A78BFA' },
-  retirado:   { label: 'Retirado',   bg: '#F0FDF4', color: '#166534', dot: '#34D399' },
-  ativo:      { label: 'Ativo',      bg: '#F0FDF4', color: '#166534' },
-  inativo:    { label: 'Inativo',    bg: '#F5F5F5', color: '#737373' },
-  pendente:   { label: 'Pendente',   bg: '#FEF3C7', color: '#92400E' },
+  aguardando:        { label: 'Aguardando',  bg: '#FEF3C7', color: '#92400E', dot: '#F59E0B' },
+  notificado:        { label: 'Notificado',  bg: '#EDE9FE', color: '#5B21B6', dot: '#A78BFA' },
+  retirado:          { label: 'Retirado',    bg: '#F0FDF4', color: '#166534', dot: '#34D399' },
+  ativo:             { label: 'Ativo',       bg: '#F0FDF4', color: '#166534' },
+  inativo:           { label: 'Inativo',     bg: '#F5F5F5', color: '#737373' },
+  pendente:          { label: 'Pendente',    bg: '#FEF3C7', color: '#92400E' },
+  sem_email:         { label: 'Sem e-mail',  bg: '#FFF7ED', color: '#C2410C' },
+  entregue_porteiro: { label: 'A confirmar', bg: '#ECFDF5', color: '#065F46', dot: '#10B981' },
 }
 
 // ── Estado ───────────────────────────────────────────────────
@@ -350,18 +352,74 @@ async function renderMoradores(body) {
       ${moradorRows(moradores)}
     </div>
   `
+
+  const bindMoradores = (container) => {
+    container.querySelectorAll('[data-acao-detalhe]').forEach(btn =>
+      btn.addEventListener('click', () => abrirDetalhesMorador(btn.dataset.acaoDetalhe))
+    )
+    container.querySelectorAll('[data-acao-email]').forEach(btn =>
+      btn.addEventListener('click', () =>
+        abrirAdicionarEmail(btn.dataset.acaoEmail, btn.dataset.nome)
+      )
+    )
+  }
+
+  const listaEl = document.getElementById('lista-moradores')
+  bindMoradores(listaEl)
+
   document.getElementById('busca-morador')?.addEventListener('input', function() {
     const q = this.value.toLowerCase()
     const filtrado = moradores.filter(m =>
       m.nome.toLowerCase().includes(q) ||
       m.apto.toLowerCase().includes(q) ||
       (m.email || '').toLowerCase().includes(q))
-    document.getElementById('lista-moradores').innerHTML = moradorRows(filtrado)
+    listaEl.innerHTML = moradorRows(filtrado)
+    bindMoradores(listaEl)
   })
 }
 
 function moradorRows(lista) {
   if (lista.length === 0) return '<div class="panel-empty">Nenhum morador encontrado</div>'
+  const rows = lista.map(m => {
+    const cfg = STATUS_CFG[m.status] || STATUS_CFG.pendente
+    const ini = m.nome.split(' ').map(n => n[0]).slice(0, 2).join('')
+    const semEmail = m.status === 'sem_email' || !m.email
+
+    return `
+      <div class="panel-row" id="row-morador-${m.id}">
+        <div class="panel-avatar" style="background:#EFF6FF;color:#1D4ED8">${ini}</div>
+        <div class="panel-row-info">
+          <div class="panel-row-name">${m.nome}</div>
+          <div class="panel-row-sub">
+            Apto ${m.apto} ·
+            ${semEmail
+              ? `<span style="color:#D97706;font-weight:600">sem e-mail</span>`
+              : m.email}
+          </div>
+        </div>
+        <span class="panel-row-badge" style="background:${cfg.bg};color:${cfg.color}">
+          ${cfg.label}
+        </span>
+        ${semEmail ? `
+          <button class="panel-row-btn"
+                  title="Adicionar e-mail"
+                  data-acao-email="${m.id}"
+                  data-nome="${m.nome.replace(/"/g,'&quot;')}"
+                  style="background:#FEF3C7;border-color:#FDE68A">
+            <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="#92400E"
+                 style="width:11px;height:11px">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+          </button>` : ''}
+        <button class="panel-row-btn" title="Ver detalhes" data-acao-detalhe="${m.id}">
+          <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </button>
+      </div>`
+  }).join('')
+
   return `
     <div class="panel-card-head">
       <div class="panel-card-title">
@@ -370,23 +428,59 @@ function moradorRows(lista) {
       </div>
       <span style="font-size:11px;color:var(--n-400)">${lista.length} cadastrados</span>
     </div>
-    ${lista.map(m => {
-      const cfg = STATUS_CFG[m.status] || STATUS_CFG.pendente
-      const ini = m.nome.split(' ').map(n => n[0]).slice(0, 2).join('')
-      return `
-        <div class="panel-row">
-          <div class="panel-avatar" style="background:#EFF6FF;color:#1D4ED8">${ini}</div>
-          <div class="panel-row-info">
-            <div class="panel-row-name">${m.nome}</div>
-            <div class="panel-row-sub">Apto ${m.apto} · ${m.email || '—'}</div>
-          </div>
-          <span class="panel-row-badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>
-          <button class="panel-row-btn" title="Ver detalhes" onclick="abrirDetalhesMorador('${m.id}')">
-            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
-          </button>
-        </div>`
-    }).join('')}
+    ${rows}
   `
+}
+
+// ── Adicionar e-mail a morador sem_email ──────────────────────
+let emailMoradorId = null
+
+function abrirAdicionarEmail(moradorId, nome) {
+  emailMoradorId = moradorId
+  document.getElementById('add-email-nome').textContent  = nome
+  document.getElementById('add-email-input').value       = ''
+  document.getElementById('err-add-email').style.display = 'none'
+  document.getElementById('modal-add-email').classList.add('open')
+  setTimeout(() => document.getElementById('add-email-input')?.focus(), 50)
+}
+
+async function salvarEmailMorador() {
+  const email = document.getElementById('add-email-input').value.trim()
+  limparErro('err-add-email')
+
+  if (!email)               { mostrarErro('err-add-email', 'Informe o e-mail.'); return }
+  if (!isEmailValido(email)){ mostrarErro('err-add-email', 'E-mail inválido.'); return }
+
+  const btn = document.getElementById('btn-salvar-add-email')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
+  // Verifica duplicado
+  const { data: existente } = await db
+    .from('usuarios').select('id').eq('email', email).maybeSingle()
+
+  if (existente) {
+    mostrarErro('err-add-email', 'Este e-mail já está cadastrado no sistema.')
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar e-mail' }
+    return
+  }
+
+  const { error } = await db
+    .from('usuarios')
+    .update({ email, status: 'pendente' })
+    .eq('id', emailMoradorId)
+    .eq('condominio_id', usuarioLogado.condominio_id)
+
+  if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar e-mail' }
+
+  if (error) {
+    mostrarErro('err-add-email', 'Erro ao salvar. Tente novamente.')
+    return
+  }
+
+  cacheMoradores = []
+  fecharModal()
+  mostrarToast('E-mail adicionado! Morador pode receber convite agora.')
+  renderTab(tabAtiva)
 }
 
 // ── Apartamentos ──────────────────────────────────────────────
