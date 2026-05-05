@@ -36,8 +36,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   verificarAlertas()
 
   db.channel('entregas-realtime')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, () => {
-      carregarEntregas()
+    .on('postgres_changes', {
+      event:  '*',
+      schema: 'public',
+      table:  'entregas',
+      filter: `condominio_id=eq.${usuarioLogado.condominio_id}`,
+    }, (payload) => {
+      // Passa o ID do registro alterado para o delta — evita re-fetch completo
+      const deltaId = payload.new?.id || payload.old?.id || null
+      carregarEntregas(deltaId)
     })
     .subscribe()
 })
@@ -365,7 +372,57 @@ async function buscarHistorico() {
 }
 
 // ── Carrega entregas do banco ─────────────────────────────────
-async function carregarEntregas() {
+async function carregarEntregas(deltaId = null) {
+  // Se temos um ID específico (via realtime), busca só aquele registro
+  // e aplica o delta no array local — muito mais eficiente
+  if (deltaId && todasEntregas.length > 0) {
+    const { data: delta, error } = await db
+      .from('entregas')
+      .select(`
+        id, transportadora, volumes, status, obs,
+        recebido_em, retirado_em, morador_id,
+        apartamentos ( numero, bloco ),
+        morador:usuarios!morador_id ( nome )
+      `)
+      .eq('id', deltaId)
+      .single()
+
+    if (!error && delta) {
+      const novo = {
+        id:        delta.id,
+        apto:      delta.apartamentos ? `${delta.apartamentos.bloco}-${delta.apartamentos.numero}` : '—',
+        morador:   delta.morador?.nome || '—',
+        moradorId: delta.morador_id    || null,
+        trans:     delta.transportadora,
+        data:      new Date(delta.recebido_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }),
+        hora:      new Date(delta.recebido_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
+        volumes:   delta.volumes,
+        status:    delta.status,
+        obs:       delta.obs || '',
+      }
+
+      const idx = todasEntregas.findIndex(e => e.id === deltaId)
+      if (idx >= 0) {
+        // Atualiza registro existente
+        todasEntregas[idx] = novo
+      } else {
+        // Nova entrega — adiciona no início (mais recente primeiro)
+        todasEntregas.unshift(novo)
+      }
+
+      // Atualiza UI sem re-fetch completo
+      const body = document.getElementById('tab-body-porteiro')
+      if (body) {
+        if (tabPorteiroAtiva === 'dashboard') { renderStats(); renderCards() }
+        else if (tabPorteiroAtiva === 'entregas') renderEntregas(body)
+      }
+      atualizarDotNotif()
+      return
+    }
+    // Se o delta falhou, cai no fetch completo abaixo
+  }
+
+  // Fetch completo — usado no carregamento inicial ou quando delta não disponível
   const { data, error } = await db
     .from('entregas')
     .select(`
@@ -396,7 +453,6 @@ async function carregarEntregas() {
   if (!body) return
 
   if (tabPorteiroAtiva === 'dashboard') {
-    // Se o dashboard já está montado, só atualiza stats e cards sem recriar o HTML
     if (document.getElementById('stat-aguardando')) {
       renderStats()
       renderCards()

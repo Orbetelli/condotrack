@@ -644,30 +644,159 @@ async function preencherModalMorador(m, aptoLabel) {
 }
 
 // ── Relatórios ────────────────────────────────────────────────
-function renderRelatorios(body) {
+async function renderRelatorios(body) {
+  body.innerHTML = `<div style="text-align:center;padding:40px;color:var(--n-400)">Carregando relatórios...</div>`
+
+  const hoje     = new Date()
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString()
+  const inicioSemana = new Date(hoje - 7 * 86400000).toISOString()
+
+  // Busca todos os dados em paralelo
+  const [
+    { data: entregas },
+    { data: moradores },
+    { data: porteiros },
+    { data: aptos },
+  ] = await Promise.all([
+    db.from('entregas')
+      .select('id, status, transportadora, recebido_em, retirado_em, apartamentos(bloco, numero)')
+      .eq('condominio_id', usuarioLogado.condominio_id)
+      .order('recebido_em', { ascending: false }),
+    db.from('usuarios')
+      .select('id, nome, status, apartamentos(bloco, numero)')
+      .eq('condominio_id', usuarioLogado.condominio_id)
+      .eq('perfil', 'morador'),
+    db.from('usuarios')
+      .select('id, nome, turno, periodo, status')
+      .eq('condominio_id', usuarioLogado.condominio_id)
+      .eq('perfil', 'porteiro'),
+    db.from('apartamentos')
+      .select('id, bloco, numero, status')
+      .eq('condominio_id', usuarioLogado.condominio_id),
+  ])
+
+  const e  = entregas  || []
+  const m  = moradores || []
+  const p  = porteiros || []
+  const a  = aptos     || []
+
+  // Métricas de entregas
+  const eMes      = e.filter(x => x.recebido_em >= inicioMes)
+  const eSemana   = e.filter(x => x.recebido_em >= inicioSemana)
+  const eAguar    = e.filter(x => ['aguardando','notificado','entregue_porteiro'].includes(x.status))
+  const eRetirado = e.filter(x => x.status === 'retirado')
+  const eExpirado = e.filter(x => x.status === 'expirado')
+
+  // Transportadoras mais frequentes
+  const transCont = {}
+  e.forEach(x => { transCont[x.transportadora] = (transCont[x.transportadora] || 0) + 1 })
+  const topTrans = Object.entries(transCont).sort((a,b) => b[1]-a[1]).slice(0, 5)
+
+  // Tempo médio de retirada (em horas)
+  const comRetirada = e.filter(x => x.retirado_em && x.recebido_em)
+  const tempoMedio  = comRetirada.length
+    ? Math.round(comRetirada.reduce((acc, x) => {
+        return acc + (new Date(x.retirado_em) - new Date(x.recebido_em)) / 3600000
+      }, 0) / comRetirada.length)
+    : null
+
+  // Métricas de moradores
+  const mAtivos   = m.filter(x => x.status === 'ativo').length
+  const mPendente = m.filter(x => x.status === 'pendente').length
+  const mSemEmail = m.filter(x => x.status === 'sem_email').length
+
+  // Ocupação
+  const aOcupados    = a.filter(x => x.status === 'ocupado').length
+  const aDisponiveis = a.length - aOcupados
+  const pctOcupacao  = a.length ? Math.round((aOcupados / a.length) * 100) : 0
+
+  const barLargura = (v, total) =>
+    `<div style="height:6px;border-radius:99px;background:var(--n-100);overflow:hidden;margin-top:4px">
+       <div style="height:100%;width:${total ? Math.round(v/total*100) : 0}%;background:var(--p-500);border-radius:99px"></div>
+     </div>`
+
   body.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
       ${[
-        ['Relatório de entregas',  'Histórico completo de todas as entregas do condomínio', '#EDE9FE', '#5B21B6'],
-        ['Relatório de moradores', 'Lista de moradores ativos, inativos e apartamentos',    '#EFF6FF', '#1D4ED8'],
-        ['Relatório de porteiros', 'Turnos, atividades e registros por porteiro',           '#F0FDF4', '#166534'],
-      ].map(([t, d, bg, c]) => `
-        <div style="background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);padding:20px;cursor:pointer"
-             onmouseenter="this.style.boxShadow='0 4px 14px rgba(109,40,217,.1)'"
-             onmouseleave="this.style.boxShadow='none'">
-          <div style="width:36px;height:36px;border-radius:10px;background:${bg};display:flex;align-items:center;justify-content:center;margin-bottom:12px">
-            <svg viewBox="0 0 24 24" stroke="${c}" stroke-width="2" fill="none" style="width:17px;height:17px">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-            </svg>
+        ['Entregas este mês',  eMes.length,      '#FEF3C7','#92400E', 'Mês atual'],
+        ['Esta semana',        eSemana.length,    '#EDE9FE','#5B21B6', '7 dias'],
+        ['Aguardando retirada',eAguar.length,     '#FEF2F2','#991B1B', 'Pendentes'],
+        ['Taxa de retirada',   e.length ? Math.round(eRetirado.length/e.length*100)+'%' : '—', '#F0FDF4','#166534', 'Do total'],
+      ].map(([l,v,bg,c,sub]) => `
+        <div style="background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);padding:14px 16px">
+          <div style="font-size:26px;font-weight:700;color:var(--n-900);line-height:1">${v}</div>
+          <div style="font-size:12px;color:var(--n-500);margin-top:4px">${l}</div>
+          <span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;
+                       background:${bg};color:${c};margin-top:6px;display:inline-block">${sub}</span>
+        </div>`).join('')}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+      <!-- Transportadoras -->
+      <div style="background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);overflow:hidden">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--n-100);font-size:11px;font-weight:700;
+                    text-transform:uppercase;letter-spacing:.06em;color:var(--n-500)">
+          Top transportadoras
+        </div>
+        <div style="padding:8px 0">
+          ${topTrans.length === 0
+            ? '<div style="padding:16px;text-align:center;font-size:12px;color:var(--n-400)">Sem dados</div>'
+            : topTrans.map(([t,v]) => `
+              <div style="padding:8px 16px">
+                <div style="display:flex;justify-content:space-between;font-size:13px">
+                  <span style="font-weight:600;color:var(--n-900)">${t}</span>
+                  <span style="color:var(--n-500)">${v} entrega${v>1?'s':''}</span>
+                </div>
+                ${barLargura(v, e.length)}
+              </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- Moradores e Ocupação -->
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);overflow:hidden">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--n-100);font-size:11px;font-weight:700;
+                      text-transform:uppercase;letter-spacing:.06em;color:var(--n-500)">Moradores</div>
+          <div style="padding:12px 16px;display:flex;flex-direction:column;gap:8px">
+            ${[
+              ['Ativos',      mAtivos,   '#F0FDF4','#166534'],
+              ['Pendentes',   mPendente, '#FEF3C7','#92400E'],
+              ['Sem e-mail',  mSemEmail, '#FFF7ED','#C2410C'],
+            ].map(([l,v,bg,c]) => `
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:13px;color:var(--n-600)">${l}</span>
+                <span style="font-size:13px;font-weight:700;padding:2px 10px;border-radius:99px;
+                             background:${bg};color:${c}">${v}</span>
+              </div>`).join('')}
           </div>
-          <div style="font-size:14px;font-weight:700;color:var(--n-900);margin-bottom:5px">${t}</div>
-          <div style="font-size:12px;color:var(--n-500);line-height:1.5;margin-bottom:14px">${d}</div>
-          <div style="font-size:12px;font-weight:600;color:${c};display:flex;align-items:center;gap:5px">
-            Gerar relatório
-            <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="${c}" style="width:13px;height:13px" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+        <div style="background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);padding:14px 16px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+                      color:var(--n-500);margin-bottom:10px">Ocupação dos apartamentos</div>
+          <div style="font-size:28px;font-weight:700;color:var(--p-600)">${pctOcupacao}%</div>
+          <div style="font-size:12px;color:var(--n-500);margin-bottom:8px">
+            ${aOcupados} ocupados · ${aDisponiveis} disponíveis de ${a.length}
           </div>
-        </div>`
-      ).join('')}
+          ${barLargura(aOcupados, a.length)}
+        </div>
+      </div>
+    </div>
+
+    <!-- Estatísticas adicionais -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+      ${[
+        ['Total de entregas',       e.length],
+        ['Retiradas com sucesso',   eRetirado.length],
+        ['Expiradas',               eExpirado.length],
+        ['Porteiros cadastrados',   p.filter(x=>x.status==='ativo').length],
+        ['Tempo médio de retirada', tempoMedio !== null ? tempoMedio+'h' : '—'],
+        ['Apartamentos cadastrados',a.length],
+      ].map(([l,v]) => `
+        <div style="background:var(--n-0);border:1px solid var(--n-200);
+                    border-radius:var(--radius-lg);padding:14px 16px">
+          <div style="font-size:22px;font-weight:700;color:var(--n-900)">${v}</div>
+          <div style="font-size:12px;color:var(--n-500);margin-top:3px">${l}</div>
+        </div>`).join('')}
     </div>
   `
 }

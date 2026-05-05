@@ -805,59 +805,153 @@ async function salvarResetSenha(e) {
 
 // ── RELATÓRIOS ────────────────────────────────────────────────
 async function renderRelatorios(body) {
+  body.innerHTML = `<div style="text-align:center;padding:40px;color:var(--n-400)">Carregando relatórios...</div>`
+
+  const hoje      = new Date()
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString()
+
   const [condos, users, entregas] = await Promise.all([
-    db.from('condominios').select('id, nome, status, total_aptos'),
-    db.from('usuarios').select('id, perfil, status'),
-    db.from('entregas').select('id, status, recebido_em'),
+    db.from('condominios').select('id, nome, status, total_aptos, cidade, uf'),
+    db.from('usuarios').select('id, perfil, status, condominio_id'),
+    db.from('entregas').select('id, status, recebido_em, condominio_id'),
   ])
 
-  const condoData    = condos.data  || []
-  const userData     = users.data   || []
-  const entregaData  = entregas.data || []
+  const condoData   = condos.data   || []
+  const userData    = users.data    || []
+  const entregaData = entregas.data || []
 
-  const hoje     = new Date()
-  const mesAtual = hoje.getMonth()
-  const anoAtual = hoje.getFullYear()
-  const entMes   = entregaData.filter(e => {
-    const d = new Date(e.recebido_em)
-    return d.getMonth() === mesAtual && d.getFullYear() === anoAtual
-  })
+  const entMes  = entregaData.filter(e => e.recebido_em >= inicioMes)
+  const eAguar  = entregaData.filter(e => ['aguardando','notificado'].includes(e.status))
+  const eRetir  = entregaData.filter(e => e.status === 'retirado')
+
+  // Entregas por condomínio (top 5)
+  const entPorCondo = {}
+  entregaData.forEach(e => { entPorCondo[e.condominio_id] = (entPorCondo[e.condominio_id] || 0) + 1 })
+  const topCondos = condoData
+    .map(c => ({ ...c, totalEntregas: entPorCondo[c.id] || 0 }))
+    .sort((a, b) => b.totalEntregas - a.totalEntregas)
+    .slice(0, 5)
+
+  const maxEntregas = Math.max(...topCondos.map(c => c.totalEntregas), 1)
+
+  const bar = (v, max, color = 'var(--p-500)') =>
+    `<div style="height:8px;border-radius:99px;background:var(--n-100);overflow:hidden;margin-top:4px;flex:1">
+       <div style="height:100%;width:${Math.round(v/max*100)}%;background:${color};border-radius:99px;
+                   transition:width .4s ease"></div>
+     </div>`
 
   body.innerHTML = `
+    <!-- Stats globais -->
     <div class="stats-grid" style="margin-bottom:20px">
-      ${statCard(condoData.filter(c=>c.status==='ativo').length, 'Condomínios ativos', '#EDE9FE','#5B21B6', iconPredio())}
-      ${statCard(userData.filter(u=>u.perfil==='morador').length, 'Moradores', '#EFF6FF','#1D4ED8', iconPessoas())}
-      ${statCard(entMes.length, 'Entregas este mês', '#FEF3C7','#92400E', iconCaixa())}
-      ${statCard(entregaData.filter(e=>e.status==='aguardando').length, 'Pendentes agora', '#FEF2F2','#991B1B', iconAlerta())}
+      ${statCard(condoData.filter(c=>c.status==='ativo').length,   'Condomínios ativos',  '#EDE9FE','#5B21B6', iconPredio())}
+      ${statCard(userData.filter(u=>u.perfil==='morador').length,  'Moradores totais',    '#EFF6FF','#1D4ED8', iconPessoas())}
+      ${statCard(entMes.length,                                    'Entregas este mês',   '#FEF3C7','#92400E', iconCaixa())}
+      ${statCard(eAguar.length,                                    'Pendentes agora',     '#FEF2F2','#991B1B', iconAlerta())}
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+
+      <!-- Condomínios com mais entregas -->
       <div class="panel-card-sa">
-        <div class="panel-card-sa-head"><span class="panel-card-sa-title">Condomínios</span></div>
-        <div style="padding:4px 0">
-          ${condoData.map(c => `
-            <div class="panel-row-sa">
-              <div style="width:8px;height:8px;border-radius:50%;background:${c.status==='ativo'?'#34D399':'#F59E0B'};flex-shrink:0"></div>
-              <div class="panel-row-info-sa">
-                <div class="panel-row-name-sa">${c.nome}</div>
-                <div class="panel-row-sub-sa">${c.total_aptos} aptos</div>
+        <div class="panel-card-sa-head">
+          <span class="panel-card-sa-title">Condomínios — entregas totais</span>
+        </div>
+        <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+          ${topCondos.map(c => `
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px">
+                <span style="font-weight:600;color:var(--n-900)">${_escaparHTMLsa(c.nome)}</span>
+                <span style="color:var(--n-500)">${c.totalEntregas}</span>
               </div>
-              <span class="panel-row-badge-sa" style="background:${c.status==='ativo'?'#F0FDF4':'#FEF3C7'};color:${c.status==='ativo'?'#166534':'#92400E'}">${statusLabel(c.status)}</span>
-            </div>`).join('') || '<div class="panel-empty-sa">Nenhum condomínio</div>'}
+              <div style="display:flex;align-items:center;gap:8px">
+                ${bar(c.totalEntregas, maxEntregas)}
+              </div>
+            </div>`).join('') || '<div style="font-size:12px;color:var(--n-400)">Sem dados</div>'}
         </div>
       </div>
 
+      <!-- Usuários por perfil -->
       <div class="panel-card-sa">
-        <div class="panel-card-sa-head"><span class="panel-card-sa-title">Usuários por perfil</span></div>
-        <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
-          ${['superadmin','admin','porteiro','morador'].map(p => {
+        <div class="panel-card-sa-head">
+          <span class="panel-card-sa-title">Usuários por perfil</span>
+          <span style="font-size:11px;color:var(--n-400)">${userData.length} total</span>
+        </div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+          ${[
+            ['Super Admin', 'superadmin', '#EDE9FE','#5B21B6'],
+            ['Síndicos',    'admin',      '#F3E8FF','#6D28D9'],
+            ['Porteiros',   'porteiro',   '#EFF6FF','#1D4ED8'],
+            ['Moradores',   'morador',    '#F0FDFA','#0F766E'],
+          ].map(([l, p, bg, c]) => {
             const qtd   = userData.filter(u => u.perfil === p).length
-            const total = userData.length || 1
-            const cores = { superadmin:['#EDE9FE','#5B21B6'], admin:['#F3E8FF','#6D28D9'], porteiro:['#EFF6FF','#1D4ED8'], morador:['#F0FDFA','#0F766E'] }
-            return statusBar(p.charAt(0).toUpperCase()+p.slice(1), qtd, total, cores[p][1], cores[p][0])
+            const ativos = userData.filter(u => u.perfil === p && u.status === 'ativo').length
+            return `
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
+                  <span style="font-weight:600;color:var(--n-900)">${l}</span>
+                  <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;
+                               background:${bg};color:${c}">${qtd}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  ${bar(ativos, qtd || 1, c)}
+                  <span style="font-size:11px;color:var(--n-400);white-space:nowrap">${ativos} ativos</span>
+                </div>
+              </div>`
           }).join('')}
         </div>
       </div>
+    </div>
+
+    <!-- Resumo de condomínios -->
+    <div class="panel-card-sa">
+      <div class="panel-card-sa-head">
+        <span class="panel-card-sa-title">Todos os condomínios</span>
+        <span style="font-size:11px;color:var(--n-400)">${condoData.length} cadastrados</span>
+      </div>
+      <div>
+        ${condoData.map((c, i) => {
+          const moradores  = userData.filter(u => u.condominio_id === c.id && u.perfil === 'morador').length
+          const porteiros  = userData.filter(u => u.condominio_id === c.id && u.perfil === 'porteiro').length
+          const entTotal   = entPorCondo[c.id] || 0
+          const entPend    = entregaData.filter(e => e.condominio_id === c.id &&
+            ['aguardando','notificado'].includes(e.status)).length
+          const borda = i < condoData.length - 1 ? 'border-bottom:1px solid var(--n-100);' : ''
+          return `
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;${borda}">
+              <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;
+                          background:${c.status==='ativo'?'#34D399':'#F59E0B'}"></div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:600;color:var(--n-900)">${_escaparHTMLsa(c.nome)}</div>
+                <div style="font-size:11px;color:var(--n-500);margin-top:1px">
+                  ${_escaparHTMLsa(c.cidade)}/${_escaparHTMLsa(c.uf)} ·
+                  ${moradores} morador${moradores!==1?'es':''} ·
+                  ${porteiros} porteiro${porteiros!==1?'s':''}
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;flex-shrink:0">
+                <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;
+                             background:#FEF3C7;color:#92400E">${entPend} pendente${entPend!==1?'s':''}</span>
+                <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;
+                             background:var(--n-100);color:var(--n-600)">${entTotal} entrega${entTotal!==1?'s':''}</span>
+              </div>
+            </div>`
+        }).join('') || '<div class="panel-empty-sa">Nenhum condomínio cadastrado</div>'}
+      </div>
+    </div>
+
+    <!-- Resumo global -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px">
+      ${[
+        ['Total de entregas',     entregaData.length],
+        ['Retiradas com sucesso', eRetir.length],
+        ['Taxa de retirada',      entregaData.length ? Math.round(eRetir.length/entregaData.length*100)+'%' : '—'],
+        ['Aptos cadastrados',     condoData.reduce((s,c) => s + (c.total_aptos||0), 0)],
+      ].map(([l,v]) => `
+        <div style="background:var(--n-0);border:1px solid var(--n-200);
+                    border-radius:var(--radius-lg);padding:14px 16px">
+          <div style="font-size:22px;font-weight:700;color:var(--n-900)">${v}</div>
+          <div style="font-size:12px;color:var(--n-500);margin-top:3px">${l}</div>
+        </div>`).join('')}
     </div>
   `
 }
