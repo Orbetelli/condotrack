@@ -48,6 +48,9 @@
       <button class="sb-item" data-tip="Equipe interna" onclick="ativarSidebar(this);mudarTab('equipe')">
         <svg viewBox="0 0 24 24" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       </button>
+      <button class="sb-item" data-tip="Alertas" onclick="ativarSidebar(this);mudarTab('alertas')">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      </button>
       <div class="sb-divider"></div>
       <button class="sb-item" data-tip="Sair" onclick="logout()">
         <svg viewBox="0 0 24 24" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -89,6 +92,10 @@
       <div class="nav-tab" data-tab="equipe"       onclick="mudarTab('equipe')">
         <svg viewBox="0 0 24 24" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         Equipe interna
+      </div>
+      <div class="nav-tab" data-tab="alertas" onclick="mudarTab('alertas')">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        Alertas
       </div>
     </nav>
 
@@ -499,9 +506,72 @@
   </div>
 </div>
 
+<!-- ── Modal: novo alerta de atualização ── -->
+<div class="modal-overlay" id="modal-alerta">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Novo alerta de atualização</div>
+      <button class="modal-close" onclick="fecharModal()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-grid">
+      <div class="modal-field">
+        <label class="ct-label" for="alerta-versao">Versão</label>
+        <input class="ct-input" type="text" id="alerta-versao" placeholder="ex: 1.2.0" />
+        <div class="ct-error" id="err-alerta-versao" style="display:none"></div>
+      </div>
+      <div class="modal-field">
+        <label class="ct-label" for="alerta-tipo">Tipo</label>
+        <select class="ct-input" id="alerta-tipo">
+          <option value="info">🚀 Atualização</option>
+          <option value="aviso">⚠️ Aviso</option>
+          <option value="critico">🔴 Crítico</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="alerta-titulo">Título</label>
+      <input class="ct-input" type="text" id="alerta-titulo"
+             placeholder="ex: Novas funcionalidades de entregas" />
+      <div class="ct-error" id="err-alerta-titulo" style="display:none"></div>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="alerta-descricao">
+        Descrição
+        <span style="font-weight:400;color:var(--n-400);text-transform:none;
+                     letter-spacing:0">(use Enter para quebrar linhas)</span>
+      </label>
+      <textarea class="ct-input" id="alerta-descricao" rows="5"
+                placeholder="Descreva as novidades desta atualização..."
+                style="resize:vertical;font-family:var(--font-sans);line-height:1.6"></textarea>
+      <div class="ct-error" id="err-alerta-desc" style="display:none"></div>
+    </div>
+    <div style="background:var(--p-50);border:1.5px solid var(--p-100);
+                border-radius:var(--radius-md);padding:10px 14px;
+                font-size:12px;color:var(--p-700);margin-bottom:4px">
+      💡 O alerta será exibido a todos os usuários na próxima vez que abrirem o sistema.
+         Cada usuário verá apenas uma vez por sessão.
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="ct-btn-primary" id="btn-salvar-alerta" onclick="salvarAlerta()">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+             style="width:14px;height:14px" stroke-linecap="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        </svg>
+        Publicar alerta
+      </button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
 <script src="../js/utils.js"></script>
+<script src="../js/alertas.js"></script>
 <script src="../js/superadmin.js"></script>
 </body>
 </html>

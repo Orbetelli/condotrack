@@ -22,6 +22,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   aplicarMascaraCEP()
   aplicarMascaraCNPJ('c-cnpj')
   bindEvents()
+
+  // Verifica alertas do sistema após carregar o painel
+  verificarAlertas()
 })
 
 // ── Navegação entre abas ──────────────────────────────────────
@@ -38,6 +41,7 @@ async function mudarTab(tab) {
     usuarios:    'Usuários',
     relatorios:  'Relatórios',
     equipe:      'Equipe interna',
+    alertas:     'Alertas',
   }
   document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'))
   const sbTip = tipMap[tab]
@@ -73,6 +77,7 @@ async function mudarTab(tab) {
   if (tab === 'usuarios')    await renderUsuarios(body)
   if (tab === 'relatorios')  await renderRelatorios(body)
   if (tab === 'equipe')      await renderEquipe(body)
+  if (tab === 'alertas')     await renderAlertas(body)
 }
 
 // ── DASHBOARD ────────────────────────────────────────────────
@@ -779,6 +784,201 @@ async function renderRelatorios(body) {
       </div>
     </div>
   `
+}
+
+// ── ALERTAS DE ATUALIZAÇÃO ────────────────────────────────────
+async function renderAlertas(body) {
+  const { data: alertas } = await db
+    .from('alertas_sistema')
+    .select('id, versao, titulo, descricao, tipo, ativo, criado_em')
+    .order('criado_em', { ascending: false })
+
+  const lista = alertas || []
+
+  const TIPO_CFG = {
+    info:    { label: 'Atualização', bg: 'var(--p-100)',  color: 'var(--p-700)' },
+    aviso:   { label: 'Aviso',       bg: '#FEF3C7',       color: '#92400E'       },
+    critico: { label: 'Crítico',     bg: '#FEF2F2',       color: '#DC2626'       },
+  }
+
+  body.innerHTML = `
+    <div style="max-width:680px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--n-900)">Alertas de atualização</div>
+          <div style="font-size:12px;color:var(--n-500);margin-top:2px">
+            Gerencie os alertas exibidos a todos os usuários do sistema
+          </div>
+        </div>
+        <button class="btn-novo" id="btn-novo-alerta" style="display:flex">
+          <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" fill="none"
+               stroke="currentColor" style="width:13px;height:13px">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Novo alerta
+        </button>
+      </div>
+
+      ${lista.length === 0
+        ? `<div class="panel-card-sa" style="padding:40px;text-align:center;color:var(--n-400)">
+             Nenhum alerta criado ainda.
+           </div>`
+        : lista.map(a => {
+            const cfg  = TIPO_CFG[a.tipo] || TIPO_CFG.info
+            const data = new Date(a.criado_em).toLocaleDateString('pt-BR')
+            return `
+              <div class="panel-card-sa" style="margin-bottom:10px;${!a.ativo ? 'opacity:.55' : ''}">
+                <div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px">
+                  <div style="flex:1;min-width:0">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+                      <span style="font-size:14px;font-weight:700;color:var(--n-900)">${_escaparHTMLsa(a.titulo)}</span>
+                      <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;
+                                   background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>
+                      <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;
+                                   background:var(--p-50);color:var(--p-700)">v${_escaparHTMLsa(a.versao)}</span>
+                      ${!a.ativo
+                        ? `<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;
+                                        background:var(--n-100);color:var(--n-500)">Inativo</span>`
+                        : `<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;
+                                        background:#F0FDF4;color:#166534">Ativo</span>`}
+                    </div>
+                    <div style="font-size:12px;color:var(--n-500);line-height:1.5;
+                                white-space:pre-line;margin-bottom:6px">${_escaparHTMLsa(a.descricao)}</div>
+                    <div style="font-size:11px;color:var(--n-400)">Criado em ${data}</div>
+                  </div>
+                  <div style="display:flex;gap:6px;flex-shrink:0;margin-top:2px">
+                    <button data-alerta-preview="${a.id}"
+                            title="Visualizar pop-up"
+                            style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
+                                   background:var(--p-100);color:var(--p-700);display:flex;
+                                   align-items:center;justify-content:center">
+                      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+                           style="width:13px;height:13px">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    </button>
+                    <button data-alerta-toggle="${a.id}" data-ativo="${a.ativo}"
+                            title="${a.ativo ? 'Desativar' : 'Ativar'}"
+                            style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
+                                   background:${a.ativo ? '#FEF3C7' : '#F0FDF4'};
+                                   color:${a.ativo ? '#92400E' : '#166534'};display:flex;
+                                   align-items:center;justify-content:center">
+                      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+                           style="width:13px;height:13px">
+                        ${a.ativo
+                          ? '<path d="M18 6 6 18M6 6l12 12" stroke-linecap="round"/>'
+                          : '<polyline points="20 6 9 17 4 12"/>'}
+                      </svg>
+                    </button>
+                    <button data-alerta-del="${a.id}"
+                            title="Excluir alerta"
+                            style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
+                                   background:#FEF2F2;color:#DC2626;display:flex;
+                                   align-items:center;justify-content:center">
+                      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+                           style="width:13px;height:13px">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                        <path d="M10 11v6M14 11v6"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>`
+          }).join('')
+      }
+    </div>
+  `
+
+  // Bind botão novo alerta
+  document.getElementById('btn-novo-alerta')
+    ?.addEventListener('click', () => abrirModalAlerta())
+
+  // Bind ações dos alertas existentes
+  body.querySelectorAll('[data-alerta-preview]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const a = lista.find(x => x.id === btn.dataset.alertaPreview)
+      if (a) exibirAlerta(a, new Set(), () => {})
+    })
+  )
+  body.querySelectorAll('[data-alerta-toggle]').forEach(btn =>
+    btn.addEventListener('click', () =>
+      toggleAlerta(btn.dataset.alertaToggle, btn.dataset.ativo === 'true')
+    )
+  )
+  body.querySelectorAll('[data-alerta-del]').forEach(btn =>
+    btn.addEventListener('click', () => deletarAlerta(btn.dataset.alertaDel))
+  )
+}
+
+function _escaparHTMLsa(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
+// ── Modal novo alerta ─────────────────────────────────────────
+function abrirModalAlerta() {
+  document.getElementById('modal-alerta').classList.add('open')
+  document.getElementById('alerta-titulo').value   = ''
+  document.getElementById('alerta-versao').value   = ''
+  document.getElementById('alerta-tipo').value     = 'info'
+  document.getElementById('alerta-descricao').value= ''
+  limparTodosErros('err-alerta-titulo','err-alerta-versao','err-alerta-desc')
+}
+
+async function salvarAlerta() {
+  limparTodosErros('err-alerta-titulo','err-alerta-versao','err-alerta-desc')
+  const titulo    = document.getElementById('alerta-titulo').value.trim()
+  const versao    = document.getElementById('alerta-versao').value.trim()
+  const tipo      = document.getElementById('alerta-tipo').value
+  const descricao = document.getElementById('alerta-descricao').value.trim()
+  let ok = true
+
+  if (!titulo)    { mostrarErro('err-alerta-titulo', 'Informe o título.'); ok = false }
+  if (!versao)    { mostrarErro('err-alerta-versao', 'Informe a versão (ex: 1.2.0).'); ok = false }
+  if (!descricao) { mostrarErro('err-alerta-desc',   'Informe a descrição.'); ok = false }
+  if (!ok) return
+
+  const btn = document.getElementById('btn-salvar-alerta')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
+  const { error } = await db.from('alertas_sistema').insert({
+    titulo, versao, tipo, descricao,
+    ativo:      true,
+    criado_por: usuarioLogado.id,
+  })
+
+  if (btn) { btn.disabled = false; btn.innerHTML = 'Publicar alerta' }
+
+  if (error) {
+    mostrarErro('err-alerta-titulo', 'Erro ao criar alerta. Tente novamente.')
+    return
+  }
+
+  fecharModal()
+  mostrarToast('Alerta publicado! Todos os usuários verão ao entrar.')
+  mudarTab('alertas')
+}
+
+async function toggleAlerta(id, ativoAtual) {
+  const { error } = await db
+    .from('alertas_sistema')
+    .update({ ativo: !ativoAtual })
+    .eq('id', id)
+
+  if (error) { mostrarToast('Erro ao atualizar alerta.', 'erro'); return }
+  mostrarToast(ativoAtual ? 'Alerta desativado.' : 'Alerta ativado!', ativoAtual ? 'aviso' : 'sucesso')
+  mudarTab('alertas')
+}
+
+async function deletarAlerta(id) {
+  if (!confirm('Excluir este alerta permanentemente?')) return
+  const { error } = await db.from('alertas_sistema').delete().eq('id', id)
+  if (error) { mostrarToast('Erro ao excluir alerta.', 'erro'); return }
+  mostrarToast('Alerta excluído.')
+  mudarTab('alertas')
 }
 
 // ── EQUIPE INTERNA ────────────────────────────────────────────

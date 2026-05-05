@@ -88,6 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await renderTab('dashboard')
   bindEvents()
+  verificarAlertas()
 
   // Tempo real — entregas, moradores e porteiros
   db.channel('admin-entregas')

@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderHeader()
   await carregarEntregas()
   renderTab('pendentes')
+  verificarAlertas()
   bindEvents()
 
   // Realtime filtrado pelo apartamento do morador

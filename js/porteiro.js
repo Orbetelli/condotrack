@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await carregarEntregas()
   bindEvents()
+  verificarAlertas()
 
   db.channel('entregas-realtime')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, () => {
