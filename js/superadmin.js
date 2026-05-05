@@ -602,6 +602,8 @@ async function salvarEdicaoUsuario() {
 
   fecharModal()
   mostrarToast('Perfil atualizado com sucesso!')
+  // Se editou o próprio usuário logado, invalida o cache
+  if (editUsuarioId === usuarioLogado?.id) invalidarCacheUsuario()
   renderTab(tabAtiva)
 }
 

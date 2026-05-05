@@ -365,10 +365,11 @@ async function salvarPerfil() {
     }
   }
 
-  // Atualiza dados locais
+  // Atualiza dados locais e invalida o cache para re-fetch na próxima navegação
   usuarioLogado.nome     = nome
   usuarioLogado.telefone = telefone
   usuarioLogado.email    = email
+  invalidarCacheUsuario()
 
   fecharModalPerfil()
   renderHeader()

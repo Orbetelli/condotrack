@@ -895,17 +895,23 @@ function fecharDetalhe() {
 async function registrarEntreguePorteiro() {
   if (!entregaDetalhe) return
 
+  const btn = document.getElementById('btn-entregue-porteiro')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
   const { error } = await db
     .from('entregas')
     .update({
       status:      'entregue_porteiro',
       entregue_em: new Date().toISOString(),
+      porteiro_id: usuarioLogado?.id || null,
     })
     .eq('id', entregaDetalhe.id)
 
+  if (btn) { btn.disabled = false; btn.innerHTML = 'Entregue ao morador' }
+
   if (error) { mostrarToast('Erro ao registrar entrega.', 'erro'); return }
 
-  // Notifica o morador para confirmar em 15 minutos
+  // Notifica o morador para confirmar em 15 minutos (fire-and-forget)
   db.functions.invoke('confirmar-entrega', {
     body: {
       entrega_id: entregaDetalhe.id,
@@ -913,6 +919,7 @@ async function registrarEntreguePorteiro() {
     },
   }).catch(err => console.warn('Notificação não enviada:', err))
 
+  mostrarToast('Entrega registrada! Morador será notificado.')
   fecharDetalhe()
   await carregarEntregas()
 }
@@ -920,13 +927,35 @@ async function registrarEntreguePorteiro() {
 async function confirmarRetirada() {
   if (!entregaDetalhe) return
 
+  const btn = document.getElementById('btn-confirmar-retirada')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
   const { error } = await db
     .from('entregas')
-    .update({ status: 'retirado', retirado_em: new Date().toISOString() })
+    .update({
+      status:      'retirado',
+      retirado_em: new Date().toISOString(),
+      porteiro_id: usuarioLogado?.id || null,
+    })
     .eq('id', entregaDetalhe.id)
 
-  if (error) { mostrarToast('Erro ao confirmar retirada.', 'erro'); return }
+  if (btn) { btn.disabled = false; btn.innerHTML = 'Confirmar retirada' }
 
+  if (error) {
+    mostrarToast('Erro ao confirmar retirada.', 'erro')
+    return
+  }
+
+  // Notifica o morador que a entrega foi retirada (fire-and-forget)
+  db.functions.invoke('notificar-porteiro-retirada', {
+    body: {
+      entrega_id: entregaDetalhe.id,
+      morador_id: entregaDetalhe.moradorId || null,
+      porteiro:   usuarioLogado?.nome      || 'Porteiro',
+    },
+  }).catch(err => console.warn('Notificação de retirada não enviada:', err))
+
+  mostrarToast('Retirada confirmada com sucesso!')
   fecharDetalhe()
   await carregarEntregas()
 }
