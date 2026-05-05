@@ -566,10 +566,9 @@ function renderGradeAptos(aptos) {
 
 // ── Detalhe do morador (via lista) ───────────────────────────
 async function abrirDetalhesMorador(moradorId) {
-  // Busca dados completos do morador (cache pode não ter telefone/cpf)
   const { data: m } = await db
     .from('usuarios')
-    .select('id, nome, email, telefone, cpf, status, apartamentos(numero, bloco)')
+    .select('id, nome, email, telefone, status, apartamentos(numero, bloco)')
     .eq('id', moradorId)
     .single()
   if (!m) return
@@ -581,13 +580,12 @@ async function abrirDetalhesMorador(moradorId) {
 async function abrirDetalhesPorApto(aptoId, aptoLabel) {
   const { data: m } = await db
     .from('usuarios')
-    .select('id, nome, email, telefone, cpf, status')
+    .select('id, nome, email, telefone, status')
     .eq('apartamento_id', aptoId)
     .eq('perfil', 'morador')
     .single()
 
   if (!m) {
-    // Apartamento ocupado mas sem morador vinculado na tabela usuarios
     mostrarToast('Morador não encontrado para este apartamento.', 'erro')
     return
   }
@@ -599,17 +597,17 @@ async function preencherModalMorador(m, aptoLabel) {
   const ini = m.nome.split(' ').map(n => n[0]).slice(0, 2).join('')
   const cfg = STATUS_CFG[m.status] || STATUS_CFG.pendente
 
-  document.getElementById('det-mor-avatar').textContent    = ini
-  document.getElementById('det-mor-nome').textContent      = m.nome
-  document.getElementById('det-mor-status').textContent    = cfg.label
-  document.getElementById('det-mor-status').style.color    = cfg.color
-  document.getElementById('det-mor-apto').textContent      = aptoLabel
-  document.getElementById('det-mor-email').textContent     = mascararEmail(m.email)
-  document.getElementById('det-mor-tel').textContent       = mascararTelefone(m.telefone)
+  document.getElementById('det-mor-avatar').textContent = ini
+  document.getElementById('det-mor-nome').textContent   = m.nome
+  document.getElementById('det-mor-status').textContent = cfg.label
+  document.getElementById('det-mor-status').style.color = cfg.color
+  document.getElementById('det-mor-apto').textContent   = aptoLabel
+  document.getElementById('det-mor-email').textContent  = mascararEmail(m.email)
+  document.getElementById('det-mor-tel').textContent    = mascararTelefone(m.telefone)
 
-  // CPF mascarado — síndico vê formato parcial (LGPD)
-  const cpfNum = (m.cpf || '').replace(/\D/g, '')
-  document.getElementById('det-mor-cpf').textContent = mascararCPF(cpfNum)
+  // CPF foi removido do banco (LGPD) — exibe campo como protegido
+  const cpfEl = document.getElementById('det-mor-cpf')
+  if (cpfEl) cpfEl.textContent = '*** protegido ***'
 
   // Carrega últimas 5 entregas deste morador
   const entregasEl = document.getElementById('det-mor-entregas')
@@ -631,7 +629,7 @@ async function preencherModalMorador(m, aptoLabel) {
   }
 
   entregasEl.innerHTML = entregas.map((e, i) => {
-    const cfg = STATUS_CFG[e.status] || STATUS_CFG.aguardando
+    const cfg  = STATUS_CFG[e.status] || STATUS_CFG.aguardando
     const data = new Date(e.recebido_em).toLocaleDateString('pt-BR',
       { day: '2-digit', month: '2-digit', year: '2-digit' })
     const borda = i < entregas.length - 1 ? 'border-bottom:1px solid var(--n-100);' : ''
@@ -1026,8 +1024,6 @@ async function salvarMorador(e) {
     perfil:         'morador',
     nome,
     email:          email || null,
-    cpf:            cpf   || null,
-    // Sem e-mail → pendente (sem acesso ainda); com e-mail → convite pode ser enviado
     status:         email ? 'pendente' : 'sem_email',
   })
 
