@@ -780,30 +780,86 @@ async function salvarEntrega(e) {
 }
 
 // ── Detalhe ───────────────────────────────────────────────────
-function abrirDetalhe(id) {
-  const e = todasEntregas.find(x => x.id === id)
-  if (!e) return
-  entregaDetalhe = e
-  const cfg = STATUS_CONFIG[e.status]
+async function abrirDetalhe(id) {
+  // Busca direto do banco — garante dados sempre atualizados,
+  // mesmo que todasEntregas tenha sido substituído pelo realtime
+  const { data: e, error } = await db
+    .from('entregas')
+    .select(`
+      id, transportadora, volumes, status, obs,
+      recebido_em, retirado_em, morador_id,
+      apartamentos ( numero, bloco ),
+      morador:usuarios!morador_id ( nome )
+    `)
+    .eq('id', id)
+    .single()
 
-  document.getElementById('detalhe-titulo').textContent  = `Entrega #${e.id.slice(0,8)}`
-  document.getElementById('detalhe-apto').textContent    = e.apto
-  document.getElementById('detalhe-morador').textContent = e.morador
-  document.getElementById('detalhe-trans').textContent   = e.trans
-  document.getElementById('detalhe-data').textContent    = `${e.data} às ${e.hora}`
-  document.getElementById('detalhe-volumes').textContent = e.volumes
-  document.getElementById('detalhe-obs').textContent     = e.obs || '—'
-  document.getElementById('detalhe-status').textContent  = cfg.label
-  document.getElementById('detalhe-status').style.background = cfg.bg
-  document.getElementById('detalhe-status').style.color      = cfg.color
+  if (error || !e) {
+    mostrarToast('Não foi possível carregar os detalhes desta entrega.', 'erro')
+    return
+  }
 
-  const btnConf   = document.getElementById('btn-confirmar-retirada')
+  // Normaliza para o mesmo formato do array local
+  const entrega = {
+    id:        e.id,
+    apto:      e.apartamentos ? `${e.apartamentos.bloco}-${e.apartamentos.numero}` : '—',
+    morador:   e.morador?.nome || '—',
+    moradorId: e.morador_id   || null,
+    trans:     e.transportadora,
+    data:      new Date(e.recebido_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }),
+    hora:      new Date(e.recebido_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
+    volumes:   e.volumes,
+    status:    e.status,
+    obs:       e.obs || '',
+  }
+
+  entregaDetalhe = entrega
+  const cfg = STATUS_CONFIG[entrega.status] || STATUS_CONFIG.aguardando
+
+  document.getElementById('detalhe-titulo').textContent  = `Entrega #${entrega.id.slice(0,8)}`
+  document.getElementById('detalhe-apto').textContent    = entrega.apto
+  document.getElementById('detalhe-morador').textContent = entrega.morador
+  document.getElementById('detalhe-trans').textContent   = entrega.trans
+  document.getElementById('detalhe-data').textContent    = `${entrega.data} às ${entrega.hora}`
+  document.getElementById('detalhe-volumes').textContent = entrega.volumes
+  document.getElementById('detalhe-obs').textContent     = entrega.obs || '—'
+  document.getElementById('detalhe-status').textContent       = cfg.label
+  document.getElementById('detalhe-status').style.background  = cfg.bg
+  document.getElementById('detalhe-status').style.color       = cfg.color
+
+  const btnConf     = document.getElementById('btn-confirmar-retirada')
   const btnEntregue = document.getElementById('btn-entregue-porteiro')
-  btnConf.style.display     = ['aguardando','notificado'].includes(e.status) ? 'flex' : 'none'
-  btnEntregue.style.display = ['aguardando','notificado'].includes(e.status) ? 'flex' : 'none'
+  const pendente    = ['aguardando','notificado'].includes(entrega.status)
+  btnConf.style.display     = pendente ? 'flex' : 'none'
+  btnEntregue.style.display = pendente ? 'flex' : 'none'
+
   document.getElementById('modal-detalhe').classList.add('open')
 }
 
+// ── Toast de feedback ─────────────────────────────────────────
+function mostrarToast(msg, tipo = 'sucesso') {
+  const cores = {
+    sucesso: { bg: '#F0FDF4', border: '#BBF7D0', color: '#166534', icon: '✓' },
+    erro:    { bg: '#FEF2F2', border: '#FECACA', color: '#991B1B', icon: '✕' },
+    aviso:   { bg: '#FFFBEB', border: '#FDE68A', color: '#92400E', icon: '!' },
+  }
+  const c = cores[tipo] || cores.sucesso
+  const toast = document.createElement('div')
+  toast.style.cssText = `
+    position:fixed;bottom:24px;right:24px;z-index:9999;
+    background:${c.bg};border:1.5px solid ${c.border};color:${c.color};
+    padding:12px 18px;border-radius:var(--radius-md);
+    font-size:13px;font-weight:600;font-family:var(--font-sans);
+    display:flex;align-items:center;gap:8px;
+    box-shadow:0 4px 16px rgba(0,0,0,.12);
+    animation:fadeUp .2s ease both;
+  `
+  toast.innerHTML = `<span>${c.icon}</span><span>${msg}</span>`
+  document.body.appendChild(toast)
+  setTimeout(() => toast.remove(), 3000)
+}
+
+// ── Fechar modal de detalhe ───────────────────────────────────
 function fecharDetalhe() {
   document.getElementById('modal-detalhe').classList.remove('open')
   entregaDetalhe = null
