@@ -517,14 +517,41 @@ function buscarMoradorPorNome() {
       return
     }
 
-    lista.innerHTML = data.map(m => {
-      const apto = m.apartamentos ? `${m.apartamentos.bloco}-${m.apartamentos.numero}` : '—'
-      return `
-        <div class="busca-nome-item" onclick="selecionarMoradorPorNome('${m.id}','${m.nome.replace(/'/g,"\\'")}','${apto}','${m.apartamentos?.id || ''}','${m.apartamentos?.condominio_id || ''}')">
-          <div style="font-size:13px;font-weight:600;color:var(--n-900)">${m.nome}</div>
-          <div style="font-size:11px;color:var(--n-500);margin-top:2px">Apto ${apto}</div>
-        </div>`
-    }).join('')
+    lista.innerHTML = ''
+    data.forEach(m => {
+      const apto = m.apartamentos
+        ? `${m.apartamentos.bloco}-${m.apartamentos.numero}` : '—'
+
+      const item = document.createElement('div')
+      item.className = 'busca-nome-item'
+      item.dataset.id      = m.id
+      item.dataset.nome    = m.nome
+      item.dataset.apto    = apto
+      item.dataset.aptoId  = m.apartamentos?.id            || ''
+      item.dataset.condoId = m.apartamentos?.condominio_id || ''
+
+      const nomeEl = document.createElement('div')
+      nomeEl.style.cssText = 'font-size:13px;font-weight:600;color:var(--n-900)'
+      nomeEl.textContent   = m.nome
+
+      const aptoEl = document.createElement('div')
+      aptoEl.style.cssText = 'font-size:11px;color:var(--n-500);margin-top:2px'
+      aptoEl.textContent   = `Apto ${apto}`
+
+      item.appendChild(nomeEl)
+      item.appendChild(aptoEl)
+
+      item.addEventListener('click', () =>
+        selecionarMoradorPorNome(
+          item.dataset.id,
+          item.dataset.nome,
+          item.dataset.apto,
+          item.dataset.aptoId,
+          item.dataset.condoId,
+        )
+      )
+      lista.appendChild(item)
+    })
   }, 300)
 }
 
@@ -876,7 +903,7 @@ async function registrarEntreguePorteiro() {
     })
     .eq('id', entregaDetalhe.id)
 
-  if (error) { alert('Erro ao registrar entrega.'); return }
+  if (error) { mostrarToast('Erro ao registrar entrega.', 'erro'); return }
 
   // Notifica o morador para confirmar em 15 minutos
   db.functions.invoke('confirmar-entrega', {
@@ -898,7 +925,7 @@ async function confirmarRetirada() {
     .update({ status: 'retirado', retirado_em: new Date().toISOString() })
     .eq('id', entregaDetalhe.id)
 
-  if (error) { alert('Erro ao confirmar retirada.'); return }
+  if (error) { mostrarToast('Erro ao confirmar retirada.', 'erro'); return }
 
   fecharDetalhe()
   await carregarEntregas()

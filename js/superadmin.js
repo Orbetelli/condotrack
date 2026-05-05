@@ -318,16 +318,33 @@ async function renderUsuarios(body) {
     </div>
   `
 
-  // Filtros
+  // Delegação de eventos para os botões de ação — captura dataset sem onclick inline
+  const bindAcoes = (container) => {
+    container.querySelectorAll('.sa-btn-acao').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const { acao, id, nome, perfil } = btn.dataset
+        if (acao === 'vincular') abrirVincular(id, nome, perfil)
+        if (acao === 'editar')   abrirEditarUsuario(id)
+        if (acao === 'inativar') abrirInativar(id, nome)
+        if (acao === 'reativar') reativarUsuario(id, nome)
+      })
+    })
+  }
+
+  const usersBody = document.getElementById('users-body')
+  bindAcoes(usersBody)
+
+  // Filtros — rebinda ações após filtrar
   const filtrar = () => {
     const q     = document.getElementById('busca-user').value.toLowerCase()
     const perf  = document.getElementById('filtro-perfil').value
     const filt  = lista.filter(u =>
       (!q    || u.nome.toLowerCase().includes(q)) &&
       (!perf || u.perfil === perf))
-    document.getElementById('users-body').innerHTML =
+    usersBody.innerHTML =
       filt.map(u => userRowHTML(u, perfilCores)).join('') ||
       '<div class="panel-empty-sa">Nenhum usuário encontrado</div>'
+    bindAcoes(usersBody)
   }
 
   document.getElementById('busca-user')?.addEventListener('input', filtrar)
@@ -374,7 +391,8 @@ function userRowHTML(u, cores) {
       ${!isMe ? `
         <div style="display:flex;gap:5px;flex-shrink:0">
           <!-- Amarelo: vincular condomínios -->
-          <button onclick="abrirVincular('${u.id}','${u.nome.replace(/'/g,"\\'")}','${u.perfil}')"
+          <button class="sa-btn-acao"
+                  data-acao="vincular" data-id="${u.id}" data-nome="${u.nome.replace(/"/g,'&quot;')}" data-perfil="${u.perfil}"
                   title="Vincular condomínios"
                   style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
                          background:#FEF3C7;color:#92400E;display:flex;align-items:center;
@@ -388,7 +406,8 @@ function userRowHTML(u, cores) {
             </svg>
           </button>
           <!-- Azul: visualizar / editar -->
-          <button onclick="abrirEditarUsuario('${u.id}')"
+          <button class="sa-btn-acao"
+                  data-acao="editar" data-id="${u.id}"
                   title="Visualizar / Editar perfil"
                   style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
                          background:#EFF6FF;color:#1D4ED8;display:flex;align-items:center;
@@ -401,9 +420,10 @@ function userRowHTML(u, cores) {
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
           </button>
-          <!-- Vermelho: inativar (só se ativo) -->
+          <!-- Vermelho: inativar / Verde: reativar -->
           ${!inativo ? `
-          <button onclick="abrirInativar('${u.id}','${u.nome.replace(/'/g,"\\'")}')"
+          <button class="sa-btn-acao"
+                  data-acao="inativar" data-id="${u.id}" data-nome="${u.nome.replace(/"/g,'&quot;')}"
                   title="Inativar usuário"
                   style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
                          background:#FEF2F2;color:#DC2626;display:flex;align-items:center;
@@ -417,8 +437,8 @@ function userRowHTML(u, cores) {
               <line x1="9" y1="9" x2="15" y2="15" stroke-linecap="round"/>
             </svg>
           </button>` : `
-          <!-- Reativar se inativo -->
-          <button onclick="reativarUsuario('${u.id}','${u.nome.replace(/'/g,"\\'")}')"
+          <button class="sa-btn-acao"
+                  data-acao="reativar" data-id="${u.id}" data-nome="${u.nome.replace(/"/g,'&quot;')}"
                   title="Reativar usuário"
                   style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
                          background:#F0FDF4;color:#166534;display:flex;align-items:center;

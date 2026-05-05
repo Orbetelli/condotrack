@@ -397,12 +397,7 @@ async function renderApartamentos(body) {
   body.innerHTML = `
     <div style="margin-bottom:14px">
       <div style="font-size:13px;font-weight:700;color:var(--n-900);margin-bottom:10px">Apartamentos por bloco</div>
-      <div class="apto-filter" id="bloco-filter">
-        ${blocos.map(b =>
-          `<button class="apto-filter-btn${b === blocoAtivo ? ' active' : ''}"
-                   onclick="mudarBloco('${b}')">Bloco ${b}</button>`
-        ).join('')}
-      </div>
+      <div class="apto-filter" id="bloco-filter"></div>
       <div style="display:flex;gap:14px;margin-bottom:14px">
         ${[
           ['background:var(--p-50);border-color:var(--p-200);color:var(--p-700)', 'Ocupado'],
@@ -417,6 +412,17 @@ async function renderApartamentos(body) {
     <div class="apto-grid-admin" id="apto-grid"></div>
     <div style="font-size:11px;color:var(--n-400);margin-top:10px" id="apto-info"></div>
   `
+
+  // Botões de bloco via addEventListener — sem onclick inline
+  const blocoFilter = document.getElementById('bloco-filter')
+  blocos.forEach(b => {
+    const btn = document.createElement('button')
+    btn.className   = 'apto-filter-btn' + (b === blocoAtivo ? ' active' : '')
+    btn.textContent = `Bloco ${b}`
+    btn.addEventListener('click', () => mudarBloco(b))
+    blocoFilter.appendChild(btn)
+  })
+
   renderGradeAptos(aptos)
 }
 
@@ -432,18 +438,28 @@ function renderGradeAptos(aptos) {
   const grid = document.getElementById('apto-grid')
   const info = document.getElementById('apto-info')
   if (!grid) return
+
   const lista = aptos.filter(a => a.bloco === blocoAtivo)
-  grid.innerHTML = lista.map(a => {
-    const oc = a.status === 'ocupado'
-    return `<div
-      class="apto-item ${oc ? 'ocupado' : 'disponivel'}"
-      title="${oc ? 'Clique para ver o morador' : 'Disponível'}"
-      style="${oc ? 'cursor:pointer' : ''}"
-      onclick="${oc ? `abrirDetalhesPorApto('${a.id}','${a.bloco}-${a.numero}')` : ''}"
-    >${a.numero}</div>`
-  }).join('')
+  grid.innerHTML = ''
+
+  lista.forEach(a => {
+    const oc  = a.status === 'ocupado'
+    const div = document.createElement('div')
+    div.className   = `apto-item ${oc ? 'ocupado' : 'disponivel'}`
+    div.title       = oc ? 'Clique para ver o morador' : 'Disponível'
+    div.textContent = a.numero
+    if (oc) {
+      div.style.cursor = 'pointer'
+      div.addEventListener('click', () =>
+        abrirDetalhesPorApto(a.id, `${a.bloco}-${a.numero}`)
+      )
+    }
+    grid.appendChild(div)
+  })
+
   const ocQtd = lista.filter(a => a.status === 'ocupado').length
-  if (info) info.textContent = `Bloco ${blocoAtivo}: ${ocQtd} ocupados · ${lista.length - ocQtd} disponíveis`
+  if (info) info.textContent =
+    `Bloco ${blocoAtivo}: ${ocQtd} ocupados · ${lista.length - ocQtd} disponíveis`
 }
 
 // ── Detalhe do morador (via lista) ───────────────────────────
