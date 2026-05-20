@@ -226,3 +226,63 @@ tbody tr:hover td { background: var(--p-50); }
   .stats-grid   { grid-template-columns: repeat(2,1fr); }
   .main-content { margin-left: 0; }
 }
+/* ============================================================
+   Componentes compartilhados — movidos dos CSS individuais
+   para evitar duplicação entre admin-cadastro.css e cadastro.css
+   ============================================================ */
+
+/* ── Stepper ── */
+.stepper { display: flex; align-items: flex-start; margin-bottom: 32px; }
+.step-item { display: flex; flex-direction: column; align-items: center; flex: 1; }
+.step-circle {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; transition: all .2s;
+}
+.step-circle.done   { background: var(--p-600); color: #fff; }
+.step-circle.active { background: var(--p-600); color: #fff; box-shadow: 0 0 0 5px var(--p-100); }
+.step-circle.idle   { background: var(--n-100); color: var(--n-400); border: 1.5px solid var(--n-200); }
+.step-label {
+  font-size: 10px; font-weight: 600; margin-top: 6px;
+  color: var(--n-400); text-align: center; white-space: nowrap;
+}
+.step-label.active { color: var(--p-600); }
+.step-line {
+  flex: 1; height: 2px; background: var(--n-200);
+  margin-top: 14px; transition: background .25s;
+}
+.step-line.done { background: var(--p-600); }
+
+/* ── Modal overlay compartilhado ── */
+/* Usado em admin.css, morador.css e porteiro.css — centralizado aqui */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.45); z-index: 50;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--n-0); border-radius: var(--radius-xl);
+  width: 100%; max-width: 440px; padding: 28px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  animation: modalIn .2s ease both;
+  margin: 0 16px;
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(12px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+.modal-title  { font-size: 17px; font-weight: 700; color: var(--n-900); }
+.modal-close  {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: var(--n-100); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: background .12s;
+}
+.modal-close:hover { background: var(--n-200); }
+.modal-close svg { width: 14px; height: 14px; stroke: var(--n-500); fill: none; }
+.modal-field  { margin-bottom: 14px; }
+.modal-grid   { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+.modal-actions .ct-btn-primary { flex: 2; width: auto; }
+.modal-actions .ct-btn-ghost   { flex: 1; justify-content: center; }

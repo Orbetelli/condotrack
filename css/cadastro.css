@@ -40,21 +40,7 @@
 }
 .reg-header p { font-size: 13px; color: var(--n-500); }
 
-/* Stepper */
-.stepper { display: flex; align-items: flex-start; margin-bottom: 32px; }
-.step-item { display: flex; flex-direction: column; align-items: center; flex: 1; }
-.step-circle {
-  width: 30px; height: 30px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700; transition: all .2s;
-}
-.step-circle.done   { background: var(--p-600); color: #fff; }
-.step-circle.active { background: var(--p-600); color: #fff; box-shadow: 0 0 0 5px var(--p-100); }
-.step-circle.idle   { background: var(--n-100); color: var(--n-400); border: 1.5px solid var(--n-200); }
-.step-label { font-size: 10px; font-weight: 600; margin-top: 6px; color: var(--n-400); text-align: center; white-space: nowrap; }
-.step-label.active { color: var(--p-600); }
-.step-line { flex: 1; height: 2px; background: var(--n-200); margin-top: 14px; transition: background .2s; }
-.step-line.done { background: var(--p-600); }
+/* Stepper — movido para style.css */
 
 /* Grid */
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -184,3 +170,13 @@
 .success-icon svg { width: 36px; height: 36px; stroke: #16A34A; fill: none; }
 .success-screen h3 { font-size: 22px; font-weight: 700; color: var(--n-900); margin-bottom: 8px; letter-spacing: -.3px; }
 .success-screen p  { font-size: 14px; color: var(--n-500); line-height: 1.6; margin-bottom: 24px; }
+/* ── Dropdown de condomínio ── */
+/* Movido do <style> inline no cadastro.html */
+.condo-option {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--n-100);
+  transition: background .12s;
+}
+.condo-option:last-child { border-bottom: none; }
+.condo-option:hover { background: var(--p-50); }

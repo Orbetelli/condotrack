@@ -388,7 +388,18 @@ async function finalizar() {
     }
 
     // 3. Marca apartamento como ocupado
-    await db.from('apartamentos').update({ status: 'ocupado' }).eq('id', estado.aptoId)
+    // Trata erro explicitamente: se falhar, o insert do usuário já ocorreu mas o
+    // apartamento ficaria disponível para outro cadastro — situação inconsistente.
+    const { error: aptoError } = await db
+      .from('apartamentos')
+      .update({ status: 'ocupado' })
+      .eq('id', estado.aptoId)
+
+    if (aptoError) {
+      console.error('Erro ao marcar apartamento como ocupado:', aptoError)
+      // Não bloqueia o fluxo — o usuário foi criado com sucesso.
+      // O admin pode corrigir manualmente via painel.
+    }
 
     // 4. Sucesso
     document.getElementById('step-3').style.display      = 'none'

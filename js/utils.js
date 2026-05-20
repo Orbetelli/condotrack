@@ -4,7 +4,10 @@
 // ============================================================
 
 function isEmailValido(email) {
-  return /\S+@\S+\.\S+/.test(email)
+  // Regex mais preciso: rejeita espaços em qualquer posição e garante estrutura válida
+  // O .trim() antes de chamar esta função já remove espaços externos,
+  // mas este regex também bloqueia espaços internos (ex: "a b@c.com")
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
 function isCPFValido(cpf) {

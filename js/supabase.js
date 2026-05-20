@@ -99,10 +99,15 @@ async function logout() {
 // ── Guard: redireciona se não estiver logado ─────────────────
 async function requireAuth(perfilEsperado = null) {
   // Tenta até 3 vezes com pequeno delay — garante que a sessão
-  // foi propagada após redirect do login (race condition comum)
+  // foi propagada após redirect do login (race condition comum no Supabase Auth).
+  //
+  // ATENÇÃO: invalidarCacheUsuario() é chamado intencionalmente em cada iteração.
+  // Isso força um re-fetch do banco mesmo que o cache ainda seja válido.
+  // O objetivo é garantir dados frescos logo após o login — não é um bug.
+  // Em uso normal (páginas já abertas), o cache de 5 min em getUsuarioLogado() é preservado.
   let usuario = null
   for (let tentativa = 0; tentativa < 3; tentativa++) {
-    invalidarCacheUsuario() // força re-fetch em cada tentativa
+    invalidarCacheUsuario() // intencional: força re-fetch após redirect de login
     usuario = await getUsuarioLogado()
     if (usuario) break
     // Aguarda 500ms antes de tentar de novo

@@ -3,6 +3,13 @@
 //  Importar em todas as páginas após supabase.js
 //  Os triggers do banco já registram mudanças automáticas,
 //  este arquivo cobre ações de alto nível (login, navegação, etc)
+//
+//  DEPENDÊNCIA IMPLÍCITA: registrarAudit() lê a variável global
+//  `usuarioLogado` que deve ser declarada em cada página que
+//  importa este arquivo (admin.js, porteiro.js, morador.js, etc.).
+//  Se `usuarioLogado` não existir, o audit log é gravado sem
+//  identificação de usuário — comportamento seguro, mas esperado
+//  apenas em páginas públicas (login, cadastro).
 // ============================================================
 
 // ── Sanitiza dados sensíveis antes de gravar no log (LGPD) ───

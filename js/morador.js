@@ -489,7 +489,7 @@ function atualizarDotMorador() {
   if (dot) dot.style.display = pendentes > 0 ? 'block' : 'none'
 }
 
-// ── Notificações do morador ───────────────────────────────────
+// ── Confirmar retirada ──────────────────────────────────────
 function abrirConfirmar(id) {
   const e = todasEntregas.find(x => x.id === id)
   if (!e) return

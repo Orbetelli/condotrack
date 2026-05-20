@@ -21,10 +21,29 @@ let blocoAtivo    = 'A'
 let modalAtivo    = null
 
 // Cache local (evita re-fetches desnecessários)
-let cachePorteiros  = []
-let cacheMoradores  = []
-let cacheEntregas   = []
+// Invalidado pelo Supabase Realtime; o TTL abaixo serve como
+// fallback defensivo caso o canal Realtime caia (ex: instabilidade de rede).
+let cachePorteiros    = []
+let cacheMoradores    = []
+let cacheEntregas     = []
 let cacheApartamentos = []
+
+const CACHE_TTL_MS    = 5 * 60 * 1000 // 5 minutos
+let   cacheTTL        = {}             // { porteiros: timestamp, moradores: timestamp, ... }
+
+function cacheValido(chave) {
+  return cacheTTL[chave] && (Date.now() - cacheTTL[chave]) < CACHE_TTL_MS
+}
+function marcarCache(chave) {
+  cacheTTL[chave] = Date.now()
+}
+function invalidarCaches() {
+  cachePorteiros    = []
+  cacheMoradores    = []
+  cacheEntregas     = []
+  cacheApartamentos = []
+  cacheTTL          = {}
+}
 
 // ── Init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -96,6 +115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   db.channel('admin-entregas')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, () => {
       cacheEntregas = []
+      cacheTTL.entregas = 0
       renderTab(tabAtiva)
     })
     .subscribe()
@@ -109,6 +129,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, () => {
       cacheMoradores  = []
       cachePorteiros  = []
+      cacheTTL.moradores  = 0
+      cacheTTL.porteiros  = 0
       renderTab(tabAtiva)
     })
     .subscribe()
@@ -144,9 +166,15 @@ function mudarTab(tab) {
   const acao = acoes[tab]
   if (acao) {
     btn.innerHTML = acao.label
-    btn.setAttribute('onclick', acao.fn)
+    // Usa btn.onclick em vez de setAttribute('onclick', string) —
+    // mais seguro (sem eval implícito) e mais fácil de debugar
+    btn.onclick = () => {
+      if (acao.fn === 'abrirModalPorteiro()') abrirModalPorteiro()
+      else if (acao.fn === 'abrirModalMorador()') abrirModalMorador()
+    }
     btn.style.display = 'flex'
   } else {
+    btn.onclick = null
     btn.style.display = 'none'
   }
 
@@ -167,7 +195,7 @@ async function renderTab(tab) {
 
 // ── Helpers de fetch com cache ────────────────────────────────
 async function getPorteiros() {
-  if (cachePorteiros.length) return cachePorteiros
+  if (cachePorteiros.length && cacheValido('porteiros')) return cachePorteiros
   const { data } = await db
     .from('usuarios')
     .select('id, nome, email, turno, periodo, status')
@@ -175,11 +203,12 @@ async function getPorteiros() {
     .eq('perfil', 'porteiro')
     .order('nome')
   cachePorteiros = data || []
+  marcarCache('porteiros')
   return cachePorteiros
 }
 
 async function getMoradores() {
-  if (cacheMoradores.length) return cacheMoradores
+  if (cacheMoradores.length && cacheValido('moradores')) return cacheMoradores
   const { data } = await db
     .from('usuarios')
     .select('id, nome, email, status, apartamento_id, apartamentos(numero, bloco)')
@@ -190,6 +219,7 @@ async function getMoradores() {
     ...m,
     apto: m.apartamentos ? `${m.apartamentos.bloco}-${m.apartamentos.numero}` : '—',
   }))
+  marcarCache('moradores')
   return cacheMoradores
 }
 
