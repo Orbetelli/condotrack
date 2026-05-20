@@ -120,7 +120,19 @@ serve(async (req: Request) => {
       }), { status: 409, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } })
     }
 
-    // ── 3. Cria no Supabase Auth ──────────────────────────────
+    // ── 3. Verifica se o e-mail já existe no Auth ────────────
+    // Necessário antes do createUser para evitar 500 em tentativas repetidas
+    const { data: listaAuth } = await db.auth.admin.listUsers()
+    const jaNoAuth = listaAuth?.users?.some(
+      (u: { email?: string }) => u.email?.toLowerCase() === email.toLowerCase()
+    )
+    if (jaNoAuth) {
+      return new Response(JSON.stringify({
+        error: 'Este e-mail já está cadastrado. Tente fazer login.'
+      }), { status: 409, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } })
+    }
+
+    // ── 4. Cria no Supabase Auth ──────────────────────────────
     const { data: authData, error: authError } = await db.auth.admin.createUser({
       email,
       password:      senha,
@@ -128,10 +140,11 @@ serve(async (req: Request) => {
     })
 
     if (authError) {
+      console.error('[cadastrar-morador] Erro no Auth:', authError)
       const jaExiste =
         authError.message?.toLowerCase().includes('already registered') ||
         authError.message?.toLowerCase().includes('already exists') ||
-        authError.status === 422
+        (authError as any).status === 422
 
       return new Response(JSON.stringify({
         error: jaExiste
@@ -142,7 +155,7 @@ serve(async (req: Request) => {
 
     const userId = authData.user.id
 
-    // ── 4. Insere na tabela usuarios ──────────────────────────
+    // ── 5. Insere na tabela usuarios ──────────────────────────
     const { error: userError } = await db.from('usuarios').insert({
       auth_id:        userId,
       condominio_id,
@@ -164,7 +177,7 @@ serve(async (req: Request) => {
       }), { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } })
     }
 
-    // ── 5. Marca apartamento como ocupado ─────────────────────
+    // ── 6. Marca apartamento como ocupado ─────────────────────
     const { error: aptoError } = await db
       .from('apartamentos')
       .update({ status: 'ocupado' })

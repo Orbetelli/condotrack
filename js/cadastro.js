@@ -354,15 +354,16 @@ async function finalizar() {
     // Chama a Edge Function via fetch direto para ter controle total
     // sobre o body da resposta — db.functions.invoke retorna null em data
     // para respostas não-2xx, impedindo a leitura da mensagem de erro.
-    const session = await getSession()
+    // SUPABASE_URL e SUPABASE_KEY são constantes globais definidas em supabase.js
+    // db.supabaseUrl não existe no cliente v2 — usa as constantes direto
     const resp = await fetch(
-      `${db.supabaseUrl}/functions/v1/cadastrar-morador`,
+      `${SUPABASE_URL}/functions/v1/cadastrar-morador`,
       {
         method:  'POST',
         headers: {
           'Content-Type':  'application/json',
-          'apikey':        db.supabaseKey,
-          'Authorization': `Bearer ${session?.access_token || db.supabaseKey}`,
+          'apikey':        SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
         },
         body: JSON.stringify({
           email,
