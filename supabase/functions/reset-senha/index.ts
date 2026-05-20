@@ -11,11 +11,14 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')              ?? ''
-const SUPABASE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')              ?? ''
+const SUPABASE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+const SUPABASE_ANON = Deno.env.get('SUPABASE_ANON_KEY')         ?? ''
+const APP_URL       = Deno.env.get('APP_URL')                   ?? '*'
 
 const CORS_HEADERS = {
-  'Access-Control-Allow-Origin':  '*',
+  // Restringe CORS ao domínio do app em produção (APP_URL definido nos Secrets)
+  'Access-Control-Allow-Origin':  APP_URL,
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
@@ -30,22 +33,46 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { auth_id, nova_senha, solicitante_auth_id } = await req.json()
+    const { auth_id, nova_senha } = await req.json()
 
-    if (!auth_id || !nova_senha || !solicitante_auth_id) {
-      return new Response(JSON.stringify({ error: 'Parâmetros obrigatórios ausentes.' }), {
+    if (!auth_id || !nova_senha) {
+      return new Response(JSON.stringify({ error: 'Parâmetros obrigatórios: auth_id, nova_senha.' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       })
     }
 
-    const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+    // ── Extrai o caller do JWT do header Authorization ────────────
+    // Mais seguro que confiar no solicitante_auth_id do body,
+    // pois o JWT é validado pelo Supabase — não pode ser forjado.
+    const authHeader = req.headers.get('Authorization') ?? ''
+    if (!authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Token de autorização ausente.' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      })
+    }
 
-    // Verifica se quem está solicitando é superadmin
+    // Cria cliente com a anon key mas injeta o token do usuário logado
+    const callerDb = createClient(SUPABASE_URL, SUPABASE_ANON, {
+      global: { headers: { Authorization: authHeader } },
+      auth:   { autoRefreshToken: false, persistSession: false },
+    })
+    const { data: { user: callerUser }, error: callerError } = await callerDb.auth.getUser()
+
+    if (callerError || !callerUser) {
+      return new Response(JSON.stringify({ error: 'Token inválido ou expirado.' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      })
+    }
+
+    // Verifica se o caller é superadmin ativo no banco
+    const db = createClient(SUPABASE_URL, SUPABASE_KEY)
     const { data: solicitante } = await db
       .from('usuarios')
       .select('perfil, status')
-      .eq('auth_id', solicitante_auth_id)
+      .eq('auth_id', callerUser.id)
       .single()
 
     if (!solicitante || solicitante.perfil !== 'superadmin' || solicitante.status !== 'ativo') {

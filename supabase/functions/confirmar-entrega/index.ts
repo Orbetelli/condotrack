@@ -20,8 +20,10 @@ const ZAPI_CLIENT_TOKEN = Deno.env.get('ZAPI_CLIENT_TOKEN')          ?? ''
 const FROM_EMAIL       = 'entregas@condotrack.com.br'
 const FROM_NAME        = 'CondoTrack'
 
+const APP_URL_CORS = Deno.env.get('APP_URL') ?? '*'
+
 const CORS_HEADERS = {
-  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Origin':  APP_URL_CORS,
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }

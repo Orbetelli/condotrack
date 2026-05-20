@@ -20,8 +20,10 @@ const FROM_EMAIL        = 'entregas@condotrack.com.br'
 const FROM_NAME         = 'CondoTrack'
 const LIMITE_ENTREGAS   = 3 // Alerta a partir de 3 entregas pendentes
 
+const APP_URL_CORS = Deno.env.get('APP_URL') ?? '*'
+
 const CORS_HEADERS = {
-  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Origin':  APP_URL_CORS,
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
@@ -39,6 +41,8 @@ serve(async (req: Request) => {
     const db = createClient(SUPABASE_URL, SUPABASE_KEY)
 
     // Busca apartamentos com 3+ entregas pendentes
+    // .limit(500): evita retornar milhares de linhas em instalações grandes.
+    // Se o sistema crescer, considerar processar em batches por condomínio.
     const { data: entregas, error } = await db
       .from('entregas')
       .select(`
@@ -49,6 +53,7 @@ serve(async (req: Request) => {
         condominios ( id, nome )
       `)
       .in('status', ['aguardando', 'notificado'])
+      .limit(500)
 
     if (error || !entregas?.length) {
       return new Response(JSON.stringify({ ok: true, alertas: 0 }), {

@@ -21,8 +21,10 @@ const APP_URL           = Deno.env.get('APP_URL')                     ?? 'https:
 const FROM_EMAIL        = 'entregas@condotrack.com.br'
 const FROM_NAME         = 'CondoTrack'
 
+const APP_URL_CORS = Deno.env.get('APP_URL') ?? '*'
+
 const CORS_HEADERS = {
-  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Origin':  APP_URL_CORS,
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
@@ -86,7 +88,10 @@ serve(async (req: Request) => {
     const apto     = usuario.apartamentos
     const nomeApto = apto ? `${apto.bloco}-${apto.numero}` : '—'
     const nomeCondo = usuario.condominios?.nome ?? '—'
-    const linkConvite = `${APP_URL}/pages/cadastro.html?convite=${token}&condo=${condoId}`
+    // O link aponta para cadastro.html (fluxo de morador, 4 passos).
+    // O parâmetro ?convite= é salvo no banco e pode ser validado no frontend
+    // para garantir que apenas o morador convidado complete o cadastro.
+    const linkConvite = `${APP_URL}/pages/cadastro.html?convite=${token}&usuario=${usuario_id}`
 
     // Envia notificações
     const notifs = []

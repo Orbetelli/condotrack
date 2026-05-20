@@ -26,8 +26,10 @@ const ZAPI_CLIENT_TOKEN = Deno.env.get('ZAPI_CLIENT_TOKEN')         ?? ''
 const FROM_EMAIL      = 'entregas@condotrack.com.br'
 const FROM_NAME       = 'CondoTrack'
 
+const APP_URL = Deno.env.get('APP_URL') ?? '*'
+
 const CORS_HEADERS = {
-  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Origin':  APP_URL,
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
@@ -99,25 +101,24 @@ serve(async (req: Request) => {
         day: '2-digit', month: '2-digit', year: 'numeric'
       })
 
-      if (morador?.email) {
-        await enviarEmailExpiracao({
+      // Promise.allSettled: garante que uma falha de e-mail não impede
+      // o envio do WhatsApp, e nem interrompe o processamento das demais entregas
+      await Promise.allSettled([
+        morador?.email ? enviarEmailExpiracao({
           email: morador.email,
           nome:  morador.nome,
           nomeApto,
           dataRecebido: dataReceb,
           nomeCondo: condo?.nome ?? '—',
-        })
-      }
-
-      if (morador?.telefone) {
-        await enviarWhatsAppExpiracao({
+        }) : Promise.resolve(),
+        morador?.telefone ? enviarWhatsAppExpiracao({
           telefone:    morador.telefone,
           nome:        morador.nome,
           nomeApto,
           dataRecebido: dataReceb,
           nomeCondo:   condo?.nome ?? '—',
-        })
-      }
+        }) : Promise.resolve(),
+      ])
     }
   }
 
@@ -161,27 +162,25 @@ serve(async (req: Request) => {
       })
       const diasPendente = Math.floor((agora.getTime() - new Date(entrega.recebido_em).getTime()) / (24 * 60 * 60 * 1000))
 
-      if (morador?.email) {
-        await enviarEmailLembrete({
+      // Promise.allSettled: mesma razão do loop de expiração acima
+      await Promise.allSettled([
+        morador?.email ? enviarEmailLembrete({
           email: morador.email,
           nome:  morador.nome,
           nomeApto,
           dataRecebido: dataReceb,
           diasPendente,
           nomeCondo: condo?.nome ?? '—',
-        })
-      }
-
-      if (morador?.telefone) {
-        await enviarWhatsAppLembrete({
+        }) : Promise.resolve(),
+        morador?.telefone ? enviarWhatsAppLembrete({
           telefone:    morador.telefone,
           nome:        morador.nome,
           nomeApto,
           dataRecebido: dataReceb,
           diasPendente,
           nomeCondo:   condo?.nome ?? '—',
-        })
-      }
+        }) : Promise.resolve(),
+      ])
 
       resultado.lembretes++
     }

@@ -1,22 +1,16 @@
 // ============================================================
-//  expirar-entregas/index.ts
-//  Supabase Edge Function — agendada via pg_cron
-//  Marca como 'expirado' entregas com mais de 5 dias sem retirada
+//  expirar-entregas/index.ts — ⚠️  FUNÇÃO LEGADA
 //
-//  Deploy:
-//    supabase functions deploy expirar-entregas
+//  Esta função foi substituída por verificar-entregas/index.ts,
+//  que já inclui a expiração de entregas além de outras tarefas
+//  (lembretes, auto-confirmação, alertas de acúmulo).
 //
-//  Agendamento (rodar uma vez por dia às 3h):
-//    SELECT cron.schedule(
-//      'expirar-entregas-diario',
-//      '0 3 * * *',
-//      $$
-//        SELECT net.http_post(
-//          url := 'https://ihaeqbtoylxcfwmdcjfg.supabase.co/functions/v1/expirar-entregas',
-//          headers := '{"Authorization": "Bearer SEU_SERVICE_ROLE_KEY"}'::jsonb
-//        )
-//      $$
-//    );
+//  AÇÃO RECOMENDADA:
+//    - Remover o cron job 'expirar-entregas-diario' se ativo
+//    - Não fazer novo deploy desta função
+//    - Mantida aqui apenas como referência histórica
+//
+//  Se precisar rodar a expiração isoladamente, use verificar-entregas.
 // ============================================================
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -25,8 +19,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')                ?? ''
 const SUPABASE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')   ?? ''
 
+const APP_URL = Deno.env.get('APP_URL') ?? '*'
+
 const CORS_HEADERS = {
-  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Origin':  APP_URL,
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
