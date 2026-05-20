@@ -47,6 +47,40 @@ document.addEventListener('DOMContentLoaded', async () => {
       carregarEntregas(deltaId)
     })
     .subscribe()
+
+  // Realtime — mensagens de moradores para o porteiro
+  db.channel('chat-porteiro')
+    .on('postgres_changes', {
+      event:  'INSERT',
+      schema: 'public',
+      table:  'mensagens',
+      filter: `condominio_id=eq.${usuarioLogado.condominio_id}`,
+    }, payload => {
+      const msg = payload.new
+      if (msg.remetente_id === usuarioLogado.id) return
+      if (chatPortMoradorId === msg.remetente_id) {
+        chatPortMensagens.push(normalizarMsgPort(msg))
+        renderMensagensPort()
+      } else {
+        const badge = document.getElementById('chat-badge-port')
+        if (badge) badge.style.display = 'inline'
+      }
+    })
+    .subscribe()
+
+  // Verifica turno ativo salvo na sessão
+  const turnoSalvo = sessionStorage.getItem('ct_turno')
+  if (turnoSalvo) {
+    try {
+      const t = JSON.parse(turnoSalvo)
+      turnoAtivo    = true
+      turnoInicioAt = t.inicio
+      turnoAcessoId = t.acessoId
+      renderBannerTurno()
+    } catch (_) { sessionStorage.removeItem('ct_turno') }
+  } else {
+    setTimeout(() => sugerirInicioTurno(), 800)
+  }
 })
 
 // ── Navegação entre abas ──────────────────────────────────────
@@ -851,11 +885,19 @@ async function salvarEntrega(e) {
   }
 
   if (novaEntrega?.id) {
-    const notifs = [
+    // Upload da foto em background (não bloqueia o fluxo)
+    uploadFoto(novaEntrega.id).then(url => {
+      if (url) {
+        db.from('entregas').update({ foto_url: url }).eq('id', novaEntrega.id)
+          .then(() => {}).catch(err => console.warn('Erro ao salvar foto_url:', err))
+      }
+    })
+    fotoFile = null
+
+    Promise.allSettled([
       db.functions.invoke('notificar-entrega',  { body: { entrega_id: novaEntrega.id, morador_id: moradorId || null } }),
       db.functions.invoke('notificar-whatsapp', { body: { entrega_id: novaEntrega.id, morador_id: moradorId || null } }),
-    ]
-    Promise.allSettled(notifs).then(results => {
+    ]).then(results => {
       results.forEach((r, i) => {
         if (r.status === 'rejected')
           console.warn(`Notificação ${i === 0 ? 'e-mail' : 'WhatsApp'} não enviada:`, r.reason)
@@ -863,6 +905,7 @@ async function salvarEntrega(e) {
     })
   }
 
+  removerFoto()
   fecharModalNova()
   await carregarEntregas()
   // Garante que o porteiro veja a entrega recém-registrada no dashboard
@@ -1037,6 +1080,480 @@ function ativarSidebar(item) {
   item.classList.add('active')
 }
 
+// ── Registro em lote ─────────────────────────────────────────
+let loteContador = 0
+
+function abrirModalLote() {
+  fecharModalNova()
+  loteContador = 0
+  document.getElementById('lote-trans').value  = ''
+  document.getElementById('lote-linhas').innerHTML = ''
+  limparErro('err-lote-trans')
+  limparErro('err-lote-geral')
+  // Começa com 2 linhas
+  adicionarLinhaLote()
+  adicionarLinhaLote()
+  document.getElementById('modal-lote').classList.add('open')
+}
+
+function fecharModalLote() {
+  document.getElementById('modal-lote').classList.remove('open')
+}
+
+function previewFoto(input) {
+  const file = input.files?.[0]
+  if (!file) return
+  fotoFile = file
+  const reader = new FileReader()
+  reader.onload = e => {
+    document.getElementById('foto-preview-img').src = e.target.result
+    document.getElementById('foto-preview').style.display = 'block'
+  }
+  reader.readAsDataURL(file)
+}
+
+function preencherTransLote(nome) {
+  const input = document.getElementById('lote-trans')
+  if (input) input.value = nome
+}
+
+function adicionarLinhaLote() {
+  loteContador++
+  const n   = loteContador
+  const div = document.createElement('div')
+  div.id    = `lote-linha-${n}`
+  div.style.cssText = 'display:grid;grid-template-columns:1fr 80px 28px;gap:8px;margin-bottom:8px;align-items:end'
+  div.innerHTML = `
+    <div>
+      ${n === 1 ? '<label class="ct-label">Apartamento</label>' : ''}
+      <input class="ct-input" type="text" id="lote-apto-${n}"
+             placeholder="Ex: A-204" style="text-transform:uppercase"
+             oninput="this.value=this.value.toUpperCase()"/>
+    </div>
+    <div>
+      ${n === 1 ? '<label class="ct-label">Volumes</label>' : ''}
+      <input class="ct-input" type="number" id="lote-vol-${n}" placeholder="1" min="1" value="1"/>
+    </div>
+    <button type="button" onclick="removerLinhaLote(${n})"
+            style="width:28px;height:38px;background:var(--n-100);border:1px solid var(--n-200);
+                   border-radius:var(--radius-md);cursor:pointer;font-size:16px;color:var(--n-500);
+                   display:flex;align-items:center;justify-content:center;
+                   ${n <= 1 ? 'visibility:hidden' : ''}"
+            id="lote-rm-${n}">×</button>
+  `
+  document.getElementById('lote-linhas').appendChild(div)
+}
+
+function removerLinhaLote(n) {
+  document.getElementById(`lote-linha-${n}`)?.remove()
+}
+
+async function salvarLote() {
+  limparErro('err-lote-trans')
+  limparErro('err-lote-geral')
+
+  const trans = document.getElementById('lote-trans').value.trim()
+  if (!trans) { mostrarErro('err-lote-trans', 'Informe a transportadora.'); return }
+
+  // Coleta todas as linhas visíveis
+  const linhas = []
+  for (let i = 1; i <= loteContador; i++) {
+    const aptoEl = document.getElementById(`lote-apto-${i}`)
+    const volEl  = document.getElementById(`lote-vol-${i}`)
+    if (!aptoEl) continue // linha removida
+    const aptoTxt = aptoEl.value.trim().toUpperCase()
+    const vol     = parseInt(volEl?.value) || 1
+    if (aptoTxt) linhas.push({ aptoTxt, vol })
+  }
+
+  if (!linhas.length) {
+    mostrarErro('err-lote-geral', 'Adicione ao menos um apartamento.')
+    return
+  }
+
+  const btn = document.getElementById('btn-lote-salvar')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
+  let sucessos = 0
+  const erros  = []
+
+  for (const linha of linhas) {
+    const [bloco, numero] = linha.aptoTxt.split('-')
+    const { data: aptoData } = await db
+      .from('apartamentos')
+      .select('id')
+      .eq('condominio_id', usuarioLogado.condominio_id)
+      .eq('bloco', bloco || '')
+      .eq('numero', numero || linha.aptoTxt)
+      .single()
+
+    if (!aptoData) { erros.push(`${linha.aptoTxt}: não encontrado`); continue }
+
+    const { error } = await db.from('entregas').insert({
+      condominio_id:  usuarioLogado.condominio_id,
+      apartamento_id: aptoData.id,
+      porteiro_id:    usuarioLogado.id,
+      transportadora: trans,
+      volumes:        linha.vol,
+      status:         'aguardando',
+    })
+
+    if (error) { erros.push(`${linha.aptoTxt}: erro ao salvar`); continue }
+    sucessos++
+  }
+
+  if (btn) { btn.disabled = false; btn.innerHTML = 'Registrar todas' }
+
+  if (erros.length) {
+    mostrarErro('err-lote-geral', `${sucessos} registrada(s). Erros: ${erros.join(', ')}`)
+  } else {
+    mostrarToast(`${sucessos} entrega${sucessos > 1 ? 's' : ''} registrada${sucessos > 1 ? 's' : ''} com sucesso!`)
+    fecharModalLote()
+  }
+
+  if (sucessos > 0) {
+    await carregarEntregas()
+    if (tabPorteiroAtiva !== 'dashboard') mudarTabPorteiro('dashboard')
+  }
+}
+
+// ── Início e fim de turno ─────────────────────────────────────
+function sugerirInicioTurno() {
+  // Exibe apenas se o porteiro ainda não iniciou turno e está no dashboard
+  if (turnoAtivo || tabPorteiroAtiva !== 'dashboard') return
+  const body = document.getElementById('tab-body-porteiro')
+  if (!body || !document.getElementById('stat-aguardando')) return
+
+  const banner = document.createElement('div')
+  banner.id = 'banner-iniciar-turno'
+  banner.style.cssText = `
+    background:var(--p-50);border:1.5px solid var(--p-200);
+    border-radius:var(--radius-lg);padding:12px 16px;
+    display:flex;align-items:center;justify-content:space-between;
+    gap:12px;margin-bottom:14px;
+  `
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:32px;height:32px;border-radius:50%;background:var(--p-100);
+                  display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="var(--p-600)"
+             style="width:15px;height:15px">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--p-800)">Seu turno ainda não foi iniciado</div>
+        <div style="font-size:11px;color:var(--p-600);margin-top:2px">
+          Registre o início para rastrear suas atividades
+        </div>
+      </div>
+    </div>
+    <button onclick="abrirModalTurno('iniciar')"
+            style="background:var(--p-600);color:#fff;border:none;
+                   border-radius:var(--radius-md);padding:8px 16px;
+                   font-size:12px;font-weight:600;cursor:pointer;
+                   font-family:var(--font-sans);white-space:nowrap;
+                   transition:background .15s"
+            onmouseenter="this.style.background='var(--p-700)'"
+            onmouseleave="this.style.background='var(--p-600)'">
+      Iniciar turno
+    </button>
+  `
+  body.insertBefore(banner, body.firstChild)
+}
+
+function renderBannerTurno() {
+  // Remove banner de sugestão se existir
+  document.getElementById('banner-iniciar-turno')?.remove()
+
+  // Exibe banner de turno ativo no header
+  let banner = document.getElementById('banner-turno-ativo')
+  if (!banner) {
+    banner = document.createElement('div')
+    banner.id = 'banner-turno-ativo'
+    banner.style.cssText = `
+      background:var(--p-800);color:rgba(255,255,255,.85);
+      padding:6px 20px;font-size:11px;font-weight:500;
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+    `
+    const main = document.querySelector('.main')
+    const header = document.querySelector('.header')
+    if (main && header) main.insertBefore(banner, header.nextSibling)
+  }
+  const duracao = turnoInicioAt ? calcDuracao(turnoInicioAt) : '0min'
+  banner.innerHTML = `
+    <span style="display:flex;align-items:center;gap:6px">
+      <span style="width:6px;height:6px;border-radius:50%;background:#34D399;
+                   display:inline-block;animation:pulse 2s infinite"></span>
+      Turno em andamento · ${duracao}
+    </span>
+    <button onclick="abrirModalTurno('encerrar')"
+            style="background:rgba(255,255,255,.15);border:none;cursor:pointer;
+                   color:#fff;font-size:11px;font-weight:600;padding:3px 10px;
+                   border-radius:5px;font-family:var(--font-sans)">
+      Encerrar turno
+    </button>
+  `
+  // Atualiza a cada minuto
+  setTimeout(() => { if (turnoAtivo) renderBannerTurno() }, 60000)
+}
+
+function calcDuracao(isoStart) {
+  const mins = Math.floor((Date.now() - new Date(isoStart)) / 60000)
+  if (mins < 60) return `${mins}min`
+  return `${Math.floor(mins / 60)}h${mins % 60 > 0 ? (mins % 60) + 'min' : ''}`
+}
+
+function abrirModalTurno(acao) {
+  const titulo = document.getElementById('modal-turno-titulo')
+  const msg    = document.getElementById('modal-turno-msg')
+  const btn    = document.getElementById('btn-turno-confirmar')
+  btn.dataset.acao = acao
+  if (acao === 'iniciar') {
+    titulo.textContent = 'Iniciar turno'
+    msg.textContent    = 'Registre o início do seu turno para rastrear as entregas realizadas.'
+    btn.textContent    = 'Iniciar turno'
+  } else {
+    titulo.textContent = 'Encerrar turno'
+    msg.textContent    = `Turno iniciado há ${calcDuracao(turnoInicioAt)}. Confirma o encerramento?`
+    btn.textContent    = 'Encerrar turno'
+  }
+  document.getElementById('modal-turno').classList.add('open')
+}
+
+function fecharModalTurno() {
+  document.getElementById('modal-turno').classList.remove('open')
+}
+
+async function confirmarTurno() {
+  const acao = document.getElementById('btn-turno-confirmar').dataset.acao
+  fecharModalTurno()
+
+  if (acao === 'iniciar') {
+    turnoInicioAt = new Date().toISOString()
+    turnoAtivo    = true
+
+    const { data } = await db.from('acessos').insert({
+      usuario_id:    usuarioLogado.id,
+      condominio_id: usuarioLogado.condominio_id,
+      perfil:        'porteiro',
+      nome:          `Turno iniciado — ${usuarioLogado.nome}`,
+      status:        'sucesso',
+    }).select('id').single()
+
+    turnoAcessoId = data?.id || null
+    sessionStorage.setItem('ct_turno', JSON.stringify({
+      inicio:   turnoInicioAt,
+      acessoId: turnoAcessoId,
+    }))
+    renderBannerTurno()
+    mostrarToast('Turno iniciado!')
+
+  } else {
+    // Registra fim do turno
+    if (turnoAcessoId) {
+      await db.from('acessos').update({
+        nome: `Turno encerrado — ${usuarioLogado.nome} · Duração: ${calcDuracao(turnoInicioAt)}`,
+      }).eq('id', turnoAcessoId)
+    }
+
+    turnoAtivo    = false
+    turnoInicioAt = null
+    turnoAcessoId = null
+    sessionStorage.removeItem('ct_turno')
+    document.getElementById('banner-turno-ativo')?.remove()
+    mostrarToast('Turno encerrado!')
+  }
+}
+
+// ── Chat porteiro com moradores ───────────────────────────────
+function normalizarMsgPort(m) {
+  return {
+    id:          m.id,
+    texto:       m.texto,
+    remetenteId: m.remetente_id,
+    criadoEm:    m.criado_em,
+    minha:       m.remetente_id === usuarioLogado.id,
+    hora:        new Date(m.criado_em).toLocaleTimeString('pt-BR', {
+                   hour: '2-digit', minute: '2-digit'
+                 }),
+  }
+}
+
+async function renderChatLista(body) {
+  // Remove badge
+  const badge = document.getElementById('chat-badge-port')
+  if (badge) badge.style.display = 'none'
+
+  body.innerHTML = `<div style="padding:20px;text-align:center">
+    <div class="spinner" style="border-color:var(--p-200);border-top-color:var(--p-600);margin:0 auto"></div>
+  </div>`
+
+  // Busca moradores que já trocaram mensagem com este condomínio
+  const { data: msgs } = await db
+    .from('mensagens')
+    .select('remetente_id, usuarios!remetente_id(id, nome, apartamentos(numero, bloco))')
+    .eq('condominio_id', usuarioLogado.condominio_id)
+    .neq('remetente_id', usuarioLogado.id)
+    .order('criado_em', { ascending: false })
+    .limit(100)
+
+  // Deduplica por morador
+  const seen  = new Set()
+  const lista = []
+  for (const m of (msgs || [])) {
+    const u = m.usuarios
+    if (!u || seen.has(u.id)) continue
+    seen.add(u.id)
+    const apto = u.apartamentos ? `${u.apartamentos.bloco}-${u.apartamentos.numero}` : '—'
+    lista.push({ id: u.id, nome: u.nome, apto })
+  }
+
+  if (!lista.length) {
+    body.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;
+                  justify-content:center;padding:48px 20px;text-align:center">
+        <div style="width:56px;height:56px;border-radius:50%;background:var(--p-100);
+                    display:flex;align-items:center;justify-content:center;margin-bottom:16px">
+          <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="var(--p-600)"
+               style="width:24px;height:24px">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <div style="font-size:14px;font-weight:600;color:var(--n-700);margin-bottom:6px">
+          Nenhuma mensagem ainda
+        </div>
+        <div style="font-size:13px;color:var(--n-400)">
+          Mensagens de moradores aparecerão aqui
+        </div>
+      </div>`
+    return
+  }
+
+  const ini = nome => nome.split(' ').map(n => n[0]).slice(0, 2).join('')
+
+  body.innerHTML = `
+    <div style="font-size:13px;font-weight:700;color:var(--n-900);margin-bottom:12px">
+      Mensagens de moradores
+    </div>
+    <div class="status-card">
+      ${lista.map(m => `
+        <div class="entry" style="cursor:pointer" onclick="abrirChatPort('${m.id}','${m.nome.replace(/'/g,"\'")}','${m.apto}')">
+          <div style="width:34px;height:34px;border-radius:50%;background:var(--p-100);
+                      color:var(--p-700);font-size:12px;font-weight:700;flex-shrink:0;
+                      display:flex;align-items:center;justify-content:center">
+            ${ini(m.nome)}
+          </div>
+          <div class="entry-info">
+            <div class="entry-apto">${m.nome}</div>
+            <div class="entry-sub">Apto ${m.apto}</div>
+          </div>
+          <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"
+               style="width:14px;height:14px;stroke:var(--n-400);flex-shrink:0">
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </div>`).join('')}
+    </div>`
+}
+
+async function abrirChatPort(moradorId, moradorNome, moradorApto) {
+  chatPortMoradorId   = moradorId
+  chatPortMoradorNome = moradorNome
+  chatPortMoradorApto = moradorApto
+
+  const ini = moradorNome.split(' ').map(n => n[0]).slice(0, 2).join('')
+  document.getElementById('chat-port-avatar').textContent   = ini
+  document.getElementById('chat-port-nome').textContent     = moradorNome
+  document.getElementById('chat-port-apto').textContent     = `Apto ${moradorApto}`
+  document.getElementById('chat-port-mensagens').innerHTML  = `
+    <div style="padding:20px;text-align:center">
+      <div class="spinner" style="border-color:var(--p-200);border-top-color:var(--p-600);margin:0 auto"></div>
+    </div>`
+  document.getElementById('modal-chat-port').classList.add('open')
+
+  // Carrega histórico
+  const { data } = await db
+    .from('mensagens')
+    .select('id, texto, remetente_id, criado_em')
+    .eq('condominio_id', usuarioLogado.condominio_id)
+    .or(`remetente_id.eq.${moradorId},destinatario_id.eq.${moradorId}`)
+    .order('criado_em', { ascending: true })
+    .limit(100)
+
+  chatPortMensagens = (data || []).map(normalizarMsgPort)
+  renderMensagensPort()
+}
+
+function fecharChatPort() {
+  document.getElementById('modal-chat-port').classList.remove('open')
+  chatPortMoradorId = null
+}
+
+function renderMensagensPort() {
+  const lista = document.getElementById('chat-port-mensagens')
+  if (!lista) return
+
+  if (!chatPortMensagens.length) {
+    lista.innerHTML = `<div style="text-align:center;padding:24px;font-size:13px;color:var(--n-400)">
+      Nenhuma mensagem ainda.
+    </div>`
+    return
+  }
+
+  lista.innerHTML = chatPortMensagens.map(m => `
+    <div style="display:flex;flex-direction:column;
+                align-items:${m.minha ? 'flex-end' : 'flex-start'}">
+      <div style="
+        max-width:78%;padding:9px 13px;
+        border-radius:${m.minha ? '14px 14px 4px 14px' : '14px 14px 14px 4px'};
+        background:${m.minha ? 'var(--p-600)' : 'var(--n-100)'};
+        color:${m.minha ? '#fff' : 'var(--n-900)'};
+        font-size:13px;line-height:1.5;word-break:break-word
+      ">${m.texto}</div>
+      <div style="font-size:10px;color:var(--n-400);margin-top:3px;padding:0 4px">${m.hora}</div>
+    </div>
+  `).join('')
+
+  lista.scrollTop = lista.scrollHeight
+}
+
+async function enviarMensagemPort() {
+  const input = document.getElementById('chat-port-input')
+  const texto = input?.value.trim()
+  if (!texto || !chatPortMoradorId) return
+
+  const btn = document.getElementById('btn-chat-port-enviar')
+  if (btn) btn.disabled = true
+  input.value = ''
+  input.style.height = 'auto'
+
+  const { data, error } = await db.from('mensagens').insert({
+    remetente_id:    usuarioLogado.id,
+    destinatario_id: chatPortMoradorId,
+    condominio_id:   usuarioLogado.condominio_id,
+    texto,
+  }).select().single()
+
+  if (btn) btn.disabled = false
+
+  if (error) {
+    mostrarToast('Erro ao enviar mensagem.', 'erro')
+    input.value = texto
+    return
+  }
+
+  chatPortMensagens.push(normalizarMsgPort(data))
+  renderMensagensPort()
+}
+
+function chatPortKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    enviarMensagemPort()
+  }
+}
+
 function bindEvents() {
   document.getElementById('btn-nova-entrega')?.addEventListener('click', abrirModalNova)
   document.getElementById('modal-nova')?.addEventListener('click', e => {
@@ -1045,9 +1562,26 @@ function bindEvents() {
   document.getElementById('modal-detalhe')?.addEventListener('click', e => {
     if (e.target === document.getElementById('modal-detalhe')) fecharDetalhe()
   })
+  document.getElementById('modal-lote')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-lote')) fecharModalLote()
+  })
+  document.getElementById('modal-chat-port')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-chat-port')) fecharChatPort()
+  })
+  document.getElementById('modal-turno')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-turno')) fecharModalTurno()
+  })
   document.getElementById('form-nova')?.addEventListener('submit', salvarEntrega)
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { fecharModalNova(); fecharDetalhe() }
+    // Alt+N abre modal de nova entrega (atalho de teclado)
+    if (e.altKey && e.key === 'n') { e.preventDefault(); abrirModalNova() }
+    if (e.key === 'Escape') {
+      fecharModalNova()
+      fecharDetalhe()
+      fecharModalLote()
+      fecharChatPort()
+      fecharModalTurno()
+    }
   })
   // Fecha dropdown de notificações ao clicar fora
   document.addEventListener('click', e => {

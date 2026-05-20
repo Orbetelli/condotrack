@@ -164,6 +164,14 @@
         </svg>
         Histórico
       </div>
+      <div class="nav-tab" data-tab="chat" onclick="mudarTabPorteiro('chat')">
+        <svg viewBox="0 0 24 24" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        Mensagens
+        <span id="chat-badge-port" style="display:none;background:#F59E0B;color:#fff;font-size:9px;
+              font-weight:700;padding:1px 5px;border-radius:99px;margin-left:2px">!</span>
+      </div>
     </nav>
 
     <!-- Body dinâmico -->
@@ -261,9 +269,43 @@
 
       <div class="modal-field">
         <label class="ct-label" for="nova-trans">Transportadora</label>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px">
+          <button type="button" class="obs-chip" onclick="preencherTrans('Correios')">📮 Correios</button>
+          <button type="button" class="obs-chip" onclick="preencherTrans('Amazon')">📦 Amazon</button>
+          <button type="button" class="obs-chip" onclick="preencherTrans('Shopee')">🛍 Shopee</button>
+          <button type="button" class="obs-chip" onclick="preencherTrans('Mercado Livre')">🟡 Mercado Livre</button>
+          <button type="button" class="obs-chip" onclick="preencherTrans('iFood')">🛵 iFood</button>
+        </div>
         <input class="ct-input" type="text" id="nova-trans"
                placeholder="Ex: Correios, Amazon, Mercado Livre..." />
         <div class="ct-error" id="err-trans" style="display:none"></div>
+      </div>
+
+      <!-- Foto da encomenda (opcional) -->
+      <div class="modal-field">
+        <label class="ct-label" for="nova-foto">Foto da encomenda (opcional)</label>
+        <div id="foto-preview" style="display:none;margin-bottom:8px;position:relative">
+          <img id="foto-preview-img" style="width:100%;max-height:140px;object-fit:cover;
+               border-radius:var(--radius-md);border:1px solid var(--n-200)"/>
+          <button type="button" onclick="removerFoto()"
+                  style="position:absolute;top:6px;right:6px;width:22px;height:22px;
+                         border-radius:50%;background:rgba(0,0,0,.5);border:none;cursor:pointer;
+                         color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center">×</button>
+        </div>
+        <label for="nova-foto" style="display:flex;align-items:center;gap:8px;padding:9px 14px;
+               border:1.5px dashed var(--n-300);border-radius:var(--radius-md);cursor:pointer;
+               font-size:13px;color:var(--n-500);transition:border-color .15s"
+               onmouseenter="this.style.borderColor='var(--p-400)'"
+               onmouseleave="this.style.borderColor='var(--n-300)'">
+          <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+               style="width:16px;height:16px;flex-shrink:0">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          Tirar foto ou escolher arquivo
+        </label>
+        <input type="file" id="nova-foto" accept="image/*" capture="environment"
+               style="display:none" onchange="previewFoto(this)"/>
       </div>
 
       <!-- Observações com sugestões rápidas -->
@@ -282,15 +324,141 @@
 
       <div class="modal-actions">
         <button type="button" class="ct-btn-ghost" onclick="fecharModalNova()">Cancelar</button>
+        <button type="button" class="ct-btn-ghost" onclick="abrirModalLote()"
+                style="display:flex;align-items:center;gap:6px">
+          <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+               style="width:13px;height:13px">
+            <rect x="2" y="3" width="20" height="4" rx="1"/>
+            <rect x="2" y="10" width="20" height="4" rx="1"/>
+            <rect x="2" y="17" width="20" height="4" rx="1"/>
+          </svg>
+          Em lote
+        </button>
         <button type="submit" class="ct-btn-primary" id="btn-nova-entrega-2">
           <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
                style="width:15px;height:15px" stroke-linecap="round">
             <polyline points="20 6 9 17 4 12"/>
           </svg>
-          Registrar entrega
+          Registrar
         </button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ── Modal: registro em lote ── -->
+<div class="modal-overlay" id="modal-lote">
+  <div class="modal" style="max-width:520px;max-height:90vh;overflow-y:auto">
+    <div class="modal-header">
+      <div class="modal-title">Registro em lote</div>
+      <button class="modal-close" onclick="fecharModalLote()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div style="font-size:13px;color:var(--n-500);margin-bottom:14px;line-height:1.5">
+      Registre várias entregas de uma transportadora de uma só vez.
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="lote-trans">Transportadora</label>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px">
+        <button type="button" class="obs-chip" onclick="preencherTransLote('Correios')">📮 Correios</button>
+        <button type="button" class="obs-chip" onclick="preencherTransLote('Amazon')">📦 Amazon</button>
+        <button type="button" class="obs-chip" onclick="preencherTransLote('Shopee')">🛍 Shopee</button>
+        <button type="button" class="obs-chip" onclick="preencherTransLote('Mercado Livre')">🟡 Mercado Livre</button>
+      </div>
+      <input class="ct-input" type="text" id="lote-trans" placeholder="Transportadora comum a todas..." />
+      <div class="ct-error" id="err-lote-trans" style="display:none"></div>
+    </div>
+    <div id="lote-linhas"></div>
+    <button type="button" onclick="adicionarLinhaLote()"
+            style="width:100%;padding:9px;background:var(--n-50);border:1.5px dashed var(--n-300);
+                   border-radius:var(--radius-md);font-size:13px;color:var(--n-500);cursor:pointer;
+                   font-family:var(--font-sans);margin-bottom:4px;transition:border-color .15s"
+            onmouseenter="this.style.borderColor='var(--p-400)'"
+            onmouseleave="this.style.borderColor='var(--n-300)'">
+      + Adicionar apartamento
+    </button>
+    <div class="ct-error" id="err-lote-geral" style="display:none"></div>
+    <div class="modal-actions">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModalLote()">Cancelar</button>
+      <button type="button" class="ct-btn-primary" id="btn-lote-salvar" onclick="salvarLote()">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+             style="width:14px;height:14px" stroke-linecap="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Registrar todas
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: chat com moradores ── -->
+<div class="modal-overlay" id="modal-chat-port">
+  <div class="modal" style="max-width:480px;display:flex;flex-direction:column;
+       max-height:90vh;padding:0;overflow:hidden">
+    <div class="modal-header" style="padding:16px 20px;border-bottom:1px solid var(--n-200);flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div id="chat-port-avatar"
+             style="width:32px;height:32px;border-radius:50%;background:var(--p-100);
+                    color:var(--p-700);font-size:12px;font-weight:700;
+                    display:flex;align-items:center;justify-content:center;flex-shrink:0">—</div>
+        <div>
+          <div class="modal-title" style="font-size:15px" id="chat-port-nome">Conversa</div>
+          <div style="font-size:11px;color:var(--n-400)" id="chat-port-apto">—</div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="fecharChatPort()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div id="chat-port-mensagens" style="flex:1;overflow-y:auto;padding:16px;
+         display:flex;flex-direction:column;gap:8px;min-height:240px;max-height:380px"></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--n-200);flex-shrink:0;
+                display:flex;gap:8px;align-items:flex-end">
+      <textarea id="chat-port-input" class="ct-input" rows="1"
+        placeholder="Digite sua resposta..."
+        style="resize:none;flex:1;padding:8px 12px;font-size:13px;line-height:1.4;
+               min-height:38px;max-height:96px;overflow-y:auto"
+        onkeydown="chatPortKeydown(event)"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,96)+'px'"></textarea>
+      <button onclick="enviarMensagemPort()" id="btn-chat-port-enviar"
+              style="width:38px;height:38px;border-radius:var(--radius-md);flex-shrink:0;
+                     background:var(--p-600);border:none;cursor:pointer;
+                     display:flex;align-items:center;justify-content:center;transition:background .15s"
+              onmouseenter="this.style.background='var(--p-700)'"
+              onmouseleave="this.style.background='var(--p-600)'">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="#fff"
+             style="width:14px;height:14px" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: turno ── -->
+<div class="modal-overlay" id="modal-turno">
+  <div class="modal" style="max-width:380px;text-align:center">
+    <div class="modal-header" style="justify-content:center;border:none;padding-bottom:0">
+      <div class="modal-title" id="modal-turno-titulo">Iniciar turno</div>
+    </div>
+    <div style="padding:16px 0 8px">
+      <div style="font-size:13px;color:var(--n-500);line-height:1.6" id="modal-turno-msg">
+        Registre o início do seu turno para rastrear as entregas realizadas.
+      </div>
+    </div>
+    <div class="modal-actions" style="justify-content:center">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModalTurno()">Cancelar</button>
+      <button type="button" class="ct-btn-primary" id="btn-turno-confirmar"
+              style="flex:none;width:auto;padding:10px 28px" onclick="confirmarTurno()">
+        Confirmar
+      </button>
+    </div>
   </div>
 </div>
 
