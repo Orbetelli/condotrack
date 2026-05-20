@@ -344,70 +344,44 @@ async function finalizar() {
   setBtnCarregando('btn-finalizar', true)
 
   try {
-    // 1. Cria no Supabase Auth
-    const { data: authData, error: authError } = await db.auth.signUp({ email, password: senha })
+    // Chama a Edge Function cadastrar-morador com service role.
+    //
+    // Por que Edge Function e não INSERT direto?
+    // Após signUp() sem confirmação de e-mail, o cliente não tem JWT válido,
+    // então o RLS da tabela usuarios bloqueia qualquer INSERT direto.
+    // A Edge Function usa a service role key no backend, contornando o RLS
+    // com segurança — mesmo padrão do criar-sindico.
+    const { data, error } = await db.functions.invoke('cadastrar-morador', {
+      body: {
+        email,
+        senha,
+        nome,
+        cpf,
+        telefone:       tel,
+        condominio_id:  estado.condominioId,
+        apartamento_id: estado.aptoId,
+      },
+    })
 
-    if (authError) {
-      const msg = (
-        authError.message?.toLowerCase().includes('already registered') ||
-        authError.message?.toLowerCase().includes('already exists') ||
-        authError.status === 422
-      )
-        ? 'Este e-mail já está cadastrado. Tente fazer login.'
-        : 'Erro ao criar conta: ' + authError.message
+    if (error || data?.error) {
+      const msg = data?.error || error?.message || 'Erro ao criar conta. Tente novamente.'
       mostrarErro('senha-err', msg)
       setBtnCarregando('btn-finalizar', false)
       return
     }
 
-    const userId = authData.user?.id ?? authData.session?.user?.id
-    if (!userId) {
-      mostrarErro('senha-err', 'Confirme seu e-mail antes de continuar.')
-      setBtnCarregando('btn-finalizar', false)
-      return
+    // Aviso não crítico (ex: apartamento não foi marcado como ocupado)
+    if (data?.aviso) {
+      console.warn('[cadastro] Aviso da Edge Function:', data.aviso)
     }
 
-    // 2. Insere na tabela usuarios
-    const { error: userError } = await db.from('usuarios').insert({
-      auth_id:        userId,
-      condominio_id:  estado.condominioId,
-      apartamento_id: estado.aptoId,
-      perfil:         'morador',
-      nome,
-      email,
-      cpf:            cpf.replace(/\D/g, ''),
-      telefone:       tel,
-      status:         'ativo',
-    })
-
-    if (userError) {
-      console.error('Erro ao salvar usuário:', userError)
-      mostrarErro('senha-err', 'Erro ao salvar dados. Tente novamente.')
-      setBtnCarregando('btn-finalizar', false)
-      return
-    }
-
-    // 3. Marca apartamento como ocupado
-    // Trata erro explicitamente: se falhar, o insert do usuário já ocorreu mas o
-    // apartamento ficaria disponível para outro cadastro — situação inconsistente.
-    const { error: aptoError } = await db
-      .from('apartamentos')
-      .update({ status: 'ocupado' })
-      .eq('id', estado.aptoId)
-
-    if (aptoError) {
-      console.error('Erro ao marcar apartamento como ocupado:', aptoError)
-      // Não bloqueia o fluxo — o usuário foi criado com sucesso.
-      // O admin pode corrigir manualmente via painel.
-    }
-
-    // 4. Sucesso
+    // Sucesso
     document.getElementById('step-3').style.display      = 'none'
     document.getElementById('stepper').style.display     = 'none'
     document.getElementById('reg-header').style.display  = 'none'
     document.getElementById('success-msg').innerHTML     =
       `Sua conta foi criada para o <strong>Apto ${estado.aptoSelecionado}</strong>, ${nome}.<br>
-       Confirme seu e-mail se necessário e faça o login.`
+       Confirme seu e-mail e faça o login.`
     document.getElementById('success-screen').style.display = 'block'
 
   } catch (err) {
