@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   verificarAlertas()
   bindEvents()
 
-  // Realtime filtrado pelo apartamento do morador
+  // Realtime — entregas do morador
   db.channel('entregas-morador')
     .on('postgres_changes', {
       event:  '*',
@@ -35,6 +35,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       filter: `apartamento_id=eq.${usuarioLogado.apartamento_id}`,
     }, () => {
       carregarEntregas().then(() => renderTab(tabAtiva))
+    })
+    .subscribe()
+
+  // Realtime — mensagens do chat (novas mensagens da portaria)
+  db.channel('chat-morador')
+    .on('postgres_changes', {
+      event:  'INSERT',
+      schema: 'public',
+      table:  'mensagens',
+      filter: `destinatario_id=eq.${usuarioLogado.id}`,
+    }, payload => {
+      chatMensagens.push(normalizarMensagem(payload.new))
+      if (tabAtiva === 'chat') {
+        renderMensagensChat()
+      } else {
+        // Badge de nova mensagem na aba
+        document.getElementById('chat-badge').style.display = 'inline'
+      }
     })
     .subscribe()
 })
@@ -54,7 +72,7 @@ function renderHeader() {
 async function carregarEntregas() {
   const { data, error } = await db
     .from('entregas')
-    .select('id, transportadora, volumes, status, obs, recebido_em, retirado_em')
+    .select('id, transportadora, volumes, status, obs, recebido_em, retirado_em, foto_url')
     .eq('apartamento_id', usuarioLogado.apartamento_id)
     .order('recebido_em', { ascending: false })
 
@@ -69,6 +87,7 @@ async function carregarEntregas() {
     volumes:     e.volumes,
     obs:         e.obs || '',
     status:      e.status,
+    fotoUrl:     e.foto_url || null,
     retiradoEm:  e.retirado_em
       ? new Date(e.retirado_em).toLocaleDateString('pt-BR') + ' às ' +
         new Date(e.retirado_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })
@@ -99,6 +118,7 @@ function renderTab(tab) {
   if (tab === 'pendentes') renderPendentes(body)
   if (tab === 'historico') renderHistorico(body)
   if (tab === 'perfil')    renderPerfil(body)
+  if (tab === 'chat')      renderChat(body)
 }
 
 function renderPendentes(container) {
@@ -117,6 +137,30 @@ function renderPendentes(container) {
   }
   lista.forEach(e => {
     const cfg  = STATUS_CFG[e.status] || STATUS_CFG.aguardando
+
+    // ── Prazo de vencimento ──
+    const diasPendente = Math.floor((Date.now() - new Date(e.recebidoISO)) / 86400000)
+    const diasRestam   = 5 - diasPendente
+    const prazoLabel   = diasRestam <= 0 ? 'Prazo expirado' :
+                         diasRestam === 1 ? 'Vence hoje' :
+                         diasRestam === 2 ? 'Vence amanhã' :
+                         `Vence em ${diasRestam} dias`
+    const prazoColor   = diasRestam <= 1 ? '#DC2626' : diasRestam <= 2 ? '#D97706' : '#16A34A'
+    const prazoBg      = diasRestam <= 1 ? '#FEF2F2' : diasRestam <= 2 ? '#FFFBEB' : '#F0FDF4'
+    const mostrarPrazo = ['aguardando','notificado','entregue_porteiro'].includes(e.status)
+
+    // ── Foto da encomenda ──
+    const fotoHtml = e.fotoUrl ? `
+      <div style="margin-bottom:10px">
+        <img src="${e.fotoUrl}" alt="Foto da encomenda"
+             onclick="abrirFotoEntrega('${e.fotoUrl}')"
+             style="width:100%;max-height:160px;object-fit:cover;border-radius:var(--radius-md);
+                    cursor:pointer;border:1px solid var(--n-200)"/>
+        <div style="font-size:11px;color:var(--n-400);margin-top:4px;text-align:center">
+          Toque para ampliar
+        </div>
+      </div>` : ''
+
     const card = document.createElement('div')
     card.className = `entrega-card ${e.status}`
     card.innerHTML = `
@@ -124,6 +168,7 @@ function renderPendentes(container) {
         <div class="entrega-trans">${e.trans}</div>
         <span class="entrega-badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>
       </div>
+      ${fotoHtml}
       <div class="entrega-info">
         <div class="entrega-info-item">
           <svg viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -134,6 +179,18 @@ function renderPendentes(container) {
           ${e.volumes} volume${e.volumes > 1 ? 's' : ''}
         </div>
       </div>
+      ${mostrarPrazo ? `
+        <div style="display:inline-flex;align-items:center;gap:5px;
+                    background:${prazoBg};color:${prazoColor};
+                    font-size:11px;font-weight:700;padding:4px 10px;
+                    border-radius:99px;margin-bottom:10px">
+          <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+               style="width:11px;height:11px">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          ${prazoLabel}
+        </div>` : ''}
       ${e.obs ? `<div class="entrega-obs"><svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>${e.obs}</div>` : ''}
       ${e.status === 'aguardando' || e.status === 'notificado' || e.status === 'entregue_porteiro'
         ? `<button class="btn-confirmar" onclick="abrirConfirmar('${e.id}')">
@@ -152,20 +209,31 @@ let filtroPeriodo   = 'todos'
 function renderHistorico(container) {
   container.innerHTML = `
     <div class="sec-title">Histórico de entregas</div>
-    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+    <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
       <select class="ct-input" id="filtro-status-hist" onchange="aplicarFiltroHist()"
-              style="flex:1;min-width:120px;padding:8px 12px">
+              style="flex:1;min-width:110px;padding:8px 12px">
         <option value="todos">Todos os status</option>
         <option value="retirado">Retirados</option>
         <option value="expirado">Expirados</option>
       </select>
       <select class="ct-input" id="filtro-periodo-hist" onchange="aplicarFiltroHist()"
-              style="flex:1;min-width:120px;padding:8px 12px">
+              style="flex:1;min-width:110px;padding:8px 12px">
         <option value="todos">Todo o período</option>
         <option value="7">Últimos 7 dias</option>
         <option value="30">Últimos 30 dias</option>
         <option value="90">Últimos 3 meses</option>
       </select>
+    </div>
+    <div style="position:relative;margin-bottom:12px">
+      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="var(--n-400)"
+           style="position:absolute;left:10px;top:50%;transform:translateY(-50%);
+                  width:14px;height:14px;pointer-events:none">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input class="ct-input" type="text" id="filtro-trans-hist"
+             placeholder="Buscar por transportadora..."
+             oninput="aplicarFiltroHist()"
+             style="padding-left:32px"/>
     </div>
     <div id="lista-historico"></div>
   `
@@ -175,17 +243,21 @@ function renderHistorico(container) {
 function aplicarFiltroHist() {
   const status  = document.getElementById('filtro-status-hist')?.value  || 'todos'
   const periodo = document.getElementById('filtro-periodo-hist')?.value || 'todos'
+  const transBusca = (document.getElementById('filtro-trans-hist')?.value || '').trim().toLowerCase()
 
   let lista = todasEntregas.filter(e => e.status === 'retirado' || e.status === 'expirado')
 
-  if (status !== 'todos') {
-    lista = lista.filter(e => e.status === status)
-  }
+  if (status !== 'todos') lista = lista.filter(e => e.status === status)
 
   if (periodo !== 'todos') {
     const dias  = parseInt(periodo)
     const corte = new Date(Date.now() - dias * 24 * 60 * 60 * 1000)
     lista = lista.filter(e => new Date(e.recebidoISO) >= corte)
+  }
+
+  // Busca por transportadora
+  if (transBusca) {
+    lista = lista.filter(e => e.trans.toLowerCase().includes(transBusca))
   }
 
   const container = document.getElementById('lista-historico')
@@ -201,37 +273,69 @@ function aplicarFiltroHist() {
     return
   }
 
-  const wrap = document.createElement('div')
-  wrap.style.cssText = 'background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);padding:4px 16px;'
+  // ── Agrupamento por mês (resumo mensal) ──
+  const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                 'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
+  // Agrupa mantendo ordem cronológica inversa
+  const grupos = new Map()
   lista.forEach(e => {
-    const cfg  = STATUS_CFG[e.status] || STATUS_CFG.retirado
-    const item = document.createElement('div')
-    item.className = 'hist-item'
-    item.innerHTML = `
-      <div class="hist-dot" style="background:${cfg.dot}"></div>
-      <div class="hist-info">
-        <div class="hist-trans">${e.trans}</div>
-        <div class="hist-data">
-          Recebido: ${e.data} às ${e.hora}
-          ${e.retiradoEm ? ` · Retirado: ${e.retiradoEm}` : ''}
-          · ${e.volumes} volume${e.volumes > 1 ? 's' : ''}
-        </div>
-      </div>
-      <span class="hist-badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>`
-    wrap.appendChild(item)
+    const d   = new Date(e.recebidoISO)
+    const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2,'0')}`
+    const lbl = `${MESES[d.getMonth()]} ${d.getFullYear()}`
+    if (!grupos.has(key)) grupos.set(key, { lbl, itens: [] })
+    grupos.get(key).itens.push(e)
   })
 
-  // Resumo no rodapé
+  container.innerHTML = ''
+
+  for (const { lbl, itens } of grupos.values()) {
+    // Cabeçalho do mês
+    const header = document.createElement('div')
+    header.style.cssText = `
+      display:flex;align-items:center;justify-content:space-between;
+      padding:10px 0 6px;margin-top:6px
+    `
+    header.innerHTML = `
+      <span style="font-size:12px;font-weight:700;color:var(--n-500);
+                   text-transform:uppercase;letter-spacing:.05em">${lbl}</span>
+      <span style="font-size:11px;color:var(--n-400)">
+        ${itens.length} entrega${itens.length !== 1 ? 's' : ''}
+      </span>`
+    container.appendChild(header)
+
+    // Card do grupo
+    const wrap = document.createElement('div')
+    wrap.style.cssText = 'background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);padding:4px 16px;margin-bottom:8px'
+
+    itens.forEach(e => {
+      const cfg  = STATUS_CFG[e.status] || STATUS_CFG.retirado
+      const item = document.createElement('div')
+      item.className = 'hist-item'
+      item.innerHTML = `
+        <div class="hist-dot" style="background:${cfg.dot}"></div>
+        <div class="hist-info">
+          <div class="hist-trans">${e.trans}</div>
+          <div class="hist-data">
+            Recebido: ${e.data} às ${e.hora}
+            ${e.retiradoEm ? ` · Retirado: ${e.retiradoEm}` : ''}
+            · ${e.volumes} volume${e.volumes > 1 ? 's' : ''}
+          </div>
+        </div>
+        <span class="hist-badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>`
+      wrap.appendChild(item)
+    })
+
+    container.appendChild(wrap)
+  }
+
+  // Resumo geral no rodapé
   const total    = lista.length
   const retiradas = lista.filter(e => e.status === 'retirado').length
-  const resumo   = document.createElement('div')
-  resumo.style.cssText = 'padding:10px 0;font-size:11px;color:var(--n-400);text-align:center;border-top:1px solid var(--n-100);margin-top:4px'
-  resumo.textContent   = `${total} entrega${total !== 1 ? 's' : ''} · ${retiradas} retirada${retiradas !== 1 ? 's' : ''}`
-  wrap.appendChild(resumo)
-
-  container.innerHTML = ''
-  container.appendChild(wrap)
+  const resumoEl = document.createElement('div')
+  resumoEl.style.cssText = 'padding:4px 0 8px;font-size:11px;color:var(--n-400);text-align:center'
+  resumoEl.textContent   = `${total} entrega${total !== 1 ? 's' : ''} no total · ${retiradas} retirada${retiradas !== 1 ? 's' : ''}`
+  container.appendChild(resumoEl)
 }
 
 function renderPerfil(container) {
@@ -557,6 +661,187 @@ async function confirmarRetirada() {
   setTimeout(() => { fecharModal(); renderTab(tabAtiva) }, 1800)
 }
 
+// ── Foto da encomenda — visualizador ─────────────────────────
+function abrirFotoEntrega(url) {
+  // Overlay simples para ver a foto em tamanho real
+  const overlay = document.createElement('div')
+  overlay.style.cssText = `
+    position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);
+    display:flex;align-items:center;justify-content:center;padding:16px;cursor:zoom-out
+  `
+  overlay.innerHTML = `
+    <img src="${url}" style="max-width:100%;max-height:90vh;border-radius:var(--radius-lg);
+         object-fit:contain;box-shadow:0 20px 60px rgba(0,0,0,.5)"/>
+  `
+  overlay.addEventListener('click', () => overlay.remove())
+  document.body.appendChild(overlay)
+}
+
+// ── Chat com a portaria ───────────────────────────────────────
+let chatMensagens   = []
+let chatCarregado   = false
+let chatAberto      = false
+
+function normalizarMensagem(m) {
+  return {
+    id:           m.id,
+    texto:        m.texto,
+    remetenteId:  m.remetente_id,
+    criadoEm:     m.criado_em,
+    minha:        m.remetente_id === usuarioLogado.id,
+    hora:         new Date(m.criado_em).toLocaleTimeString('pt-BR', {
+                    hour: '2-digit', minute: '2-digit'
+                  }),
+  }
+}
+
+function renderChat(container) {
+  // Remove badge ao abrir a aba
+  const badge = document.getElementById('chat-badge')
+  if (badge) badge.style.display = 'none'
+
+  container.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;
+                justify-content:center;padding:40px 20px;text-align:center">
+      <div style="width:56px;height:56px;border-radius:50%;background:var(--p-100);
+                  display:flex;align-items:center;justify-content:center;margin-bottom:16px">
+        <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="var(--p-600)"
+             style="width:24px;height:24px">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+      </div>
+      <div style="font-size:15px;font-weight:700;color:var(--n-900);margin-bottom:6px">
+        Falar com a portaria
+      </div>
+      <div style="font-size:13px;color:var(--n-500);line-height:1.6;margin-bottom:20px;max-width:260px">
+        Tire dúvidas sobre suas entregas ou deixe um recado para o porteiro.
+      </div>
+      <button onclick="abrirChat()"
+              style="background:var(--p-600);color:#fff;border:none;
+                     border-radius:var(--radius-md);padding:11px 28px;
+                     font-size:14px;font-weight:600;cursor:pointer;
+                     font-family:var(--font-sans);display:flex;align-items:center;gap:8px;
+                     transition:background .15s"
+              onmouseenter="this.style.background='var(--p-700)'"
+              onmouseleave="this.style.background='var(--p-600)'">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="#fff"
+             style="width:14px;height:14px">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        Abrir conversa
+      </button>
+    </div>
+  `
+}
+
+async function abrirChat() {
+  chatAberto = true
+  document.getElementById('chat-condo-nome').textContent =
+    usuarioLogado.condominios?.nome || '—'
+  document.getElementById('modal-chat').classList.add('open')
+
+  if (!chatCarregado) {
+    await carregarMensagensChat()
+    chatCarregado = true
+  }
+  renderMensagensChat()
+}
+
+function fecharChat() {
+  chatAberto = false
+  document.getElementById('modal-chat').classList.remove('open')
+}
+
+async function carregarMensagensChat() {
+  const { data, error } = await db
+    .from('mensagens')
+    .select('id, texto, remetente_id, criado_em')
+    .or(`remetente_id.eq.${usuarioLogado.id},destinatario_id.eq.${usuarioLogado.id}`)
+    .eq('condominio_id', usuarioLogado.condominio_id)
+    .order('criado_em', { ascending: true })
+    .limit(100)
+
+  if (error) { console.error('Erro ao carregar mensagens:', error); return }
+  chatMensagens = (data || []).map(normalizarMensagem)
+}
+
+function renderMensagensChat() {
+  const lista = document.getElementById('chat-mensagens')
+  if (!lista) return
+
+  if (!chatMensagens.length) {
+    lista.innerHTML = `
+      <div style="text-align:center;padding:24px;font-size:13px;color:var(--n-400)">
+        Nenhuma mensagem ainda.<br>Diga olá para a portaria! 👋
+      </div>`
+    return
+  }
+
+  lista.innerHTML = chatMensagens.map(m => `
+    <div style="display:flex;flex-direction:column;
+                align-items:${m.minha ? 'flex-end' : 'flex-start'}">
+      <div style="
+        max-width:78%;padding:9px 13px;border-radius:${m.minha ? '14px 14px 4px 14px' : '14px 14px 14px 4px'};
+        background:${m.minha ? 'var(--p-600)' : 'var(--n-100)'};
+        color:${m.minha ? '#fff' : 'var(--n-900)'};
+        font-size:13px;line-height:1.5;word-break:break-word
+      ">${m.texto}</div>
+      <div style="font-size:10px;color:var(--n-400);margin-top:3px;padding:0 4px">${m.hora}</div>
+    </div>
+  `).join('')
+
+  // Scroll para o final
+  lista.scrollTop = lista.scrollHeight
+}
+
+async function enviarMensagemChat() {
+  const input = document.getElementById('chat-input')
+  const texto = input?.value.trim()
+  if (!texto) return
+
+  const btn = document.getElementById('btn-chat-enviar')
+  if (btn) btn.disabled = true
+  input.value = ''
+  input.style.height = 'auto'
+
+  // Busca um porteiro ativo do condomínio para ser o destinatário
+  const { data: porteiros } = await db
+    .from('usuarios')
+    .select('id')
+    .eq('condominio_id', usuarioLogado.condominio_id)
+    .eq('perfil', 'porteiro')
+    .eq('status', 'ativo')
+    .limit(1)
+
+  const destinatarioId = porteiros?.[0]?.id || null
+
+  const { data, error } = await db.from('mensagens').insert({
+    remetente_id:    usuarioLogado.id,
+    destinatario_id: destinatarioId,
+    condominio_id:   usuarioLogado.condominio_id,
+    texto,
+  }).select().single()
+
+  if (btn) btn.disabled = false
+
+  if (error) {
+    mostrarToast('Erro ao enviar mensagem. Tente novamente.', 'erro')
+    input.value = texto // restaura o texto em caso de erro
+    return
+  }
+
+  chatMensagens.push(normalizarMensagem(data))
+  renderMensagensChat()
+}
+
+function chatKeydown(e) {
+  // Enter envia, Shift+Enter quebra linha
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    enviarMensagemChat()
+  }
+}
+
 function bindEvents() {
   document.getElementById('modal-confirmar')?.addEventListener('click', e => {
     if (e.target === document.getElementById('modal-confirmar')) fecharModal()
@@ -569,6 +854,9 @@ function bindEvents() {
   })
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') { fecharModal(); fecharModalPerfil() }
+  })
+  document.getElementById('modal-chat')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-chat')) fecharChat()
   })
   document.addEventListener('click', e => {
     if (notifMoradorAberto &&
