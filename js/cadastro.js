@@ -351,28 +351,43 @@ async function finalizar() {
     // então o RLS da tabela usuarios bloqueia qualquer INSERT direto.
     // A Edge Function usa a service role key no backend, contornando o RLS
     // com segurança — mesmo padrão do criar-sindico.
-    const { data, error } = await db.functions.invoke('cadastrar-morador', {
-      body: {
-        email,
-        senha,
-        nome,
-        cpf,
-        telefone:       tel,
-        condominio_id:  estado.condominioId,
-        apartamento_id: estado.aptoId,
-      },
-    })
+    // Chama a Edge Function via fetch direto para ter controle total
+    // sobre o body da resposta — db.functions.invoke retorna null em data
+    // para respostas não-2xx, impedindo a leitura da mensagem de erro.
+    const session = await getSession()
+    const resp = await fetch(
+      `${db.supabaseUrl}/functions/v1/cadastrar-morador`,
+      {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'apikey':        db.supabaseKey,
+          'Authorization': `Bearer ${session?.access_token || db.supabaseKey}`,
+        },
+        body: JSON.stringify({
+          email,
+          senha,
+          nome,
+          cpf,
+          telefone:       tel,
+          condominio_id:  estado.condominioId,
+          apartamento_id: estado.aptoId,
+        }),
+      }
+    )
 
-    if (error || data?.error) {
-      const msg = data?.error || error?.message || 'Erro ao criar conta. Tente novamente.'
+    const resultado = await resp.json().catch(() => ({}))
+
+    if (!resp.ok) {
+      const msg = resultado?.error || 'Erro ao criar conta. Tente novamente.'
       mostrarErro('senha-err', msg)
       setBtnCarregando('btn-finalizar', false)
       return
     }
 
     // Aviso não crítico (ex: apartamento não foi marcado como ocupado)
-    if (data?.aviso) {
-      console.warn('[cadastro] Aviso da Edge Function:', data.aviso)
+    if (resultado?.aviso) {
+      console.warn('[cadastro] Aviso da Edge Function:', resultado.aviso)
     }
 
     // Sucesso

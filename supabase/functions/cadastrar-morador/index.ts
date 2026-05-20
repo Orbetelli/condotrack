@@ -38,6 +38,7 @@ serve(async (req: Request) => {
   }
 
   try {
+    const body = await req.json()
     const {
       email,
       senha,
@@ -46,12 +47,26 @@ serve(async (req: Request) => {
       telefone,
       condominio_id,
       apartamento_id,
-    } = await req.json()
+    } = body
+
+    // Log para diagnóstico (não loga senha)
+    console.log('[cadastrar-morador] body recebido:', {
+      email,
+      nome,
+      cpf:            cpf ? '***' : undefined,
+      telefone:       telefone ? '***' : undefined,
+      condominio_id,
+      apartamento_id,
+      senha:          senha ? `${senha.length} chars` : undefined,
+    })
 
     // ── Validação básica ──────────────────────────────────────
     if (!email || !senha || !nome || !condominio_id || !apartamento_id) {
+      const faltando = ['email','senha','nome','condominio_id','apartamento_id']
+        .filter(k => !body[k])
+      console.error('[cadastrar-morador] Campos faltando:', faltando)
       return new Response(JSON.stringify({
-        error: 'Campos obrigatórios: email, senha, nome, condominio_id, apartamento_id'
+        error: `Campos obrigatórios ausentes: ${faltando.join(', ')}`
       }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } })
     }
 
