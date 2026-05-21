@@ -779,6 +779,14 @@ function abrirResetSenha(userId, nome, authId) {
   resetUsuarioId   = userId
   resetUsuarioNome = nome
   resetAuthId      = authId
+
+  // Debug — confirma que auth_id chegou
+  console.log('[reset-senha] userId:', userId, '| auth_id:', authId, '| nome:', nome)
+
+  if (!authId || authId === 'undefined' || authId === 'null') {
+    mostrarToast('Este usuário não possui auth_id vinculado. Verifique o banco.', 'erro')
+    return
+  }
   document.getElementById('reset-nome').textContent = nome
   document.getElementById('reset-nova').value    = ''
   document.getElementById('reset-confirma').value = ''
