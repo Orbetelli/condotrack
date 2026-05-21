@@ -813,19 +813,19 @@ async function salvarResetSenha(e) {
   try {
     // Usa fetch direto para ter controle total da resposta (invoke zera data em erros não-2xx)
     // JWT do superadmin logado é enviado no header — a Edge Function valida quem está chamando
-    const session = await getSession()
+    // Passa o auth_id do superadmin logado como solicitante — a Edge Function valida no banco
     const resetResp = await fetch(
       `${SUPABASE_URL}/functions/v1/reset-senha`,
       {
         method:  'POST',
         headers: {
-          'Content-Type':  'application/json',
-          'apikey':        SUPABASE_KEY,
-          'Authorization': `Bearer ${session?.access_token || SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          'apikey':       SUPABASE_KEY,
         },
         body: JSON.stringify({
-          auth_id:    resetAuthId,
-          nova_senha: nova,
+          auth_id:              resetAuthId,
+          nova_senha:           nova,
+          solicitante_auth_id:  usuarioLogado.auth_id,
         }),
       }
     )
