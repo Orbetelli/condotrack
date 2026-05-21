@@ -335,6 +335,7 @@ async function renderUsuarios(body) {
     container.querySelectorAll('.sa-btn-acao').forEach(btn => {
       btn.addEventListener('click', () => {
         const { acao, id, nome, perfil } = btn.dataset
+        if (acao === 'reset')    abrirResetSenha(id, nome, btn.dataset.authid)
         if (acao === 'vincular') abrirVincular(id, nome, perfil)
         if (acao === 'editar')   abrirEditarUsuario(id)
         if (acao === 'inativar') abrirInativar(id, nome)
@@ -473,6 +474,21 @@ function userRowHTML(u, cores) {
       <!-- Ações (ocultas para o próprio usuário logado) -->
       ${!isMe ? `
         <div style="display:flex;gap:5px;flex-shrink:0">
+          <!-- Roxo: reset de senha -->
+          <button class="sa-btn-acao"
+                  data-acao="reset" data-id="${u.id}" data-nome="${u.nome.replace(/"/g,'&quot;')}" data-authid="${u.auth_id}"
+                  title="Resetar senha"
+                  style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
+                         background:#EDE9FE;color:#5B21B6;display:flex;align-items:center;
+                         justify-content:center;transition:background .12s;flex-shrink:0"
+                  onmouseenter="this.style.background='#DDD6FE'"
+                  onmouseleave="this.style.background='#EDE9FE'">
+            <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+                 style="width:13px;height:13px">
+              <rect x="3" y="11" width="18" height="11" rx="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </button>
           <!-- Amarelo: vincular condomínios -->
           <button class="sa-btn-acao"
                   data-acao="vincular" data-id="${u.id}" data-nome="${u.nome.replace(/"/g,'&quot;')}" data-perfil="${u.perfil}"
@@ -787,13 +803,29 @@ async function salvarResetSenha(e) {
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
 
   try {
-    // Usa a Edge Function reset-senha (service_role fica segura no backend)
-    const { data, error } = await db.functions.invoke('reset-senha', {
-      body: { auth_id: resetAuthId, nova_senha: nova },
-    })
+    // Usa fetch direto para ter controle total da resposta (invoke zera data em erros não-2xx)
+    // JWT do superadmin logado é enviado no header — a Edge Function valida quem está chamando
+    const session = await getSession()
+    const resetResp = await fetch(
+      `${SUPABASE_URL}/functions/v1/reset-senha`,
+      {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'apikey':        SUPABASE_KEY,
+          'Authorization': `Bearer ${session?.access_token || SUPABASE_KEY}`,
+        },
+        body: JSON.stringify({
+          auth_id:    resetAuthId,
+          nova_senha: nova,
+        }),
+      }
+    )
 
-    if (error || data?.error) {
-      const msg = data?.error || error?.message || 'Erro ao resetar senha.'
+    const resetResultado = await resetResp.json().catch(() => ({}))
+
+    if (!resetResp.ok) {
+      const msg = resetResultado?.error || 'Erro ao resetar senha.'
       mostrarErro('err-reset-nova', msg)
       if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar nova senha' }
       return
