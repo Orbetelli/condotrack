@@ -17,6 +17,7 @@ let buscaAtual         = ''
 let todasEntregas      = []
 let tabPorteiroAtiva   = 'dashboard'
 let filtroEntregasAtivo = 'todos'
+let fotoFile           = null // arquivo de foto selecionado no formulário de nova entrega
 
 // ── Init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -98,6 +99,7 @@ function renderTabPorteiro(tab) {
   if (tab === 'entregas')  renderEntregas(body)
   if (tab === 'moradores') renderMoradores(body)
   if (tab === 'historico') renderHistorico(body)
+  if (tab === 'chat')      renderChatLista(body)
 }
 
 // ── Dashboard ─────────────────────────────────────────────────
@@ -799,6 +801,20 @@ function atualizarDotNotif() {
 function abrirModalNova() {
   document.getElementById('modal-nova').classList.add('open')
   document.getElementById('form-nova').reset()
+
+  // Garante que o botão volte ao estado normal (pode ter ficado em
+  // "disabled + spinner" se o registro anterior não fechou o modal)
+  const btnSalvar = document.getElementById('btn-nova-entrega-2')
+  if (btnSalvar) {
+    btnSalvar.disabled  = false
+    btnSalvar.innerHTML = `
+      <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+           style="width:15px;height:15px" stroke-linecap="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      Registrar`
+  }
+
   document.getElementById('campo-morador').style.display = 'none'
   document.getElementById('morador-selecionado-nome').style.display = 'none'
   document.getElementById('lista-busca-nome').style.display = 'none'
@@ -1112,6 +1128,42 @@ function previewFoto(input) {
   reader.readAsDataURL(file)
 }
 
+function removerFoto() {
+  fotoFile = null
+  const input = document.getElementById('nova-foto')
+  if (input) input.value = ''
+  const preview = document.getElementById('foto-preview')
+  if (preview) preview.style.display = 'none'
+  const img = document.getElementById('foto-preview-img')
+  if (img) img.src = ''
+}
+
+// Sobe a foto pro Storage do Supabase e devolve a URL pública (ou null se não houver foto / der erro)
+async function uploadFoto(entregaId) {
+  if (!fotoFile) return null
+  try {
+    const ext  = (fotoFile.name.split('.').pop() || 'jpg').toLowerCase()
+    const path = `${usuarioLogado.condominio_id}/${entregaId}.${ext}`
+
+    const { error: upErr } = await db.storage
+      .from('entregas-fotos')
+      .upload(path, fotoFile, { contentType: fotoFile.type || 'image/jpeg', upsert: true })
+
+    if (upErr) { console.warn('Erro ao enviar foto:', upErr); return null }
+
+    const { data } = db.storage.from('entregas-fotos').getPublicUrl(path)
+    return data?.publicUrl || null
+  } catch (err) {
+    console.warn('Erro ao enviar foto:', err)
+    return null
+  }
+}
+
+function preencherTrans(nome) {
+  const input = document.getElementById('nova-trans')
+  if (input) input.value = nome
+}
+
 function preencherTransLote(nome) {
   const input = document.getElementById('lote-trans')
   if (input) input.value = nome
@@ -1368,6 +1420,11 @@ async function confirmarTurno() {
 }
 
 // ── Chat porteiro com moradores ───────────────────────────────
+let chatPortMoradorId   = null
+let chatPortMoradorNome = ''
+let chatPortMoradorApto = ''
+let chatPortMensagens   = []
+
 function normalizarMsgPort(m) {
   return {
     id:          m.id,
@@ -1437,24 +1494,42 @@ async function renderChatLista(body) {
     <div style="font-size:13px;font-weight:700;color:var(--n-900);margin-bottom:12px">
       Mensagens de moradores
     </div>
-    <div class="status-card">
-      ${lista.map(m => `
-        <div class="entry" style="cursor:pointer" onclick="abrirChatPort('${m.id}','${m.nome.replace(/'/g,"\'")}','${m.apto}')">
-          <div style="width:34px;height:34px;border-radius:50%;background:var(--p-100);
-                      color:var(--p-700);font-size:12px;font-weight:700;flex-shrink:0;
-                      display:flex;align-items:center;justify-content:center">
-            ${ini(m.nome)}
-          </div>
-          <div class="entry-info">
-            <div class="entry-apto">${m.nome}</div>
-            <div class="entry-sub">Apto ${m.apto}</div>
-          </div>
-          <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"
-               style="width:14px;height:14px;stroke:var(--n-400);flex-shrink:0">
-            <path d="M9 18l6-6-6-6"/>
-          </svg>
-        </div>`).join('')}
-    </div>`
+    <div class="status-card" id="chat-lista-itens"></div>`
+
+  const container = document.getElementById('chat-lista-itens')
+  lista.forEach(m => {
+    const item = document.createElement('div')
+    item.className = 'entry'
+    item.style.cursor = 'pointer'
+
+    const avatar = document.createElement('div')
+    avatar.style.cssText = 'width:34px;height:34px;border-radius:50%;background:var(--p-100);' +
+      'color:var(--p-700);font-size:12px;font-weight:700;flex-shrink:0;' +
+      'display:flex;align-items:center;justify-content:center'
+    avatar.textContent = ini(m.nome)
+
+    const info = document.createElement('div')
+    info.className = 'entry-info'
+    const nomeEl = document.createElement('div')
+    nomeEl.className = 'entry-apto'
+    nomeEl.textContent = m.nome
+    const aptoEl = document.createElement('div')
+    aptoEl.className = 'entry-sub'
+    aptoEl.textContent = `Apto ${m.apto}`
+    info.appendChild(nomeEl)
+    info.appendChild(aptoEl)
+
+    const seta = document.createElement('span')
+    seta.style.cssText = 'display:flex;flex-shrink:0'
+    seta.innerHTML = `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"
+         style="width:14px;height:14px;stroke:var(--n-400)"><path d="M9 18l6-6-6-6"/></svg>`
+
+    item.appendChild(avatar)
+    item.appendChild(info)
+    item.appendChild(seta)
+    item.addEventListener('click', () => abrirChatPort(m.id, m.nome, m.apto))
+    container.appendChild(item)
+  })
 }
 
 async function abrirChatPort(moradorId, moradorNome, moradorApto) {

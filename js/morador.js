@@ -654,6 +654,16 @@ async function confirmarRetirada() {
     return
   }
 
+  // Notifica a portaria que o morador confirmou a retirada (fire-and-forget)
+  db.functions.invoke('notificar-retirada-morador', {
+    body: {
+      entrega_id:     entregaConfirmar,
+      apartamento_id: usuarioLogado.apartamento_id,
+      condominio_id:  usuarioLogado.condominio_id,
+      morador:        usuarioLogado.nome,
+    },
+  }).catch(err => console.warn('Notificação à portaria não enviada:', err))
+
   document.getElementById('modal-form').style.display      = 'none'
   document.getElementById('confirm-success').style.display = 'block'
 

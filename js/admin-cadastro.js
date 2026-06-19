@@ -183,7 +183,7 @@ async function finalizar() {
     const { error: dbError } = await db.from('usuarios').insert({
       auth_id:       userId,
       condominio_id: condoId,
-      perfil:        'admin',
+      perfil:        'sindico',
       nome:          dadosSindico.nome,
       email:         dadosSindico.email,
       cpf:           dadosSindico.cpf.replace(/\D/g, ''),

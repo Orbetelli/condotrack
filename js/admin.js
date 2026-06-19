@@ -47,7 +47,7 @@ function invalidarCaches() {
 
 // ── Init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  usuarioLogado = await requireAuth(['admin', 'superadmin'])
+  usuarioLogado = await requireAuth(['sindico', 'superadmin'])
   if (!usuarioLogado) return
 
   // Verifica impersonação do superadmin
@@ -600,6 +600,7 @@ async function abrirDetalhesMorador(moradorId) {
     .from('usuarios')
     .select('id, nome, email, telefone, status, apartamentos(numero, bloco)')
     .eq('id', moradorId)
+    .eq('condominio_id', usuarioLogado.condominio_id) // segurança: só do próprio condomínio
     .single()
   if (!m) return
   await preencherModalMorador(m, m.apartamentos
@@ -612,6 +613,7 @@ async function abrirDetalhesPorApto(aptoId, aptoLabel) {
     .from('usuarios')
     .select('id, nome, email, telefone, status')
     .eq('apartamento_id', aptoId)
+    .eq('condominio_id', usuarioLogado.condominio_id) // segurança: só do próprio condomínio
     .eq('perfil', 'morador')
     .single()
 
@@ -649,6 +651,7 @@ async function preencherModalMorador(m, aptoLabel) {
     .from('entregas')
     .select('transportadora, status, recebido_em, volumes')
     .eq('morador_id', m.id)
+    .eq('condominio_id', usuarioLogado.condominio_id) // segurança: só do próprio condomínio
     .order('recebido_em', { ascending: false })
     .limit(5)
 
@@ -993,7 +996,6 @@ async function salvarMorador(e) {
   const nome  = document.getElementById('m-nome').value.trim()
   const email = document.getElementById('m-email').value.trim()
   const apto  = document.getElementById('m-apto').value.trim().toUpperCase()
-  const cpf   = document.getElementById('m-cpf')?.value.replace(/\D/g, '') || null
   let ok = true
 
   if (!nome) { mostrarErro('err-m-nome', 'Informe o nome.'); ok = false }

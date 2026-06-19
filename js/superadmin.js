@@ -303,7 +303,7 @@ async function renderUsuarios(body) {
 
   const perfilCores = {
     superadmin: { bg:'#EDE9FE', color:'#5B21B6' },
-    admin:      { bg:'#F3E8FF', color:'#6D28D9' },
+    sindico:    { bg:'#F3E8FF', color:'#6D28D9' },
     porteiro:   { bg:'#EFF6FF', color:'#1D4ED8' },
     morador:    { bg:'#F0FDFA', color:'#0F766E' },
   }
@@ -315,7 +315,7 @@ async function renderUsuarios(body) {
       <select class="search-box" id="filtro-perfil" style="flex:none;width:160px">
         <option value="">Todos os perfis</option>
         <option value="superadmin">Super Admin</option>
-        <option value="admin">Síndico</option>
+        <option value="sindico">Síndico</option>
         <option value="porteiro">Porteiro</option>
         <option value="morador">Morador</option>
       </select>
@@ -444,7 +444,7 @@ function userRowHTML(u, cores) {
 
   const perfilLabel = {
     superadmin: 'Super Admin',
-    admin:      'Síndico',
+    sindico:    'Síndico',
     porteiro:   'Porteiro',
     morador:    'Morador',
   }
@@ -559,7 +559,7 @@ let vincularUsuarioId = null
 
 async function abrirVincular(userId, nome, perfil) {
   vincularUsuarioId = userId
-  const perfilLabel = { superadmin:'Super Admin', admin:'Síndico', porteiro:'Porteiro', morador:'Morador' }
+  const perfilLabel = { superadmin:'Super Admin', sindico:'Síndico', porteiro:'Porteiro', morador:'Morador' }
   const iniciais = nome.split(' ').map(n => n[0]).slice(0,2).join('')
 
   document.getElementById('vinc-avatar').textContent  = iniciais
@@ -942,7 +942,7 @@ async function renderRelatorios(body) {
         <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
           ${[
             ['Super Admin', 'superadmin', '#EDE9FE','#5B21B6'],
-            ['Síndicos',    'admin',      '#F3E8FF','#6D28D9'],
+            ['Síndicos',    'sindico',    '#F3E8FF','#6D28D9'],
             ['Porteiros',   'porteiro',   '#EFF6FF','#1D4ED8'],
             ['Moradores',   'morador',    '#F0FDFA','#0F766E'],
           ].map(([l, p, bg, c]) => {
@@ -1715,7 +1715,7 @@ async function salvarCondo(e) {
       // Cria o síndico com status pendente para completar o cadastro
       await db.from('usuarios').insert({
         condominio_id: condoId,
-        perfil:        'admin',
+        perfil:        'sindico',
         nome:          sindico,
         email:         emailS,
         status:        'pendente',
@@ -1758,7 +1758,7 @@ async function abrirDetalhe(id) {
     db.from('usuarios')
       .select('nome, email')
       .eq('condominio_id', id)
-      .eq('perfil', 'admin')
+      .eq('perfil', 'sindico')
       .limit(1)
       .single(),
     db.from('usuarios')
