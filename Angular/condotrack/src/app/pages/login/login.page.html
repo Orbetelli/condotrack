@@ -1,0 +1,76 @@
+<ion-content>
+  <div class="login-shell">
+    <div class="login-box">
+
+      <!-- Logo centralizado -->
+      <div class="login-top anim-1">
+        <img src="assets/img/logo.png" alt="CondoTrack" style="height:180px;object-fit:contain;display:block;margin:0 auto"/>
+      </div>
+
+      <!-- Card de login -->
+      <div class="ct-card login-card anim-2">
+        <div class="login-heading">
+          <h2>Bem-vindo de volta</h2>
+          <p>Entre com seu e-mail e senha para acessar</p>
+        </div>
+
+        <!-- Formulário integrado com Angular -->
+        <form (ngSubmit)="fazerLogin()">
+          
+          <div class="form-field anim-3">
+            <label class="ct-label">E-mail</label>
+            <input class="ct-input" type="email" name="email" [(ngModel)]="email" placeholder="seu@email.com" />
+            <div class="ct-error" *ngIf="emailError">{{ emailError }}</div>
+          </div>
+
+          <div class="form-field anim-3">
+            <div class="field-row">
+              <label class="ct-label" style="margin:0">Senha</label>
+              <button type="button" class="forgot-link">Esqueci minha senha</button>
+            </div>
+            <div class="ct-input-wrap">
+              <input class="ct-input" [type]="mostrarSenha ? 'text' : 'password'" name="senha" [(ngModel)]="senha" placeholder="••••••••" />
+              <button type="button" class="eye-btn" (click)="toggleSenha()">
+                <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" fill="none" style="width:16px;height:16px;stroke:currentColor">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+            <div class="ct-error" *ngIf="senhaError">{{ senhaError }}</div>
+          </div>
+
+          <div class="anim-4" style="margin-top:4px">
+            <div class="ct-error" *ngIf="formError">{{ formError }}</div>
+            <button type="submit" class="ct-btn-primary" [disabled]="isLoading">
+              <span *ngIf="!isLoading" style="display:flex;align-items:center;gap:8px">
+                Entrar
+                <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor" style="width:15px;height:15px">
+                  <path d="M5 12h14M12 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+              </span>
+              <span *ngIf="isLoading" class="spinner"></span>
+            </button>
+          </div>
+
+        </form>
+      </div>
+
+      <!-- Rodapé -->
+      <div class="login-footer anim-5">
+        Ainda não tem conta?
+        <!-- O link será atualizado para o router do Angular posteriormente -->
+        <a href="cadastro.html">Cadastre-se como morador</a>
+      </div>
+
+      <div class="login-bottom anim-6">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+        CondoTrack v1.0
+      </div>
+
+    </div>
+  </div>
+</ion-content>

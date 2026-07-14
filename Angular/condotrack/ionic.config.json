@@ -1,0 +1,7 @@
+{
+  "name": "condotrack",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular-standalone"
+}
