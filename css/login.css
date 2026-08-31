@@ -138,3 +138,52 @@
   gap: 5px; color: var(--n-400); font-size: 12px; margin-top: 24px;
 }
 .login-bottom svg { width: 13px; height: 13px; stroke: currentColor; fill: none; }
+/* ── Modal: recuperar senha ── */
+/* Movido dos estilos inline do login.html */
+.modal-reset-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.45); z-index: 50;
+  align-items: center; justify-content: center;
+  padding: 16px;
+}
+.modal-reset-overlay.open { display: flex; }
+
+.modal-reset {
+  background: var(--n-0); border-radius: var(--radius-xl);
+  width: 100%; max-width: 400px; padding: 28px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  animation: fadeUp .2s ease both;
+}
+
+.modal-reset-header {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-bottom: 20px;
+}
+.modal-reset-title { font-size: 17px; font-weight: 700; color: var(--n-900); }
+
+.modal-reset-close {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: var(--n-100); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .12s;
+}
+.modal-reset-close:hover { background: var(--n-200); }
+.modal-reset-close svg { width: 14px; height: 14px; stroke: var(--n-500); fill: none; }
+
+.modal-reset-actions { display: flex; gap: 10px; }
+.modal-reset-actions .ct-btn-ghost   { flex: 1; justify-content: center; }
+.modal-reset-actions .ct-btn-primary { flex: 2; }
+
+.modal-reset-sucesso { display: none; text-align: center; padding: 8px 0; }
+.modal-reset-sucesso-icon {
+  width: 56px; height: 56px; background: #F0FDF4; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+}
+.modal-reset-sucesso-icon svg { width: 28px; height: 28px; stroke: #16A34A; fill: none; }
+.modal-reset-sucesso-title {
+  font-size: 16px; font-weight: 700; color: var(--n-900); margin-bottom: 8px;
+}
+.modal-reset-sucesso-msg {
+  font-size: 13px; color: var(--n-500); line-height: 1.6; margin-bottom: 20px;
+}

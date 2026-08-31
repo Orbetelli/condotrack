@@ -3,9 +3,11 @@
 // ============================================================
 
 const STATUS_CFG = {
-  aguardando: { label: 'Aguardando', bg: '#FEF3C7', color: '#92400E', dot: '#F59E0B' },
-  retirado:   { label: 'Retirado',   bg: '#F0FDF4', color: '#166534', dot: '#34D399' },
-  expirado:   { label: 'Expirado',   bg: '#FEF2F2', color: '#991B1B', dot: '#F87171' },
+  aguardando:        { label: 'Aguardando',          bg: '#FEF3C7', color: '#92400E', dot: '#F59E0B' },
+  notificado:        { label: 'Notificado',           bg: '#EDE9FE', color: '#5B21B6', dot: '#A78BFA' },
+  entregue_porteiro: { label: 'Entregue — Confirmar', bg: '#ECFDF5', color: '#065F46', dot: '#10B981' },
+  retirado:          { label: 'Retirado',             bg: '#F0FDF4', color: '#166534', dot: '#34D399' },
+  expirado:          { label: 'Expirado',             bg: '#FEF2F2', color: '#991B1B', dot: '#F87171' },
 }
 
 let usuarioLogado   = null
@@ -21,12 +23,36 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderHeader()
   await carregarEntregas()
   renderTab('pendentes')
+  verificarAlertas()
   bindEvents()
 
-  // Tempo real
+  // Realtime — entregas do morador
   db.channel('entregas-morador')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, () => {
+    .on('postgres_changes', {
+      event:  '*',
+      schema: 'public',
+      table:  'entregas',
+      filter: `apartamento_id=eq.${usuarioLogado.apartamento_id}`,
+    }, () => {
       carregarEntregas().then(() => renderTab(tabAtiva))
+    })
+    .subscribe()
+
+  // Realtime — mensagens do chat (novas mensagens da portaria)
+  db.channel('chat-morador')
+    .on('postgres_changes', {
+      event:  'INSERT',
+      schema: 'public',
+      table:  'mensagens',
+      filter: `destinatario_id=eq.${usuarioLogado.id}`,
+    }, payload => {
+      chatMensagens.push(normalizarMensagem(payload.new))
+      if (tabAtiva === 'chat') {
+        renderMensagensChat()
+      } else {
+        // Badge de nova mensagem na aba
+        document.getElementById('chat-badge').style.display = 'inline'
+      }
     })
     .subscribe()
 })
@@ -46,36 +72,38 @@ function renderHeader() {
 async function carregarEntregas() {
   const { data, error } = await db
     .from('entregas')
-    .select('id, transportadora, volumes, status, obs, recebido_em, retirado_em')
+    .select('id, transportadora, volumes, status, obs, recebido_em, retirado_em, foto_url')
     .eq('apartamento_id', usuarioLogado.apartamento_id)
     .order('recebido_em', { ascending: false })
 
   if (error) { console.error(error); return }
 
   todasEntregas = (data || []).map(e => ({
-    id:       e.id,
-    trans:    e.transportadora,
-    data:     new Date(e.recebido_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }),
-    hora:     new Date(e.recebido_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
-    volumes:  e.volumes,
-    obs:      e.obs || '',
-    status:   e.status,
-    retiradoEm: e.retirado_em
+    id:          e.id,
+    trans:       e.transportadora,
+    recebidoISO: e.recebido_em,
+    data:        new Date(e.recebido_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }),
+    hora:        new Date(e.recebido_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
+    volumes:     e.volumes,
+    obs:         e.obs || '',
+    status:      e.status,
+    fotoUrl:     e.foto_url || null,
+    retiradoEm:  e.retirado_em
       ? new Date(e.retirado_em).toLocaleDateString('pt-BR') + ' às ' +
         new Date(e.retirado_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })
       : null,
   }))
 
   renderStats()
-  atualizarNotifDotMorador()
 }
 
 function renderStats() {
   document.getElementById('stat-pendentes').textContent =
-    todasEntregas.filter(e => e.status === 'aguardando').length
+    todasEntregas.filter(e => ['aguardando','notificado','entregue_porteiro'].includes(e.status)).length
   document.getElementById('stat-retiradas').textContent =
     todasEntregas.filter(e => e.status === 'retirado').length
-  document.getElementById('stat-total').textContent     = todasEntregas.length
+  document.getElementById('stat-total').textContent = todasEntregas.length
+  atualizarDotMorador()
 }
 
 function mudarTab(tab) {
@@ -85,16 +113,18 @@ function mudarTab(tab) {
   renderTab(tab)
 }
 
-async function renderTab(tab) {
+function renderTab(tab) {
   const body = document.getElementById('tab-body')
-  if (tab === 'pendentes')    renderPendentes(body)
-  if (tab === 'historico')    renderHistorico(body)
-  if (tab === 'notificacoes') await renderNotificacoes(body)
-  if (tab === 'perfil')       renderPerfil(body)
+  if (tab === 'pendentes') renderPendentes(body)
+  if (tab === 'historico') renderHistorico(body)
+  if (tab === 'perfil')    renderPerfil(body)
+  if (tab === 'chat')      renderChat(body)
 }
 
 function renderPendentes(container) {
-  const lista = todasEntregas.filter(e => e.status === 'aguardando' || e.status === 'expirado')
+  const lista = todasEntregas.filter(e =>
+    ['aguardando','notificado','entregue_porteiro','expirado'].includes(e.status)
+  )
   container.innerHTML = ''
   if (!lista.length) {
     container.innerHTML = `
@@ -106,7 +136,31 @@ function renderPendentes(container) {
     return
   }
   lista.forEach(e => {
-    const cfg  = STATUS_CFG[e.status]
+    const cfg  = STATUS_CFG[e.status] || STATUS_CFG.aguardando
+
+    // ── Prazo de vencimento ──
+    const diasPendente = Math.floor((Date.now() - new Date(e.recebidoISO)) / 86400000)
+    const diasRestam   = 5 - diasPendente
+    const prazoLabel   = diasRestam <= 0 ? 'Prazo expirado' :
+                         diasRestam === 1 ? 'Vence hoje' :
+                         diasRestam === 2 ? 'Vence amanhã' :
+                         `Vence em ${diasRestam} dias`
+    const prazoColor   = diasRestam <= 1 ? '#DC2626' : diasRestam <= 2 ? '#D97706' : '#16A34A'
+    const prazoBg      = diasRestam <= 1 ? '#FEF2F2' : diasRestam <= 2 ? '#FFFBEB' : '#F0FDF4'
+    const mostrarPrazo = ['aguardando','notificado','entregue_porteiro'].includes(e.status)
+
+    // ── Foto da encomenda ──
+    const fotoHtml = e.fotoUrl ? `
+      <div style="margin-bottom:10px">
+        <img src="${e.fotoUrl}" alt="Foto da encomenda"
+             onclick="abrirFotoEntrega('${e.fotoUrl}')"
+             style="width:100%;max-height:160px;object-fit:cover;border-radius:var(--radius-md);
+                    cursor:pointer;border:1px solid var(--n-200)"/>
+        <div style="font-size:11px;color:var(--n-400);margin-top:4px;text-align:center">
+          Toque para ampliar
+        </div>
+      </div>` : ''
+
     const card = document.createElement('div')
     card.className = `entrega-card ${e.status}`
     card.innerHTML = `
@@ -114,6 +168,7 @@ function renderPendentes(container) {
         <div class="entrega-trans">${e.trans}</div>
         <span class="entrega-badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>
       </div>
+      ${fotoHtml}
       <div class="entrega-info">
         <div class="entrega-info-item">
           <svg viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -124,8 +179,20 @@ function renderPendentes(container) {
           ${e.volumes} volume${e.volumes > 1 ? 's' : ''}
         </div>
       </div>
+      ${mostrarPrazo ? `
+        <div style="display:inline-flex;align-items:center;gap:5px;
+                    background:${prazoBg};color:${prazoColor};
+                    font-size:11px;font-weight:700;padding:4px 10px;
+                    border-radius:99px;margin-bottom:10px">
+          <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+               style="width:11px;height:11px">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          ${prazoLabel}
+        </div>` : ''}
       ${e.obs ? `<div class="entrega-obs"><svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>${e.obs}</div>` : ''}
-      ${e.status === 'aguardando'
+      ${e.status === 'aguardando' || e.status === 'notificado' || e.status === 'entregue_porteiro'
         ? `<button class="btn-confirmar" onclick="abrirConfirmar('${e.id}')">
              <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
              Confirmar retirada
@@ -136,173 +203,397 @@ function renderPendentes(container) {
   })
 }
 
-function renderHistorico(container) {
-  const retiradas = todasEntregas.filter(e => e.status === 'retirado')
-  const expiradas = todasEntregas.filter(e => e.status === 'expirado')
-  const lista     = [...retiradas, ...expiradas]
+let filtroHistorico = 'todos'
+let filtroPeriodo   = 'todos'
 
+function renderHistorico(container) {
   container.innerHTML = `
     <div class="sec-title">Histórico de entregas</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-      <div style="background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);padding:14px 16px;text-align:center">
-        <div style="font-size:26px;font-weight:700;color:#16A34A">${retiradas.length}</div>
-        <div style="font-size:12px;color:var(--n-500);margin-top:3px">Retiradas</div>
-      </div>
-      <div style="background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);padding:14px 16px;text-align:center">
-        <div style="font-size:26px;font-weight:700;color:#DC2626">${expiradas.length}</div>
-        <div style="font-size:12px;color:var(--n-500);margin-top:3px">Expiradas</div>
-      </div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+      <select class="ct-input" id="filtro-status-hist" onchange="aplicarFiltroHist()"
+              style="flex:1;min-width:110px;padding:8px 12px">
+        <option value="todos">Todos os status</option>
+        <option value="retirado">Retirados</option>
+        <option value="expirado">Expirados</option>
+      </select>
+      <select class="ct-input" id="filtro-periodo-hist" onchange="aplicarFiltroHist()"
+              style="flex:1;min-width:110px;padding:8px 12px">
+        <option value="todos">Todo o período</option>
+        <option value="7">Últimos 7 dias</option>
+        <option value="30">Últimos 30 dias</option>
+        <option value="90">Últimos 3 meses</option>
+      </select>
     </div>
+    <div style="position:relative;margin-bottom:12px">
+      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="var(--n-400)"
+           style="position:absolute;left:10px;top:50%;transform:translateY(-50%);
+                  width:14px;height:14px;pointer-events:none">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input class="ct-input" type="text" id="filtro-trans-hist"
+             placeholder="Buscar por transportadora..."
+             oninput="aplicarFiltroHist()"
+             style="padding-left:32px"/>
+    </div>
+    <div id="lista-historico"></div>
   `
-
-  if (!lista.length) {
-    container.innerHTML += `
-      <div class="empty-state">
-        <div class="empty-icon"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-        <div class="empty-title">Nenhum histórico</div>
-        <div class="empty-sub">Suas entregas retiradas aparecerão aqui</div>
-      </div>`
-    return
-  }
-
-  const wrap = document.createElement('div')
-  wrap.style.cssText = 'background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);padding:4px 16px;'
-
-  lista.forEach(e => {
-    const cfg  = STATUS_CFG[e.status]
-    const item = document.createElement('div')
-    item.className = 'hist-item'
-    item.innerHTML = `
-      <div class="hist-dot" style="background:${cfg.dot}"></div>
-      <div class="hist-info">
-        <div class="hist-trans">${e.trans}</div>
-        <div class="hist-data">
-          📅 Recebido: ${e.data} às ${e.hora}
-          ${e.retiradoEm ? ` · ✅ Retirado: ${e.retiradoEm}` : ''}
-          · 📦 ${e.volumes} volume${e.volumes > 1 ? 's' : ''}
-          ${e.obs ? ` · 📝 ${e.obs}` : ''}
-        </div>
-      </div>
-      <span class="hist-badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>`
-    wrap.appendChild(item)
-  })
-  container.appendChild(wrap)
+  aplicarFiltroHist()
 }
 
-async function renderNotificacoes(container) {
-  container.innerHTML = `
-    <div class="sec-title">Notificações</div>
-    <div style="padding:20px;text-align:center">
-      <div class="spinner" style="border-color:var(--p-200);border-top-color:var(--p-600);margin:0 auto"></div>
-    </div>
-  `
+function aplicarFiltroHist() {
+  const status  = document.getElementById('filtro-status-hist')?.value  || 'todos'
+  const periodo = document.getElementById('filtro-periodo-hist')?.value || 'todos'
+  const transBusca = (document.getElementById('filtro-trans-hist')?.value || '').trim().toLowerCase()
 
-  // Busca todas as entregas do morador ordenadas por data
-  const { data, error } = await db
-    .from('entregas')
-    .select('id, transportadora, volumes, status, recebido_em, retirado_em')
-    .eq('apartamento_id', usuarioLogado.apartamento_id)
-    .order('recebido_em', { ascending: false })
-    .limit(30)
+  let lista = todasEntregas.filter(e => e.status === 'retirado' || e.status === 'expirado')
 
-  container.innerHTML = '<div class="sec-title">Notificações</div>'
+  if (status !== 'todos') lista = lista.filter(e => e.status === status)
 
-  if (error || !data?.length) {
-    container.innerHTML += `
+  if (periodo !== 'todos') {
+    const dias  = parseInt(periodo)
+    const corte = new Date(Date.now() - dias * 24 * 60 * 60 * 1000)
+    lista = lista.filter(e => new Date(e.recebidoISO) >= corte)
+  }
+
+  // Busca por transportadora
+  if (transBusca) {
+    lista = lista.filter(e => e.trans.toLowerCase().includes(transBusca))
+  }
+
+  const container = document.getElementById('lista-historico')
+  if (!container) return
+
+  if (!lista.length) {
+    container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">
-          <svg viewBox="0 0 24 24" stroke-width="2">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-          </svg>
-        </div>
-        <div class="empty-title">Nenhuma notificação</div>
-        <div class="empty-sub">Você será notificado quando uma entrega chegar</div>
+        <div class="empty-icon"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+        <div class="empty-title">Nenhuma entrega encontrada</div>
+        <div class="empty-sub">Tente ajustar os filtros</div>
       </div>`
     return
   }
 
-  const wrap = document.createElement('div')
-  wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;'
+  // ── Agrupamento por mês (resumo mensal) ──
+  const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                 'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
-  data.forEach(e => {
-    const dataReceb = new Date(e.recebido_em).toLocaleDateString('pt-BR', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-      timeZone: 'America/Sao_Paulo'
-    })
-    const horaReceb = new Date(e.recebido_em).toLocaleTimeString('pt-BR', {
-      hour: '2-digit', minute: '2-digit',
-      timeZone: 'America/Sao_Paulo'
-    })
-
-    const isRetirado = e.status === 'retirado'
-    const isExpirado = e.status === 'expirado'
-
-    const item = document.createElement('div')
-    item.style.cssText = `
-      background:var(--n-0);border:1px solid var(--n-200);
-      border-left:4px solid ${isRetirado ? '#16A34A' : isExpirado ? '#DC2626' : 'var(--p-500)'};
-      border-radius:var(--radius-lg);padding:14px 16px;
-    `
-    item.innerHTML = `
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:18px">${isRetirado ? '✅' : isExpirado ? '⚠️' : '📦'}</span>
-          <div>
-            <div style="font-size:13px;font-weight:700;color:var(--n-900)">
-              ${isRetirado ? 'Entrega retirada' : isExpirado ? 'Entrega expirada' : 'Nova entrega chegou!'}
-            </div>
-            <div style="font-size:11px;color:var(--n-400);margin-top:1px">${dataReceb} às ${horaReceb}</div>
-          </div>
-        </div>
-        <span style="font-size:10px;font-weight:600;padding:3px 8px;border-radius:99px;white-space:nowrap;
-          background:${isRetirado ? '#F0FDF4' : isExpirado ? '#FEF2F2' : '#F5F3FF'};
-          color:${isRetirado ? '#166534' : isExpirado ? '#991B1B' : 'var(--p-700)'}">
-          ${isRetirado ? 'Retirado' : isExpirado ? 'Expirado' : 'Pendente'}
-        </span>
-      </div>
-      <div style="font-size:12px;color:var(--n-600);line-height:1.6;padding-left:26px">
-        🚚 <strong>${e.transportadora}</strong> · 
-        📦 ${e.volumes} volume${e.volumes > 1 ? 's' : ''}
-        ${isRetirado && e.retirado_em ? ` · ✅ Retirado em ${new Date(e.retirado_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ''}
-      </div>
-    `
-    wrap.appendChild(item)
+  // Agrupa mantendo ordem cronológica inversa
+  const grupos = new Map()
+  lista.forEach(e => {
+    const d   = new Date(e.recebidoISO)
+    const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2,'0')}`
+    const lbl = `${MESES[d.getMonth()]} ${d.getFullYear()}`
+    if (!grupos.has(key)) grupos.set(key, { lbl, itens: [] })
+    grupos.get(key).itens.push(e)
   })
 
-  container.appendChild(wrap)
+  container.innerHTML = ''
+
+  for (const { lbl, itens } of grupos.values()) {
+    // Cabeçalho do mês
+    const header = document.createElement('div')
+    header.style.cssText = `
+      display:flex;align-items:center;justify-content:space-between;
+      padding:10px 0 6px;margin-top:6px
+    `
+    header.innerHTML = `
+      <span style="font-size:12px;font-weight:700;color:var(--n-500);
+                   text-transform:uppercase;letter-spacing:.05em">${lbl}</span>
+      <span style="font-size:11px;color:var(--n-400)">
+        ${itens.length} entrega${itens.length !== 1 ? 's' : ''}
+      </span>`
+    container.appendChild(header)
+
+    // Card do grupo
+    const wrap = document.createElement('div')
+    wrap.style.cssText = 'background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);padding:4px 16px;margin-bottom:8px'
+
+    itens.forEach(e => {
+      const cfg  = STATUS_CFG[e.status] || STATUS_CFG.retirado
+      const item = document.createElement('div')
+      item.className = 'hist-item'
+      item.innerHTML = `
+        <div class="hist-dot" style="background:${cfg.dot}"></div>
+        <div class="hist-info">
+          <div class="hist-trans">${e.trans}</div>
+          <div class="hist-data">
+            Recebido: ${e.data} às ${e.hora}
+            ${e.retiradoEm ? ` · Retirado: ${e.retiradoEm}` : ''}
+            · ${e.volumes} volume${e.volumes > 1 ? 's' : ''}
+          </div>
+        </div>
+        <span class="hist-badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>`
+      wrap.appendChild(item)
+    })
+
+    container.appendChild(wrap)
+  }
+
+  // Resumo geral no rodapé
+  const total    = lista.length
+  const retiradas = lista.filter(e => e.status === 'retirado').length
+  const resumoEl = document.createElement('div')
+  resumoEl.style.cssText = 'padding:4px 0 8px;font-size:11px;color:var(--n-400);text-align:center'
+  resumoEl.textContent   = `${total} entrega${total !== 1 ? 's' : ''} no total · ${retiradas} retirada${retiradas !== 1 ? 's' : ''}`
+  container.appendChild(resumoEl)
 }
 
 function renderPerfil(container) {
   const apto = usuarioLogado.apartamentos
   container.innerHTML = `
     <div class="sec-title">Meus dados</div>
+
+    <!-- Card de perfil -->
     <div style="background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:14px">
       <div style="padding:14px 16px;border-bottom:1px solid var(--n-100);display:flex;align-items:center;gap:12px">
-        <div style="width:44px;height:44px;border-radius:50%;background:var(--p-100);color:var(--p-700);font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--p-100);color:var(--p-700);
+                    font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">
           ${usuarioLogado.nome.split(' ').map(n=>n[0]).slice(0,2).join('')}
         </div>
-        <div>
+        <div style="flex:1">
           <div style="font-size:15px;font-weight:700;color:var(--n-900)">${usuarioLogado.nome}</div>
           <div style="font-size:12px;color:var(--n-500)">${usuarioLogado.condominios?.nome || '—'}</div>
         </div>
+        <button onclick="abrirEditarPerfil()" style="font-size:11px;font-weight:600;color:var(--p-600);
+                background:var(--p-50);border:1px solid var(--p-200);border-radius:var(--radius-md);
+                padding:5px 10px;cursor:pointer;font-family:var(--font-sans)">
+          Editar
+        </button>
       </div>
       ${[
         ['Apartamento', apto ? `Bloco ${apto.bloco} · Apto ${apto.numero}` : '—'],
         ['Condomínio',  usuarioLogado.condominios?.nome || '—'],
+        ['Telefone',    usuarioLogado.telefone || '—'],
+        ['E-mail',      usuarioLogado.email || '—'],
       ].map(([l,v]) => `
         <div style="display:flex;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--n-100)">
           <span style="font-size:13px;color:var(--n-500)">${l}</span>
-          <span style="font-size:13px;font-weight:600;color:var(--n-900)">${v}</span>
+          <span style="font-size:13px;font-weight:600;color:var(--n-900);text-align:right;max-width:60%">${v}</span>
         </div>`).join('')}
     </div>
-    <button onclick="logout()" style="width:100%;padding:11px;background:var(--n-50);border:1px solid var(--n-200);border-radius:var(--radius-md);font-size:13px;font-weight:600;color:var(--n-600);cursor:pointer;font-family:var(--font-sans);display:flex;align-items:center;justify-content:center;gap:7px">
-      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:15px;height:15px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+
+    <!-- Trocar senha -->
+    <div style="background:var(--n-0);border:1px solid var(--n-200);border-radius:var(--radius-lg);
+                padding:14px 16px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--n-900)">Senha de acesso</div>
+          <div style="font-size:12px;color:var(--n-500);margin-top:2px">Altere sua senha quando quiser</div>
+        </div>
+        <button onclick="abrirTrocarSenha()" style="font-size:11px;font-weight:600;color:var(--p-600);
+                background:var(--p-50);border:1px solid var(--p-200);border-radius:var(--radius-md);
+                padding:5px 10px;cursor:pointer;font-family:var(--font-sans)">
+          Trocar senha
+        </button>
+      </div>
+    </div>
+
+    <!-- Sair -->
+    <button onclick="logout()" style="width:100%;padding:11px;background:var(--n-50);border:1px solid var(--n-200);
+            border-radius:var(--radius-md);font-size:13px;font-weight:600;color:var(--n-600);cursor:pointer;
+            font-family:var(--font-sans);display:flex;align-items:center;justify-content:center;gap:7px">
+      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:15px;height:15px">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+        <polyline points="16 17 21 12 16 7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
       Sair da conta
-    </button>`
+    </button>
+  `
 }
 
-// ── Modal confirmar retirada ──────────────────────────────────
+// ── Toast de feedback (substitui alert) ──────────────────────
+function mostrarToast(msg, tipo = 'sucesso') {
+  const cores = {
+    sucesso: { bg: '#F0FDF4', border: '#BBF7D0', color: '#166534', icon: '✓' },
+    erro:    { bg: '#FEF2F2', border: '#FECACA', color: '#991B1B', icon: '✕' },
+  }
+  const c = cores[tipo] || cores.sucesso
+  const toast = document.createElement('div')
+  toast.style.cssText = `
+    position:fixed;bottom:24px;right:24px;z-index:9999;
+    background:${c.bg};border:1.5px solid ${c.border};color:${c.color};
+    padding:12px 18px;border-radius:var(--radius-md);
+    font-size:13px;font-weight:600;font-family:var(--font-sans);
+    display:flex;align-items:center;gap:8px;
+    box-shadow:0 4px 16px rgba(0,0,0,.12);
+    animation:fadeUp .2s ease both;
+  `
+  toast.innerHTML = `<span>${c.icon}</span><span>${msg}</span>`
+  document.body.appendChild(toast)
+  setTimeout(() => toast.remove(), 3000)
+}
+
+// ── Editar perfil ─────────────────────────────────────────────
+function abrirEditarPerfil() {
+  document.getElementById('edit-nome').value     = usuarioLogado.nome || ''
+  document.getElementById('edit-telefone').value = usuarioLogado.telefone || ''
+  document.getElementById('edit-email').value    = usuarioLogado.email || ''
+  limparTodosErros('err-edit-nome','err-edit-email')
+  aplicarMascaraTelefone('edit-telefone')
+  document.getElementById('modal-editar-perfil').classList.add('open')
+}
+
+async function salvarPerfil() {
+  limparTodosErros('err-edit-nome','err-edit-email')
+  const nome     = document.getElementById('edit-nome').value.trim()
+  const telefone = document.getElementById('edit-telefone').value.trim()
+  const email    = document.getElementById('edit-email').value.trim()
+  let ok = true
+
+  if (!nome)                { mostrarErro('err-edit-nome',  'Informe seu nome.'); ok = false }
+  if (!isEmailValido(email)){ mostrarErro('err-edit-email', 'E-mail inválido.');  ok = false }
+  if (!ok) return
+
+  const btn = document.getElementById('btn-salvar-perfil')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
+  const { error } = await db
+    .from('usuarios')
+    .update({ nome, telefone, email })
+    .eq('id', usuarioLogado.id)
+    .eq('auth_id', (await getSession())?.user?.id) // dupla verificação: id + auth_id da sessão
+
+  if (error) {
+    mostrarErro('err-edit-nome', 'Erro ao salvar. Tente novamente.')
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar alterações' }
+    return
+  }
+
+  // Se o e-mail mudou, atualiza também no Supabase Auth
+  if (email !== usuarioLogado.email) {
+    const { error: authError } = await db.auth.updateUser({ email })
+    if (authError) {
+      mostrarErro('err-edit-email',
+        'Dados salvos, mas não foi possível atualizar o e-mail de login: ' + authError.message)
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar alterações' }
+      return
+    }
+  }
+
+  // Atualiza dados locais e invalida o cache para re-fetch na próxima navegação
+  usuarioLogado.nome     = nome
+  usuarioLogado.telefone = telefone
+  usuarioLogado.email    = email
+  invalidarCacheUsuario()
+
+  fecharModalPerfil()
+  renderHeader()
+  renderTab('perfil')
+}
+
+function fecharModalPerfil() {
+  document.getElementById('modal-editar-perfil')?.classList.remove('open')
+  document.getElementById('modal-trocar-senha')?.classList.remove('open')
+}
+
+// ── Trocar senha ──────────────────────────────────────────────
+function abrirTrocarSenha() {
+  document.getElementById('nova-senha-atual').value    = ''
+  document.getElementById('nova-senha-nova').value     = ''
+  document.getElementById('nova-senha-confirma').value = ''
+  limparTodosErros('err-senha-atual','err-senha-nova','err-senha-confirma')
+  document.getElementById('modal-trocar-senha').classList.add('open')
+}
+
+async function salvarSenha() {
+  limparTodosErros('err-senha-atual','err-senha-nova','err-senha-confirma')
+  const atual    = document.getElementById('nova-senha-atual').value
+  const nova     = document.getElementById('nova-senha-nova').value
+  const confirma = document.getElementById('nova-senha-confirma').value
+  let ok = true
+
+  if (!atual)          { mostrarErro('err-senha-atual',    'Informe a senha atual.'); ok = false }
+  if (nova.length < 6) { mostrarErro('err-senha-nova',     'Mínimo 6 caracteres.');   ok = false }
+  if (nova !== confirma){ mostrarErro('err-senha-confirma','Senhas não coincidem.');   ok = false }
+  if (!ok) return
+
+  const btn = document.getElementById('btn-salvar-senha')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
+  // Verifica senha atual fazendo re-login
+  const { error: loginError } = await db.auth.signInWithPassword({
+    email:    usuarioLogado.email,
+    password: atual,
+  })
+
+  if (loginError) {
+    mostrarErro('err-senha-atual', 'Senha atual incorreta.')
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar nova senha' }
+    return
+  }
+
+  const { error } = await db.auth.updateUser({ password: nova })
+
+  if (error) {
+    mostrarErro('err-senha-nova', 'Erro ao alterar senha. Tente novamente.')
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar nova senha' }
+    return
+  }
+
+  fecharModalPerfil()
+  mostrarToast('Senha alterada com sucesso!')
+}
+
+// ── Notificações do morador ───────────────────────────────────
+let notifMoradorAberto = false
+
+function toggleNotifMorador() {
+  notifMoradorAberto = !notifMoradorAberto
+  const dropdown = document.getElementById('notif-dropdown-morador')
+  if (!dropdown) return
+  dropdown.style.display = notifMoradorAberto ? 'block' : 'none'
+  if (notifMoradorAberto) renderNotifMorador()
+}
+
+function renderNotifMorador() {
+  const lista = document.getElementById('notif-lista-morador')
+  if (!lista) return
+
+  const pendentes = todasEntregas.filter(e =>
+    ['aguardando','notificado','entregue_porteiro'].includes(e.status)
+  )
+
+  if (!pendentes.length) {
+    lista.innerHTML = `
+      <div style="padding:24px;text-align:center;font-size:13px;color:var(--n-400)">
+        Nenhuma entrega pendente 📦
+      </div>`
+    return
+  }
+
+  lista.innerHTML = pendentes.map(e => {
+    const cfg = STATUS_CFG[e.status] || STATUS_CFG.aguardando
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;
+           border-bottom:1px solid var(--n-100);cursor:pointer;transition:background .12s"
+           onclick="toggleNotifMorador();mudarTab('pendentes')"
+           onmouseenter="this.style.background='var(--p-50)'"
+           onmouseleave="this.style.background='var(--n-0)'">
+        <div style="width:8px;height:8px;border-radius:50%;background:${cfg.dot};flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--n-900)">${e.trans}</div>
+          <div style="font-size:11px;color:var(--n-500);margin-top:2px">
+            ${e.data} às ${e.hora} · ${e.volumes} volume${e.volumes > 1 ? 's' : ''}
+          </div>
+        </div>
+        <span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;
+              background:${cfg.bg};color:${cfg.color};white-space:nowrap">${cfg.label}</span>
+      </div>`
+  }).join('')
+
+  atualizarDotMorador()
+}
+
+function atualizarDotMorador() {
+  const pendentes = todasEntregas.filter(e =>
+    ['aguardando','notificado','entregue_porteiro'].includes(e.status)
+  ).length
+  const dot = document.getElementById('notif-dot-morador')
+  if (dot) dot.style.display = pendentes > 0 ? 'block' : 'none'
+}
+
+// ── Confirmar retirada ──────────────────────────────────────
 function abrirConfirmar(id) {
   const e = todasEntregas.find(x => x.id === id)
   if (!e) return
@@ -314,33 +605,64 @@ function abrirConfirmar(id) {
 }
 
 function fecharModal() {
-  document.getElementById('modal-confirmar').classList.remove('open')
-  setTimeout(() => {
-    document.getElementById('modal-form').style.display     = 'block'
+  const overlay = document.getElementById('modal-confirmar')
+  if (!overlay) return
+  overlay.classList.remove('open')
+  // Aguarda a animação de saída antes de resetar o conteúdo interno
+  const resetModal = () => {
+    if (overlay.classList.contains('open')) return // foi reaberto antes do timeout
+    document.getElementById('modal-form').style.display      = 'block'
     document.getElementById('confirm-success').style.display = 'none'
     entregaConfirmar = null
-  }, 300)
+  }
+  setTimeout(resetModal, 300)
 }
 
 async function confirmarRetirada() {
   if (!entregaConfirmar) return
 
+  // Segurança: verifica que a entrega pertence ao apartamento do morador logado
+  // antes de atualizar — previne que um morador confirme entrega de outro apartamento
+  const { data: entrega, error: errCheck } = await db
+    .from('entregas')
+    .select('id, apartamento_id, status')
+    .eq('id', entregaConfirmar)
+    .eq('apartamento_id', usuarioLogado.apartamento_id)
+    .single()
+
+  if (errCheck || !entrega) {
+    mostrarToast('Entrega não encontrada ou não pertence ao seu apartamento.', 'erro')
+    fecharModal()
+    return
+  }
+
+  if (entrega.status === 'retirado') {
+    mostrarToast('Esta entrega já foi confirmada anteriormente.', 'aviso')
+    fecharModal()
+    await carregarEntregas()
+    return
+  }
+
   const { error } = await db
     .from('entregas')
-    .update({
-      status:      'retirado',
-      retirado_em: new Date().toISOString(),
-    })
+    .update({ status: 'retirado', retirado_em: new Date().toISOString() })
     .eq('id', entregaConfirmar)
+    .eq('apartamento_id', usuarioLogado.apartamento_id) // dupla verificação
 
-  if (error) { alert('Erro ao confirmar. Tente novamente.'); return }
+  if (error) {
+    mostrarToast('Erro ao confirmar. Tente novamente.', 'erro')
+    return
+  }
 
-  // O Realtime do porteiro vai detectar a mudança automaticamente.
-  // Adicionalmente, dispara a Edge Function de notificação WhatsApp
-  // para avisar o porteiro (reaproveitando o mesmo canal)
-  db.functions.invoke('notificar-porteiro-retirada', {
-    body: { entrega_id: entregaConfirmar },
-  }).catch(err => console.warn('Notificação ao porteiro não enviada:', err))
+  // Notifica a portaria que o morador confirmou a retirada (fire-and-forget)
+  db.functions.invoke('notificar-retirada-morador', {
+    body: {
+      entrega_id:     entregaConfirmar,
+      apartamento_id: usuarioLogado.apartamento_id,
+      condominio_id:  usuarioLogado.condominio_id,
+      morador:        usuarioLogado.nome,
+    },
+  }).catch(err => console.warn('Notificação à portaria não enviada:', err))
 
   document.getElementById('modal-form').style.display      = 'none'
   document.getElementById('confirm-success').style.display = 'block'
@@ -349,87 +671,210 @@ async function confirmarRetirada() {
   setTimeout(() => { fecharModal(); renderTab(tabAtiva) }, 1800)
 }
 
-// ── Notificações do morador ───────────────────────────────────
-let notifMoradorAberto = false
-
-function toggleNotificacoesMorador() {
-  const painel = document.getElementById('notif-painel-morador')
-  if (!painel) return
-  notifMoradorAberto = !notifMoradorAberto
-  painel.style.display = notifMoradorAberto ? 'block' : 'none'
-  if (notifMoradorAberto) renderNotificacoesPainel()
+// ── Foto da encomenda — visualizador ─────────────────────────
+function abrirFotoEntrega(url) {
+  // Overlay simples para ver a foto em tamanho real
+  const overlay = document.createElement('div')
+  overlay.style.cssText = `
+    position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);
+    display:flex;align-items:center;justify-content:center;padding:16px;cursor:zoom-out
+  `
+  overlay.innerHTML = `
+    <img src="${url}" style="max-width:100%;max-height:90vh;border-radius:var(--radius-lg);
+         object-fit:contain;box-shadow:0 20px 60px rgba(0,0,0,.5)"/>
+  `
+  overlay.addEventListener('click', () => overlay.remove())
+  document.body.appendChild(overlay)
 }
 
-function renderNotificacoesPainel() {
-  const lista = document.getElementById('notif-lista-morador')
+// ── Chat com a portaria ───────────────────────────────────────
+let chatMensagens   = []
+let chatCarregado   = false
+let chatAberto      = false
+
+function normalizarMensagem(m) {
+  return {
+    id:           m.id,
+    texto:        m.texto,
+    remetenteId:  m.remetente_id,
+    criadoEm:     m.criado_em,
+    minha:        m.remetente_id === usuarioLogado.id,
+    hora:         new Date(m.criado_em).toLocaleTimeString('pt-BR', {
+                    hour: '2-digit', minute: '2-digit'
+                  }),
+  }
+}
+
+function renderChat(container) {
+  // Remove badge ao abrir a aba
+  const badge = document.getElementById('chat-badge')
+  if (badge) badge.style.display = 'none'
+
+  container.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;
+                justify-content:center;padding:40px 20px;text-align:center">
+      <div style="width:56px;height:56px;border-radius:50%;background:var(--p-100);
+                  display:flex;align-items:center;justify-content:center;margin-bottom:16px">
+        <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="var(--p-600)"
+             style="width:24px;height:24px">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+      </div>
+      <div style="font-size:15px;font-weight:700;color:var(--n-900);margin-bottom:6px">
+        Falar com a portaria
+      </div>
+      <div style="font-size:13px;color:var(--n-500);line-height:1.6;margin-bottom:20px;max-width:260px">
+        Tire dúvidas sobre suas entregas ou deixe um recado para o porteiro.
+      </div>
+      <button onclick="abrirChat()"
+              style="background:var(--p-600);color:#fff;border:none;
+                     border-radius:var(--radius-md);padding:11px 28px;
+                     font-size:14px;font-weight:600;cursor:pointer;
+                     font-family:var(--font-sans);display:flex;align-items:center;gap:8px;
+                     transition:background .15s"
+              onmouseenter="this.style.background='var(--p-700)'"
+              onmouseleave="this.style.background='var(--p-600)'">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="#fff"
+             style="width:14px;height:14px">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        Abrir conversa
+      </button>
+    </div>
+  `
+}
+
+async function abrirChat() {
+  chatAberto = true
+  document.getElementById('chat-condo-nome').textContent =
+    usuarioLogado.condominios?.nome || '—'
+  document.getElementById('modal-chat').classList.add('open')
+
+  if (!chatCarregado) {
+    await carregarMensagensChat()
+    chatCarregado = true
+  }
+  renderMensagensChat()
+}
+
+function fecharChat() {
+  chatAberto = false
+  document.getElementById('modal-chat').classList.remove('open')
+}
+
+async function carregarMensagensChat() {
+  const { data, error } = await db
+    .from('mensagens')
+    .select('id, texto, remetente_id, criado_em')
+    .or(`remetente_id.eq.${usuarioLogado.id},destinatario_id.eq.${usuarioLogado.id}`)
+    .eq('condominio_id', usuarioLogado.condominio_id)
+    .order('criado_em', { ascending: true })
+    .limit(100)
+
+  if (error) { console.error('Erro ao carregar mensagens:', error); return }
+  chatMensagens = (data || []).map(normalizarMensagem)
+}
+
+function renderMensagensChat() {
+  const lista = document.getElementById('chat-mensagens')
   if (!lista) return
 
-  const pendentes = todasEntregas.filter(e => e.status === 'aguardando' || e.status === 'notificado')
-  const expiradas = todasEntregas.filter(e => e.status === 'expirado')
-
-  if (!todasEntregas.length) {
-    lista.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--n-400)">Nenhuma notificação</div>'
+  if (!chatMensagens.length) {
+    lista.innerHTML = `
+      <div style="text-align:center;padding:24px;font-size:13px;color:var(--n-400)">
+        Nenhuma mensagem ainda.<br>Diga olá para a portaria! 👋
+      </div>`
     return
   }
 
-  let html = ''
+  lista.innerHTML = chatMensagens.map(m => `
+    <div style="display:flex;flex-direction:column;
+                align-items:${m.minha ? 'flex-end' : 'flex-start'}">
+      <div style="
+        max-width:78%;padding:9px 13px;border-radius:${m.minha ? '14px 14px 4px 14px' : '14px 14px 14px 4px'};
+        background:${m.minha ? 'var(--p-600)' : 'var(--n-100)'};
+        color:${m.minha ? '#fff' : 'var(--n-900)'};
+        font-size:13px;line-height:1.5;word-break:break-word
+      ">${m.texto}</div>
+      <div style="font-size:10px;color:var(--n-400);margin-top:3px;padding:0 4px">${m.hora}</div>
+    </div>
+  `).join('')
 
-  if (expiradas.length) {
-    html += `
-      <div style="padding:10px 16px;background:#FEF2F2;border-bottom:1px solid #FECACA">
-        <div style="font-size:12px;font-weight:700;color:#991B1B;margin-bottom:2px">
-          ⚠️ ${expiradas.length} entrega${expiradas.length > 1 ? 's' : ''} expirada${expiradas.length > 1 ? 's' : ''}
-        </div>
-        <div style="font-size:11px;color:#B91C1C">Prazo excedido — contate a portaria</div>
-      </div>`
-  }
-
-  if (pendentes.length) {
-    html += pendentes.map(e => `
-      <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;
-                  border-bottom:1px solid var(--n-100)">
-        <div style="width:8px;height:8px;border-radius:50%;background:#F59E0B;flex-shrink:0"></div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--n-900)">📦 ${e.trans}</div>
-          <div style="font-size:11px;color:var(--n-500);margin-top:1px">
-            Recebido em ${e.data} às ${e.hora} · ${e.volumes} volume${e.volumes > 1 ? 's' : ''}
-          </div>
-        </div>
-        <span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;
-              background:#FEF3C7;color:#92400E;white-space:nowrap">Pendente</span>
-      </div>`).join('')
-  }
-
-  if (!pendentes.length && !expiradas.length) {
-    html = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--n-400)">Nenhuma entrega pendente 👍</div>'
-  }
-
-  lista.innerHTML = html
+  // Scroll para o final
+  lista.scrollTop = lista.scrollHeight
 }
 
-function atualizarNotifDotMorador() {
-  const dot = document.getElementById('notif-dot-morador')
-  if (!dot) return
-  const temPendente = todasEntregas.some(e =>
-    e.status === 'aguardando' || e.status === 'notificado' || e.status === 'expirado'
-  )
-  dot.style.display = temPendente ? 'block' : 'none'
+async function enviarMensagemChat() {
+  const input = document.getElementById('chat-input')
+  const texto = input?.value.trim()
+  if (!texto) return
+
+  const btn = document.getElementById('btn-chat-enviar')
+  if (btn) btn.disabled = true
+  input.value = ''
+  input.style.height = 'auto'
+
+  // Busca um porteiro ativo do condomínio para ser o destinatário
+  const { data: porteiros } = await db
+    .from('usuarios')
+    .select('id')
+    .eq('condominio_id', usuarioLogado.condominio_id)
+    .eq('perfil', 'porteiro')
+    .eq('status', 'ativo')
+    .limit(1)
+
+  const destinatarioId = porteiros?.[0]?.id || null
+
+  const { data, error } = await db.from('mensagens').insert({
+    remetente_id:    usuarioLogado.id,
+    destinatario_id: destinatarioId,
+    condominio_id:   usuarioLogado.condominio_id,
+    texto,
+  }).select().single()
+
+  if (btn) btn.disabled = false
+
+  if (error) {
+    mostrarToast('Erro ao enviar mensagem. Tente novamente.', 'erro')
+    input.value = texto // restaura o texto em caso de erro
+    return
+  }
+
+  chatMensagens.push(normalizarMensagem(data))
+  renderMensagensChat()
+}
+
+function chatKeydown(e) {
+  // Enter envia, Shift+Enter quebra linha
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    enviarMensagemChat()
+  }
 }
 
 function bindEvents() {
   document.getElementById('modal-confirmar')?.addEventListener('click', e => {
     if (e.target === document.getElementById('modal-confirmar')) fecharModal()
   })
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal() })
-
-  // Fecha painel de notificações ao clicar fora
+  document.getElementById('modal-editar-perfil')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-editar-perfil')) fecharModalPerfil()
+  })
+  document.getElementById('modal-trocar-senha')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-trocar-senha')) fecharModalPerfil()
+  })
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { fecharModal(); fecharModalPerfil() }
+  })
+  document.getElementById('modal-chat')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-chat')) fecharChat()
+  })
   document.addEventListener('click', e => {
-    const painel = document.getElementById('notif-painel-morador')
-    const btn    = document.getElementById('btn-notif-morador')
-    if (notifMoradorAberto && painel && btn &&
-        !painel.contains(e.target) && !btn.contains(e.target)) {
+    if (notifMoradorAberto &&
+        !e.target.closest('#btn-notif-morador') &&
+        !e.target.closest('#notif-dropdown-morador')) {
       notifMoradorAberto = false
-      painel.style.display = 'none'
+      const dropdown = document.getElementById('notif-dropdown-morador')
+      if (dropdown) dropdown.style.display = 'none'
     }
   })
 }

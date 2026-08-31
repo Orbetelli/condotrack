@@ -4,11 +4,55 @@
 // ============================================================
 
 function isEmailValido(email) {
-  return /\S+@\S+\.\S+/.test(email)
+  // Regex mais preciso: rejeita espaços em qualquer posição e garante estrutura válida
+  // O .trim() antes de chamar esta função já remove espaços externos,
+  // mas este regex também bloqueia espaços internos (ex: "a b@c.com")
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
 function isCPFValido(cpf) {
-  return cpf.replace(/\D/g, '').length === 11
+  const n = cpf.replace(/\D/g, '')
+  if (n.length !== 11) return false
+  // Rejeita sequências repetidas (111.111.111-11, etc)
+  if (/^(\d)\1+$/.test(n)) return false
+  // Valida 1º dígito verificador
+  let soma = 0
+  for (let i = 0; i < 9; i++) soma += parseInt(n[i]) * (10 - i)
+  let dig = 11 - (soma % 11)
+  if (dig >= 10) dig = 0
+  if (dig !== parseInt(n[9])) return false
+  // Valida 2º dígito verificador
+  soma = 0
+  for (let i = 0; i < 10; i++) soma += parseInt(n[i]) * (11 - i)
+  dig = 11 - (soma % 11)
+  if (dig >= 10) dig = 0
+  return dig === parseInt(n[10])
+}
+
+function isCNPJValido(cnpj) {
+  const n = cnpj.replace(/\D/g, '')
+  if (n.length !== 14) return false
+  if (/^(\d)\1+$/.test(n)) return false
+  const calc = (s, p) => {
+    let t = 0
+    for (let i = 0; i < s; i++) t += parseInt(n[i]) * p--
+    const r = t % 11
+    return r < 2 ? 0 : 11 - r
+  }
+  return calc(12, 5) === parseInt(n[12]) && calc(13, 6) === parseInt(n[13])
+}
+
+function aplicarMascaraCNPJ(inputId) {
+  const input = document.getElementById(inputId)
+  if (!input) return
+  input.addEventListener('input', function () {
+    let v = this.value.replace(/\D/g, '').slice(0, 14)
+    v = v.replace(/(\d{2})(\d)/, '$1.$2')
+    v = v.replace(/(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    v = v.replace(/\.(\d{3})(\d)/, '.$1/$2')
+    v = v.replace(/(\d{4})(\d)/, '$1-$2')
+    this.value = v
+  })
 }
 
 function mostrarErro(id, mensagem) {
@@ -72,8 +116,6 @@ function aplicarMascaraTelefone(inputId) {
   })
 }
 
-// encerrarSessao é definida em supabase.js (faz signOut + redireciona)
-
 function salvarSessao(perfil, dados) {
   sessionStorage.setItem('ct_perfil', perfil)
   sessionStorage.setItem('ct_usuario', JSON.stringify(dados))
@@ -84,4 +126,33 @@ function obterSessao() {
     perfil:  sessionStorage.getItem('ct_perfil'),
     usuario: JSON.parse(sessionStorage.getItem('ct_usuario') || 'null'),
   }
+}
+
+// ── Mascaramento de dados sensíveis (LGPD) ───────────────────
+
+// CPF: 123.456.789-00 → ***.456.789-**
+function mascararCPF(cpf) {
+  if (!cpf) return '—'
+  const n = cpf.replace(/\D/g, '')
+  if (n.length !== 11) return '***.***.***-**'
+  return `***.${n.slice(3,6)}.${n.slice(6,9)}-**`
+}
+
+// Email: usuario@email.com → usu***@email.com
+function mascararEmail(email) {
+  if (!email) return '—'
+  const [user, domain] = email.split('@')
+  if (!domain) return '***'
+  const visivel = user.slice(0, 3)
+  return `${visivel}***@${domain}`
+}
+
+// Telefone: (11) 99999-0000 → (11) *****-0000
+function mascararTelefone(tel) {
+  if (!tel) return '—'
+  const n = tel.replace(/\D/g, '')
+  if (n.length < 10) return '(**) *****-****'
+  const ddd    = n.slice(0, 2)
+  const sufixo = n.slice(-4)
+  return `(${ddd}) *****-${sufixo}`
 }

@@ -28,7 +28,7 @@
   <!-- ── Sidebar ── -->
   <aside class="sidebar">
     <div class="sb-logo">
-      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" fill="none">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
       </svg>
     </div>
@@ -47,6 +47,12 @@
       </button>
       <button class="sb-item" data-tip="Equipe interna" onclick="ativarSidebar(this);mudarTab('equipe')">
         <svg viewBox="0 0 24 24" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </button>
+      <button class="sb-item" data-tip="Alertas" onclick="ativarSidebar(this);mudarTab('alertas')">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      </button>
+      <button class="sb-item" data-tip="Audit Log" onclick="ativarSidebar(this);mudarTab('auditlog')">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
       </button>
       <div class="sb-divider"></div>
       <button class="sb-item" data-tip="Sair" onclick="logout()">
@@ -90,6 +96,14 @@
         <svg viewBox="0 0 24 24" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         Equipe interna
       </div>
+      <div class="nav-tab" data-tab="alertas" onclick="mudarTab('alertas')">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        Alertas
+      </div>
+      <div class="nav-tab" data-tab="auditlog" onclick="mudarTab('auditlog')">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Audit Log
+      </div>
     </nav>
 
     <!-- Conteúdo dinâmico -->
@@ -107,11 +121,28 @@
       </button>
     </div>
     <form id="form-condo" novalidate>
+
+      <!-- Nome -->
       <div class="modal-field">
         <label class="ct-label" for="c-nome">Nome do condomínio</label>
         <input class="ct-input" type="text" id="c-nome" placeholder="Ex: Residencial das Palmeiras" />
         <div class="ct-error" id="err-nome-c" style="display:none"></div>
       </div>
+
+      <!-- CNPJ + Razão Social -->
+      <div class="modal-grid">
+        <div class="modal-field">
+          <label class="ct-label" for="c-cnpj">CNPJ</label>
+          <input class="ct-input" type="text" id="c-cnpj" placeholder="00.000.000/0000-00" maxlength="18" />
+          <div class="ct-error" id="err-cnpj" style="display:none"></div>
+        </div>
+        <div class="modal-field">
+          <label class="ct-label" for="c-razao">Razão social</label>
+          <input class="ct-input" type="text" id="c-razao" placeholder="Ex: Cond. Res. das Palmeiras LTDA" />
+        </div>
+      </div>
+
+      <!-- CEP + Cidade -->
       <div class="modal-grid">
         <div class="modal-field">
           <label class="ct-label" for="c-cep">CEP</label>
@@ -122,25 +153,108 @@
           <input class="ct-input" type="text" id="c-cidade" placeholder="São Paulo" />
         </div>
       </div>
-      <div class="modal-field">
-        <label class="ct-label" for="c-end">Endereço</label>
-        <input class="ct-input" type="text" id="c-end" placeholder="Rua, número, bairro" />
-        <div class="ct-error" id="err-end-c" style="display:none"></div>
-      </div>
+
+      <!-- Endereço + UF -->
       <div class="modal-grid">
-        <div class="modal-field">
+        <div class="modal-field" style="flex:2">
+          <label class="ct-label" for="c-end">Endereço</label>
+          <input class="ct-input" type="text" id="c-end" placeholder="Rua, número, bairro" />
+          <div class="ct-error" id="err-end-c" style="display:none"></div>
+        </div>
+        <div class="modal-field" style="flex:1">
           <label class="ct-label" for="c-uf">UF</label>
           <input class="ct-input" type="text" id="c-uf" placeholder="SP" maxlength="2" style="text-transform:uppercase" />
         </div>
+      </div>
+
+      <!-- Torres + Total (calculado) -->
+      <div class="modal-grid">
         <div class="modal-field">
-          <label class="ct-label" for="c-blocos">Nº de blocos</label>
-          <input class="ct-input" type="number" id="c-blocos" placeholder="1" min="1" max="26" value="1" />
+          <label class="ct-label" for="c-blocos">Nº de torres / blocos</label>
+          <input class="ct-input" type="number" id="c-blocos" placeholder="1" min="1" max="26" value="1"
+                 oninput="previewApartamentos()" />
+        </div>
+        <div class="modal-field">
+          <label class="ct-label" for="c-aptos">Total de apartamentos</label>
+          <input class="ct-input" type="number" id="c-aptos" placeholder="Calculado automaticamente"
+                 style="background:var(--n-50);color:var(--n-400);cursor:not-allowed" readonly />
         </div>
       </div>
-      <div class="modal-field">
-        <label class="ct-label" for="c-aptos">Total de apartamentos</label>
-        <input class="ct-input" type="number" id="c-aptos" placeholder="Ex: 80" min="1" />
+
+      <!-- Configuração de geração de apartamentos -->
+      <div style="height:1px;background:var(--n-100);margin:16px 0"></div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--n-400);margin-bottom:12px">
+        Configuração dos apartamentos
       </div>
+
+      <!-- Tabs: automático / manual -->
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button type="button" id="tab-auto" onclick="alternarModoApto('auto')"
+                style="flex:1;padding:7px;border-radius:var(--radius-md);border:1.5px solid var(--p-300);
+                       background:var(--p-100);color:var(--p-700);font-size:12px;font-weight:600;
+                       cursor:pointer;font-family:var(--font-sans)">
+          ⚙️ Gerar automaticamente
+        </button>
+        <button type="button" id="tab-manual" onclick="alternarModoApto('manual')"
+                style="flex:1;padding:7px;border-radius:var(--radius-md);border:1.5px solid var(--n-200);
+                       background:var(--n-0);color:var(--n-500);font-size:12px;font-weight:600;
+                       cursor:pointer;font-family:var(--font-sans)">
+          ✏️ Inserir manualmente
+        </button>
+      </div>
+
+      <!-- Modo automático -->
+      <div id="modo-auto">
+        <div class="modal-grid">
+          <div class="modal-field">
+            <label class="ct-label" for="c-andares">Andares por torre</label>
+            <input class="ct-input" type="number" id="c-andares" placeholder="Ex: 10" min="1"
+                   oninput="previewApartamentos()" />
+          </div>
+          <div class="modal-field">
+            <label class="ct-label" for="c-aptos-andar">Aptos por andar</label>
+            <input class="ct-input" type="number" id="c-aptos-andar" placeholder="Ex: 4" min="1"
+                   oninput="previewApartamentos()" />
+          </div>
+        </div>
+        <div class="modal-grid">
+          <div class="modal-field">
+            <label class="ct-label" for="c-num-inicial">Número inicial do andar</label>
+            <input class="ct-input" type="number" id="c-num-inicial" placeholder="Ex: 1" min="0" value="1"
+                   oninput="previewApartamentos()" />
+            <div style="font-size:11px;color:var(--n-400);margin-top:4px">
+              1º andar começa em: <span id="preview-inicio" style="font-weight:600;color:var(--p-600)">101</span>
+            </div>
+          </div>
+          <div class="modal-field">
+            <label class="ct-label" for="c-formato">Formato da numeração</label>
+            <select class="ct-input" id="c-formato" onchange="previewApartamentos()">
+              <option value="numerico">Numérico (101, 102, 201, 202...)</option>
+              <option value="dezena">Por dezena (1, 2, 3, 4... 11, 12, 13, 14...)</option>
+              <option value="letra">Com letra (101A, 101B...)</option>
+              <option value="simples">Simples sequencial (1, 2, 3...)</option>
+            </select>
+          </div>
+        </div>
+        <div id="preview-aptos" style="background:var(--p-50);border:1.5px solid var(--p-200);
+             border-radius:var(--radius-md);padding:10px 14px;margin-bottom:4px;
+             font-size:12px;color:var(--p-700);line-height:1.6;display:none">
+        </div>
+      </div>
+
+      <!-- Modo manual -->
+      <div id="modo-manual" style="display:none">
+        <div class="modal-field">
+          <label class="ct-label" for="c-lista-aptos">Lista de apartamentos</label>
+          <textarea class="ct-input" id="c-lista-aptos" rows="4"
+                    placeholder="Digite um por linha ou separados por vírgula:&#10;101, 102, 103&#10;201, 202, 203"
+                    style="resize:vertical;font-family:var(--font-sans)"></textarea>
+          <div style="font-size:11px;color:var(--n-400);margin-top:4px">
+            Total: <span id="count-manual" style="font-weight:600;color:var(--p-600)">0</span> apartamentos
+          </div>
+        </div>
+      </div>
+
       <div style="height:1px;background:var(--n-100);margin:16px 0"></div>
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--n-400);margin-bottom:12px">Síndico responsável</div>
       <div class="modal-field">
@@ -260,9 +374,212 @@
   </div>
 </div>
 
+<!-- ── Modal: vincular condomínios (ícone amarelo) ── -->
+<div class="modal-overlay" id="modal-vincular">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Vincular condomínios</div>
+      <button class="modal-close" onclick="fecharModal()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div style="background:var(--p-50);border:1.5px solid var(--p-100);border-radius:var(--radius-md);
+                padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+      <div id="vinc-avatar"
+           style="width:36px;height:36px;border-radius:50%;background:var(--p-100);
+                  color:var(--p-700);font-size:13px;font-weight:700;
+                  display:flex;align-items:center;justify-content:center;flex-shrink:0"></div>
+      <div>
+        <div id="vinc-nome" style="font-size:14px;font-weight:700;color:var(--n-900)"></div>
+        <div id="vinc-perfil-label" style="font-size:11px;color:var(--n-500);margin-top:1px"></div>
+      </div>
+    </div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+                color:var(--n-400);margin-bottom:10px">Condomínios vinculados</div>
+    <div id="vinc-lista"
+         style="border:1px solid var(--n-200);border-radius:var(--radius-md);
+                overflow:hidden;margin-bottom:16px;min-height:48px"></div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+                color:var(--n-400);margin-bottom:8px">Adicionar condomínio</div>
+    <select class="ct-input" id="vinc-select" style="margin-bottom:4px">
+      <option value="">Selecione um condomínio...</option>
+    </select>
+    <div class="ct-error" id="vinc-err" style="display:none"></div>
+    <div class="modal-actions">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Fechar</button>
+      <button type="button" class="ct-btn-primary" onclick="salvarVinculo()">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+             style="width:14px;height:14px" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Vincular
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: editar perfil do usuário (ícone azul) ── -->
+<div class="modal-overlay" id="modal-editar-usuario">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="edit-user-titulo">Editar usuário</div>
+      <button class="modal-close" onclick="fecharModal()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="edit-user-nome">Nome completo</label>
+      <input class="ct-input" type="text" id="edit-user-nome" placeholder="Nome completo" />
+      <div class="ct-error" id="err-edit-user-nome" style="display:none"></div>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="edit-user-email">E-mail</label>
+      <input class="ct-input" type="email" id="edit-user-email" placeholder="email@exemplo.com" />
+      <div class="ct-error" id="err-edit-user-email" style="display:none"></div>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="edit-user-tel">Telefone / WhatsApp</label>
+      <input class="ct-input" type="tel" id="edit-user-tel" placeholder="(11) 99999-0000" maxlength="15" />
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="edit-user-perfil">Perfil</label>
+      <select class="ct-input" id="edit-user-perfil">
+        <option value="superadmin">Super Admin</option>
+        <option value="sindico">Síndico</option>
+        <option value="porteiro">Porteiro</option>
+        <option value="morador">Morador</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="ct-btn-primary" id="btn-salvar-edit-user" onclick="salvarEdicaoUsuario()">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+             style="width:14px;height:14px" stroke-linecap="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Salvar alterações
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: confirmar inativação (ícone vermelho) ── -->
+<div class="modal-overlay" id="modal-inativar">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title">Inativar usuário</div>
+      <button class="modal-close" onclick="fecharModal()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div style="background:#FEF2F2;border:1.5px solid #FECACA;border-radius:var(--radius-md);
+                padding:14px 16px;margin-bottom:18px;display:flex;gap:12px;align-items:flex-start">
+      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="#DC2626"
+           style="width:20px;height:20px;flex-shrink:0;margin-top:1px">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#991B1B;margin-bottom:4px">Atenção</div>
+        <div style="font-size:13px;color:#991B1B;line-height:1.6">
+          O usuário <strong id="inativ-nome">—</strong> perderá acesso ao sistema imediatamente.
+          Esta ação pode ser revertida depois.
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>
+      <button type="button" id="btn-confirmar-inativ"
+              onclick="confirmarInativacao()"
+              style="flex:2;width:auto;padding:11px 16px;background:#DC2626;color:#fff;
+                     border:none;border-radius:var(--radius-md);font-family:var(--font-sans);
+                     font-size:14px;font-weight:600;cursor:pointer;display:flex;
+                     align-items:center;justify-content:center;gap:8px;
+                     transition:background .15s">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+             style="width:14px;height:14px" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+        Inativar usuário
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: novo alerta de atualização ── -->
+<div class="modal-overlay" id="modal-alerta">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Novo alerta de atualização</div>
+      <button class="modal-close" onclick="fecharModal()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-grid">
+      <div class="modal-field">
+        <label class="ct-label" for="alerta-versao">Versão</label>
+        <input class="ct-input" type="text" id="alerta-versao" placeholder="ex: 1.2.0" />
+        <div class="ct-error" id="err-alerta-versao" style="display:none"></div>
+      </div>
+      <div class="modal-field">
+        <label class="ct-label" for="alerta-tipo">Tipo</label>
+        <select class="ct-input" id="alerta-tipo">
+          <option value="info">🚀 Atualização</option>
+          <option value="aviso">⚠️ Aviso</option>
+          <option value="critico">🔴 Crítico</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="alerta-titulo">Título</label>
+      <input class="ct-input" type="text" id="alerta-titulo"
+             placeholder="ex: Novas funcionalidades de entregas" />
+      <div class="ct-error" id="err-alerta-titulo" style="display:none"></div>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="alerta-descricao">
+        Descrição
+        <span style="font-weight:400;color:var(--n-400);text-transform:none;
+                     letter-spacing:0">(use Enter para quebrar linhas)</span>
+      </label>
+      <textarea class="ct-input" id="alerta-descricao" rows="5"
+                placeholder="Descreva as novidades desta atualização..."
+                style="resize:vertical;font-family:var(--font-sans);line-height:1.6"></textarea>
+      <div class="ct-error" id="err-alerta-desc" style="display:none"></div>
+    </div>
+    <div style="background:var(--p-50);border:1.5px solid var(--p-100);
+                border-radius:var(--radius-md);padding:10px 14px;
+                font-size:12px;color:var(--p-700);margin-bottom:4px">
+      💡 O alerta será exibido a todos os usuários na próxima vez que abrirem o sistema.
+         Cada usuário verá apenas uma vez por sessão.
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="ct-btn-primary" id="btn-salvar-alerta" onclick="salvarAlerta()">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+             style="width:14px;height:14px" stroke-linecap="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        </svg>
+        Publicar alerta
+      </button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
+<script src="../js/audit.js"></script>
 <script src="../js/utils.js"></script>
+<script src="../js/alertas.js"></script>
 <script src="../js/superadmin.js"></script>
 </body>
 </html>

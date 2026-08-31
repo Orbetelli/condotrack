@@ -14,7 +14,6 @@
   <header class="header">
     <div class="header-top">
       <div class="header-logo">
-        <div class="header-logo">
         <div class="header-logo-icon">
           <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
@@ -22,9 +21,8 @@
         </div>
         <span class="header-logo-name">CondoTrack</span>
       </div>
-      </div>
       <div class="header-actions" style="position:relative">
-        <button class="notif-btn" id="btn-notif-morador" onclick="toggleNotificacoesMorador()">
+        <button class="notif-btn" id="btn-notif-morador" onclick="toggleNotifMorador()">
           <svg viewBox="0 0 24 24" stroke-width="2">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
@@ -32,23 +30,15 @@
           <div class="notif-dot" id="notif-dot-morador" style="display:none"></div>
         </button>
 
-        <!-- Painel de notificações -->
-        <div id="notif-painel-morador" style="
-          display:none;position:absolute;top:44px;right:0;
-          width:300px;background:var(--n-0);border:1px solid var(--n-200);
-          border-radius:var(--radius-lg);box-shadow:0 8px 32px rgba(0,0,0,.15);
-          z-index:99;overflow:hidden;max-height:380px;overflow-y:auto">
-          <div style="padding:12px 16px;border-bottom:1px solid var(--n-100);
-                      display:flex;align-items:center;justify-content:space-between">
-            <span style="font-size:13px;font-weight:700;color:var(--n-900)">Notificações</span>
-            <button onclick="toggleNotificacoesMorador()" style="background:none;border:none;
-                    cursor:pointer;color:var(--n-400);font-size:12px">Fechar</button>
+        <!-- Dropdown notificações -->
+        <div id="notif-dropdown-morador" style="display:none;position:absolute;top:calc(100% + 10px);
+             right:0;width:300px;background:var(--n-0);border:1px solid var(--n-200);
+             border-radius:var(--radius-lg);box-shadow:0 8px 32px rgba(0,0,0,.15);
+             z-index:100;overflow:hidden">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--n-100)">
+            <span style="font-size:13px;font-weight:700;color:var(--n-900)">Minhas entregas</span>
           </div>
-          <div id="notif-lista-morador" style="padding:4px 0">
-            <div style="padding:20px;text-align:center;font-size:12px;color:var(--n-400)">
-              Carregando...
-            </div>
-          </div>
+          <div id="notif-lista-morador" style="max-height:300px;overflow-y:auto"></div>
         </div>
       </div>
     </div>
@@ -96,19 +86,20 @@
       </svg>
       Histórico
     </div>
-    <div class="nav-tab" data-tab="notificacoes" onclick="mudarTab('notificacoes')">
-      <svg viewBox="0 0 24 24" stroke-width="2">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-      </svg>
-      Notificações
-    </div>
     <div class="nav-tab" data-tab="perfil" onclick="mudarTab('perfil')">
       <svg viewBox="0 0 24 24" stroke-width="2">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
         <circle cx="12" cy="7" r="4"/>
       </svg>
       Perfil
+    </div>
+    <div class="nav-tab" data-tab="chat" onclick="mudarTab('chat')">
+      <svg viewBox="0 0 24 24" stroke-width="2">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      Portaria
+      <span id="chat-badge" style="display:none;background:#F59E0B;color:#fff;font-size:9px;
+            font-weight:700;padding:1px 5px;border-radius:99px;margin-left:2px">!</span>
     </div>
   </nav>
 
@@ -193,9 +184,162 @@
   </div>
 </div>
 
+<!-- ── Modal: editar perfil ── -->
+<div class="modal-overlay" id="modal-editar-perfil">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Editar perfil</div>
+      <button class="modal-close" onclick="fecharModalPerfil()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="edit-nome">Nome completo</label>
+      <input class="ct-input" type="text" id="edit-nome" placeholder="Seu nome completo" />
+      <div class="ct-error" id="err-edit-nome" style="display:none"></div>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="edit-telefone">Telefone / WhatsApp</label>
+      <input class="ct-input" type="tel" id="edit-telefone" placeholder="(11) 99999-0000" maxlength="15" />
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="edit-email">E-mail</label>
+      <input class="ct-input" type="email" id="edit-email" placeholder="seu@email.com" />
+      <div class="ct-error" id="err-edit-email" style="display:none"></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModalPerfil()">Cancelar</button>
+      <button type="button" class="ct-btn-primary" id="btn-salvar-perfil" onclick="salvarPerfil()">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+             style="width:14px;height:14px" stroke-linecap="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Salvar alterações
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: trocar senha ── -->
+<div class="modal-overlay" id="modal-trocar-senha">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Trocar senha</div>
+      <button class="modal-close" onclick="fecharModalPerfil()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="nova-senha-atual">Senha atual</label>
+      <div class="ct-input-wrap">
+        <input class="ct-input" type="password" id="nova-senha-atual" placeholder="••••••••" />
+        <button type="button" class="eye-btn" onclick="toggleSenha('nova-senha-atual','eye-atual')">
+          <svg id="eye-atual" viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:16px;height:16px">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+      <div class="ct-error" id="err-senha-atual" style="display:none"></div>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="nova-senha-nova">Nova senha</label>
+      <div class="ct-input-wrap">
+        <input class="ct-input" type="password" id="nova-senha-nova" placeholder="Mínimo 6 caracteres" />
+        <button type="button" class="eye-btn" onclick="toggleSenha('nova-senha-nova','eye-nova')">
+          <svg id="eye-nova" viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:16px;height:16px">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+      <div class="ct-error" id="err-senha-nova" style="display:none"></div>
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="nova-senha-confirma">Confirmar nova senha</label>
+      <div class="ct-input-wrap">
+        <input class="ct-input" type="password" id="nova-senha-confirma" placeholder="Repita a nova senha" />
+        <button type="button" class="eye-btn" onclick="toggleSenha('nova-senha-confirma','eye-trocar-confirma')">
+          <svg id="eye-trocar-confirma" viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:16px;height:16px">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+      <div class="ct-error" id="err-senha-confirma" style="display:none"></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModalPerfil()">Cancelar</button>
+      <button type="button" class="ct-btn-primary" id="btn-salvar-senha" onclick="salvarSenha()">
+        <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+             style="width:14px;height:14px" stroke-linecap="round">
+          <rect x="3" y="11" width="18" height="11" rx="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        Salvar nova senha
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: chat com a portaria ── -->
+<div class="modal-overlay" id="modal-chat">
+  <div class="modal" style="max-width:460px;display:flex;flex-direction:column;max-height:90vh;padding:0;overflow:hidden">
+    <div class="modal-header" style="padding:18px 20px;border-bottom:1px solid var(--n-200);flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--p-100);
+                    display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="var(--p-600)" style="width:15px;height:15px">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </div>
+        <div>
+          <div class="modal-title" style="font-size:15px">Portaria</div>
+          <div style="font-size:11px;color:var(--n-400)" id="chat-condo-nome">—</div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="fecharChat()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" fill="none" stroke="var(--n-500)">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <!-- Lista de mensagens -->
+    <div id="chat-mensagens" style="flex:1;overflow-y:auto;padding:16px;display:flex;
+         flex-direction:column;gap:8px;min-height:260px;max-height:400px"></div>
+    <!-- Input -->
+    <div style="padding:12px 16px;border-top:1px solid var(--n-200);flex-shrink:0;
+                display:flex;gap:8px;align-items:flex-end">
+      <textarea id="chat-input" class="ct-input" rows="1"
+        placeholder="Digite sua mensagem..."
+        style="resize:none;flex:1;padding:8px 12px;font-size:13px;line-height:1.4;
+               min-height:38px;max-height:96px;overflow-y:auto"
+        onkeydown="chatKeydown(event)"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,96)+'px'"></textarea>
+      <button onclick="enviarMensagemChat()" id="btn-chat-enviar"
+              style="width:38px;height:38px;border-radius:var(--radius-md);flex-shrink:0;
+                     background:var(--p-600);border:none;cursor:pointer;
+                     display:flex;align-items:center;justify-content:center;
+                     transition:background .15s"
+              onmouseenter="this.style.background='var(--p-700)'"
+              onmouseleave="this.style.background='var(--p-600)'">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="#fff" style="width:14px;height:14px"
+             stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
+<script src="../js/audit.js"></script>
 <script src="../js/utils.js"></script>
+<script src="../js/alertas.js"></script>
 <script src="../js/morador.js"></script>
 </body>
 </html>

@@ -6,17 +6,46 @@
   <title>CondoTrack — Porteiro</title>
   <link rel="stylesheet" href="../css/style.css" />
   <link rel="stylesheet" href="../css/porteiro.css" />
+  <style>
+    .obs-chip {
+      padding: 4px 10px;
+      border-radius: 99px;
+      border: 1.5px solid var(--n-200);
+      background: var(--n-50);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--n-600);
+      cursor: pointer;
+      font-family: var(--font-sans);
+      transition: all .12s;
+    }
+    .obs-chip:hover {
+      background: var(--p-100);
+      border-color: var(--p-300);
+      color: var(--p-700);
+    }
+    .busca-nome-item {
+      padding: 10px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--n-100);
+      transition: background .12s;
+    }
+    .busca-nome-item:last-child { border-bottom: none; }
+    .busca-nome-item:hover { background: var(--p-50); }
+  </style>
 </head>
 <body>
+
 <div class="shell">
 
-  <!-- ── Sidebar ── -->
+  <!-- ── Sidebar de ícones ── -->
   <aside class="sidebar">
     <div class="sb-logo">
-      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" fill="none">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
       </svg>
     </div>
+
     <nav class="sb-nav">
       <button class="sb-item active" data-tip="Dashboard" onclick="ativarSidebar(this);mudarTabPorteiro('dashboard')">
         <svg viewBox="0 0 24 24" stroke-width="2">
@@ -24,12 +53,14 @@
           <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
         </svg>
       </button>
+
       <button class="sb-item" data-tip="Entregas" onclick="ativarSidebar(this);mudarTabPorteiro('entregas')">
         <svg viewBox="0 0 24 24" stroke-width="2">
           <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
         </svg>
         <div class="sb-badge"></div>
       </button>
+
       <button class="sb-item" data-tip="Moradores" onclick="ativarSidebar(this);mudarTabPorteiro('moradores')">
         <svg viewBox="0 0 24 24" stroke-width="2">
           <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -37,6 +68,7 @@
           <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
         </svg>
       </button>
+
       <button class="sb-item" data-tip="Histórico" onclick="ativarSidebar(this);mudarTabPorteiro('historico')">
         <svg viewBox="0 0 24 24" stroke-width="2">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -45,8 +77,10 @@
           <line x1="16" y1="17" x2="8" y2="17"/>
         </svg>
       </button>
+
       <div class="sb-divider"></div>
-      <button class="sb-item" data-tip="Sair" onclick="encerrarSessao()">
+
+      <button class="sb-item" data-tip="Sair" onclick="logout()">
         <svg viewBox="0 0 24 24" stroke-width="2">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
           <polyline points="16 17 21 12 16 7"/>
@@ -54,20 +88,21 @@
         </svg>
       </button>
     </nav>
-    <div class="sb-avatar" id="sb-avatar">PT</div>
+
+    <div class="sb-avatar" id="sb-avatar">—</div>
   </aside>
 
   <!-- ── Conteúdo principal ── -->
   <div class="main">
 
-    <!-- Header -->
+    <!-- Header roxo -->
     <header class="header" style="position:relative">
       <div>
         <div class="header-greeting">—</div>
         <div class="header-sub">—</div>
       </div>
       <div class="header-actions">
-        <div class="header-notif" id="btn-notif" onclick="toggleNotificacoes()" style="cursor:pointer">
+        <div class="header-notif" id="btn-notif" onclick="toggleNotificacoes()">
           <svg viewBox="0 0 24 24" stroke-width="2">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
@@ -75,23 +110,20 @@
           <div class="header-notif-dot" id="notif-dot" style="display:none"></div>
         </div>
 
-        <!-- Painel de notificações -->
-        <div id="notif-painel" style="
-          display:none;position:absolute;top:54px;right:16px;
-          width:320px;background:var(--n-0);border:1px solid var(--n-200);
-          border-radius:var(--radius-lg);box-shadow:0 8px 32px rgba(0,0,0,.15);
-          z-index:99;overflow:hidden;max-height:420px;overflow-y:auto">
+        <!-- Dropdown de notificações -->
+        <div id="notif-dropdown" style="display:none;position:absolute;top:54px;right:16px;
+             width:320px;background:var(--n-0);border:1px solid var(--n-200);
+             border-radius:var(--radius-lg);box-shadow:0 8px 32px rgba(0,0,0,.15);
+             z-index:100;overflow:hidden">
           <div style="padding:12px 16px;border-bottom:1px solid var(--n-100);
                       display:flex;align-items:center;justify-content:space-between">
-            <span style="font-size:13px;font-weight:700;color:var(--n-900)">Notificações</span>
-            <button onclick="toggleNotificacoes()" style="background:none;border:none;cursor:pointer;
-                    color:var(--n-400);font-size:12px">Fechar</button>
+            <span style="font-size:13px;font-weight:700;color:var(--n-900)">Notificações recentes</span>
+            <button onclick="marcarTodasLidas()" style="font-size:11px;color:var(--p-600);
+                    background:none;border:none;cursor:pointer;font-weight:600">
+              Marcar todas como lidas
+            </button>
           </div>
-          <div id="notif-lista" style="padding:4px 0">
-            <div style="padding:20px;text-align:center;font-size:12px;color:var(--n-400)">
-              Carregando...
-            </div>
-          </div>
+          <div id="notif-lista" style="max-height:320px;overflow-y:auto"></div>
         </div>
         <button class="btn-nova-entrega" id="btn-nova-entrega">
           <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round">
@@ -132,6 +164,14 @@
         </svg>
         Histórico
       </div>
+      <div class="nav-tab" data-tab="chat" onclick="mudarTabPorteiro('chat')">
+        <svg viewBox="0 0 24 24" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        Mensagens
+        <span id="chat-badge-port" style="display:none;background:#F59E0B;color:#fff;font-size:9px;
+              font-weight:700;padding:1px 5px;border-radius:99px;margin-left:2px">!</span>
+      </div>
     </nav>
 
     <!-- Body dinâmico -->
@@ -152,41 +192,273 @@
         </svg>
       </button>
     </div>
+
     <form id="form-nova" novalidate>
-      <div class="modal-grid">
-        <div class="modal-field">
-          <label class="ct-label" for="nova-apto">Apartamento</label>
-          <input class="ct-input" type="text" id="nova-apto" placeholder="Ex: A-101" />
-          <div class="ct-error" id="err-apto" style="display:none"></div>
+
+      <!-- Tabs: buscar por apartamento ou por nome -->
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button type="button" id="tab-busca-apto" onclick="alternarBuscaEntrega('apto')"
+                style="flex:1;padding:7px;border-radius:var(--radius-md);border:1.5px solid var(--p-300);
+                       background:var(--p-100);color:var(--p-700);font-size:12px;font-weight:600;
+                       cursor:pointer;font-family:var(--font-sans)">
+          🏠 Por apartamento
+        </button>
+        <button type="button" id="tab-busca-nome" onclick="alternarBuscaEntrega('nome')"
+                style="flex:1;padding:7px;border-radius:var(--radius-md);border:1.5px solid var(--n-200);
+                       background:var(--n-0);color:var(--n-500);font-size:12px;font-weight:600;
+                       cursor:pointer;font-family:var(--font-sans)">
+          👤 Por nome
+        </button>
+      </div>
+
+      <!-- Modo: por apartamento -->
+      <div id="modo-busca-apto">
+        <div class="modal-grid">
+          <div class="modal-field">
+            <label class="ct-label" for="nova-apto">Apartamento</label>
+            <input class="ct-input" type="text" id="nova-apto" placeholder="Ex: A-204"
+                   oninput="buscarMoradoresApto()" autocomplete="off"/>
+            <div class="ct-error" id="err-apto" style="display:none"></div>
+          </div>
+          <div class="modal-field">
+            <label class="ct-label" for="nova-volumes">Nº de volumes</label>
+            <input class="ct-input" type="number" id="nova-volumes" placeholder="1" min="1" />
+            <div class="ct-error" id="err-volumes" style="display:none"></div>
+          </div>
         </div>
-        <div class="modal-field">
-          <label class="ct-label" for="nova-volumes">Nº de volumes</label>
-          <input class="ct-input" type="number" id="nova-volumes" placeholder="1" min="1" />
-          <div class="ct-error" id="err-volumes" style="display:none"></div>
+        <div class="modal-field" id="campo-morador" style="display:none">
+          <label class="ct-label" for="nova-morador">Destinatário</label>
+          <select class="ct-input" id="nova-morador">
+            <option value="">Selecione o morador...</option>
+          </select>
+          <div class="ct-error" id="err-morador" style="display:none"></div>
         </div>
       </div>
+
+      <!-- Modo: por nome -->
+      <div id="modo-busca-nome" style="display:none">
+        <div class="modal-field">
+          <label class="ct-label" for="busca-nome-morador">Nome do morador</label>
+          <div style="position:relative">
+            <input class="ct-input" type="text" id="busca-nome-morador"
+                   placeholder="Digite o nome..." autocomplete="off"
+                   oninput="buscarMoradorPorNome()"/>
+            <div id="lista-busca-nome" style="display:none;position:absolute;top:calc(100% + 4px);
+                 left:0;right:0;background:var(--n-0);border:1.5px solid var(--n-200);
+                 border-radius:var(--radius-md);box-shadow:var(--shadow-md);
+                 z-index:20;max-height:200px;overflow-y:auto"></div>
+          </div>
+          <div class="ct-error" id="err-nome-morador" style="display:none"></div>
+        </div>
+        <div id="morador-selecionado-nome" style="display:none;align-items:center;gap:10px;
+             background:var(--p-50);border:1.5px solid var(--p-200);
+             border-radius:var(--radius-md);padding:10px 14px;margin-bottom:14px">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:var(--p-800)" id="morador-sel-nome-txt"></div>
+            <div style="font-size:11px;color:var(--p-600)" id="morador-sel-apto-txt"></div>
+          </div>
+          <button type="button" onclick="limparMoradorSelecionado()"
+                  style="background:none;border:none;cursor:pointer;color:var(--p-400);font-size:18px">×</button>
+        </div>
+        <div class="modal-field">
+          <label class="ct-label" for="nova-volumes-nome">Nº de volumes</label>
+          <input class="ct-input" type="number" id="nova-volumes-nome" placeholder="1" min="1" />
+          <div class="ct-error" id="err-volumes-nome" style="display:none"></div>
+        </div>
+      </div>
+
       <div class="modal-field">
         <label class="ct-label" for="nova-trans">Transportadora</label>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px">
+          <button type="button" class="obs-chip" onclick="preencherTrans('Correios')">📮 Correios</button>
+          <button type="button" class="obs-chip" onclick="preencherTrans('Amazon')">📦 Amazon</button>
+          <button type="button" class="obs-chip" onclick="preencherTrans('Shopee')">🛍 Shopee</button>
+          <button type="button" class="obs-chip" onclick="preencherTrans('Mercado Livre')">🟡 Mercado Livre</button>
+          <button type="button" class="obs-chip" onclick="preencherTrans('iFood')">🛵 iFood</button>
+        </div>
         <input class="ct-input" type="text" id="nova-trans"
                placeholder="Ex: Correios, Amazon, Mercado Livre..." />
         <div class="ct-error" id="err-trans" style="display:none"></div>
       </div>
+
+      <!-- Foto da encomenda (opcional) -->
+      <div class="modal-field">
+        <label class="ct-label" for="nova-foto">Foto da encomenda (opcional)</label>
+        <div id="foto-preview" style="display:none;margin-bottom:8px;position:relative">
+          <img id="foto-preview-img" style="width:100%;max-height:140px;object-fit:cover;
+               border-radius:var(--radius-md);border:1px solid var(--n-200)"/>
+          <button type="button" onclick="removerFoto()"
+                  style="position:absolute;top:6px;right:6px;width:22px;height:22px;
+                         border-radius:50%;background:rgba(0,0,0,.5);border:none;cursor:pointer;
+                         color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center">×</button>
+        </div>
+        <label for="nova-foto" style="display:flex;align-items:center;gap:8px;padding:9px 14px;
+               border:1.5px dashed var(--n-300);border-radius:var(--radius-md);cursor:pointer;
+               font-size:13px;color:var(--n-500);transition:border-color .15s"
+               onmouseenter="this.style.borderColor='var(--p-400)'"
+               onmouseleave="this.style.borderColor='var(--n-300)'">
+          <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+               style="width:16px;height:16px;flex-shrink:0">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          Tirar foto ou escolher arquivo
+        </label>
+        <input type="file" id="nova-foto" accept="image/*" capture="environment"
+               style="display:none" onchange="previewFoto(this)"/>
+      </div>
+
+      <!-- Observações com sugestões rápidas -->
       <div class="modal-field">
         <label class="ct-label" for="nova-obs">Observações (opcional)</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+          <button type="button" class="obs-chip" onclick="adicionarObs('Caixa frágil')">📦 Frágil</button>
+          <button type="button" class="obs-chip" onclick="adicionarObs('Refrigerado')">🧊 Refrigerado</button>
+          <button type="button" class="obs-chip" onclick="adicionarObs('Documento')">📄 Documento</button>
+          <button type="button" class="obs-chip" onclick="adicionarObs('Volume grande')">📫 Grande</button>
+          <button type="button" class="obs-chip" onclick="adicionarObs('Urgente')">⚡ Urgente</button>
+        </div>
         <input class="ct-input" type="text" id="nova-obs"
                placeholder="Ex: Caixa frágil, 2 volumes grandes..." />
       </div>
+
       <div class="modal-actions">
         <button type="button" class="ct-btn-ghost" onclick="fecharModalNova()">Cancelar</button>
+        <button type="button" class="ct-btn-ghost" onclick="abrirModalLote()"
+                style="display:flex;align-items:center;gap:6px">
+          <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+               style="width:13px;height:13px">
+            <rect x="2" y="3" width="20" height="4" rx="1"/>
+            <rect x="2" y="10" width="20" height="4" rx="1"/>
+            <rect x="2" y="17" width="20" height="4" rx="1"/>
+          </svg>
+          Em lote
+        </button>
         <button type="submit" class="ct-btn-primary" id="btn-nova-entrega-2">
           <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
                style="width:15px;height:15px" stroke-linecap="round">
             <polyline points="20 6 9 17 4 12"/>
           </svg>
-          Registrar entrega
+          Registrar
         </button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ── Modal: registro em lote ── -->
+<div class="modal-overlay" id="modal-lote">
+  <div class="modal" style="max-width:520px;max-height:90vh;overflow-y:auto">
+    <div class="modal-header">
+      <div class="modal-title">Registro em lote</div>
+      <button class="modal-close" onclick="fecharModalLote()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div style="font-size:13px;color:var(--n-500);margin-bottom:14px;line-height:1.5">
+      Registre várias entregas de uma transportadora de uma só vez.
+    </div>
+    <div class="modal-field">
+      <label class="ct-label" for="lote-trans">Transportadora</label>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px">
+        <button type="button" class="obs-chip" onclick="preencherTransLote('Correios')">📮 Correios</button>
+        <button type="button" class="obs-chip" onclick="preencherTransLote('Amazon')">📦 Amazon</button>
+        <button type="button" class="obs-chip" onclick="preencherTransLote('Shopee')">🛍 Shopee</button>
+        <button type="button" class="obs-chip" onclick="preencherTransLote('Mercado Livre')">🟡 Mercado Livre</button>
+      </div>
+      <input class="ct-input" type="text" id="lote-trans" placeholder="Transportadora comum a todas..." />
+      <div class="ct-error" id="err-lote-trans" style="display:none"></div>
+    </div>
+    <div id="lote-linhas"></div>
+    <button type="button" onclick="adicionarLinhaLote()"
+            style="width:100%;padding:9px;background:var(--n-50);border:1.5px dashed var(--n-300);
+                   border-radius:var(--radius-md);font-size:13px;color:var(--n-500);cursor:pointer;
+                   font-family:var(--font-sans);margin-bottom:4px;transition:border-color .15s"
+            onmouseenter="this.style.borderColor='var(--p-400)'"
+            onmouseleave="this.style.borderColor='var(--n-300)'">
+      + Adicionar apartamento
+    </button>
+    <div class="ct-error" id="err-lote-geral" style="display:none"></div>
+    <div class="modal-actions">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModalLote()">Cancelar</button>
+      <button type="button" class="ct-btn-primary" id="btn-lote-salvar" onclick="salvarLote()">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+             style="width:14px;height:14px" stroke-linecap="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Registrar todas
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: chat com moradores ── -->
+<div class="modal-overlay" id="modal-chat-port">
+  <div class="modal" style="max-width:480px;display:flex;flex-direction:column;
+       max-height:90vh;padding:0;overflow:hidden">
+    <div class="modal-header" style="padding:16px 20px;border-bottom:1px solid var(--n-200);flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div id="chat-port-avatar"
+             style="width:32px;height:32px;border-radius:50%;background:var(--p-100);
+                    color:var(--p-700);font-size:12px;font-weight:700;
+                    display:flex;align-items:center;justify-content:center;flex-shrink:0">—</div>
+        <div>
+          <div class="modal-title" style="font-size:15px" id="chat-port-nome">Conversa</div>
+          <div style="font-size:11px;color:var(--n-400)" id="chat-port-apto">—</div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="fecharChatPort()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div id="chat-port-mensagens" style="flex:1;overflow-y:auto;padding:16px;
+         display:flex;flex-direction:column;gap:8px;min-height:240px;max-height:380px"></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--n-200);flex-shrink:0;
+                display:flex;gap:8px;align-items:flex-end">
+      <textarea id="chat-port-input" class="ct-input" rows="1"
+        placeholder="Digite sua resposta..."
+        style="resize:none;flex:1;padding:8px 12px;font-size:13px;line-height:1.4;
+               min-height:38px;max-height:96px;overflow-y:auto"
+        onkeydown="chatPortKeydown(event)"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,96)+'px'"></textarea>
+      <button onclick="enviarMensagemPort()" id="btn-chat-port-enviar"
+              style="width:38px;height:38px;border-radius:var(--radius-md);flex-shrink:0;
+                     background:var(--p-600);border:none;cursor:pointer;
+                     display:flex;align-items:center;justify-content:center;transition:background .15s"
+              onmouseenter="this.style.background='var(--p-700)'"
+              onmouseleave="this.style.background='var(--p-600)'">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="#fff"
+             style="width:14px;height:14px" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: turno ── -->
+<div class="modal-overlay" id="modal-turno">
+  <div class="modal" style="max-width:380px;text-align:center">
+    <div class="modal-header" style="justify-content:center;border:none;padding-bottom:0">
+      <div class="modal-title" id="modal-turno-titulo">Iniciar turno</div>
+    </div>
+    <div style="padding:16px 0 8px">
+      <div style="font-size:13px;color:var(--n-500);line-height:1.6" id="modal-turno-msg">
+        Registre o início do seu turno para rastrear as entregas realizadas.
+      </div>
+    </div>
+    <div class="modal-actions" style="justify-content:center">
+      <button type="button" class="ct-btn-ghost" onclick="fecharModalTurno()">Cancelar</button>
+      <button type="button" class="ct-btn-primary" id="btn-turno-confirmar"
+              style="flex:none;width:auto;padding:10px 28px" onclick="confirmarTurno()">
+        Confirmar
+      </button>
+    </div>
   </div>
 </div>
 
@@ -202,12 +474,13 @@
         </svg>
       </button>
     </div>
+
     <div class="detail-row">
       <span class="detail-label">Apartamento</span>
       <span class="detail-value" id="detalhe-apto">—</span>
     </div>
     <div class="detail-row">
-      <span class="detail-label">Morador</span>
+      <span class="detail-label">Destinatário</span>
       <span class="detail-value" id="detalhe-morador">—</span>
     </div>
     <div class="detail-row">
@@ -230,8 +503,18 @@
       <span class="detail-label">Status</span>
       <span class="detail-value entry-badge" id="detalhe-status">—</span>
     </div>
+
     <div class="modal-actions" style="margin-top:20px">
       <button type="button" class="ct-btn-ghost" onclick="fecharDetalhe()">Fechar</button>
+      <button type="button" class="ct-btn-primary" id="btn-entregue-porteiro"
+              onclick="registrarEntreguePorteiro()" style="display:none;background:#059669">
+        <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
+             style="width:15px;height:15px" stroke-linecap="round">
+          <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+        </svg>
+        Entreguei pessoalmente
+      </button>
       <button type="button" class="ct-btn-primary" id="btn-confirmar-retirada"
               onclick="confirmarRetirada()" style="display:none">
         <svg viewBox="0 0 24 24" stroke-width="2.5" fill="none" stroke="currentColor"
@@ -246,7 +529,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
+<script src="../js/audit.js"></script>
 <script src="../js/utils.js"></script>
+<script src="../js/alertas.js"></script>
 <script src="../js/porteiro.js"></script>
 </body>
 </html>

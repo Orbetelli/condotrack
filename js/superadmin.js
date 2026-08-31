@@ -20,7 +20,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   mudarTab('dashboard')
   aplicarMascaraCEP()
+  aplicarMascaraCNPJ('c-cnpj')
   bindEvents()
+
+  // Verifica alertas do sistema após carregar o painel
+  verificarAlertas()
 })
 
 // ── Navegação entre abas ──────────────────────────────────────
@@ -29,6 +33,22 @@ async function mudarTab(tab) {
 
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'))
   document.querySelector(`[data-tab="${tab}"]`)?.classList.add('active')
+
+  // Sincroniza sidebar (item com mesmo data-tip que o label da aba)
+  const tipMap = {
+    dashboard:   'Dashboard',
+    condominios: 'Condomínios',
+    usuarios:    'Usuários',
+    relatorios:  'Relatórios',
+    equipe:      'Equipe interna',
+    alertas:     'Alertas',
+    auditlog:    'Audit Log',
+  }
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'))
+  const sbTip = tipMap[tab]
+  if (sbTip) {
+    document.querySelector(`.sb-item[data-tip="${sbTip}"]`)?.classList.add('active')
+  }
 
   // Atualiza botão de ação no header
   const acoes = {
@@ -58,6 +78,8 @@ async function mudarTab(tab) {
   if (tab === 'usuarios')    await renderUsuarios(body)
   if (tab === 'relatorios')  await renderRelatorios(body)
   if (tab === 'equipe')      await renderEquipe(body)
+  if (tab === 'alertas')     await renderAlertas(body)
+  if (tab === 'auditlog')    await renderAuditLog(body)
 }
 
 // ── DASHBOARD ────────────────────────────────────────────────
@@ -174,48 +196,114 @@ async function carregarCondominios(filtro = '') {
   lista.forEach(c => {
     const card = document.createElement('div')
     card.className = 'condo-card'
-    card.innerHTML = `
-      <div class="condo-card-top">
-        <div>
-          <div class="condo-card-name">${c.nome}</div>
-          <div class="condo-card-addr">${c.endereco} · ${c.cidade}/${c.uf}</div>
-        </div>
-        <span class="status-pill s-${c.status}">${statusLabel(c.status)}</span>
-      </div>
-      <div class="condo-stats">
-        <div class="condo-stat">${iconAptos()} <strong>${c.total_aptos}</strong> aptos</div>
-        <div class="condo-stat">${iconRelogio()} Criado: ${new Date(c.criado_em).toLocaleDateString('pt-BR')}</div>
-      </div>
-      <div class="condo-footer">
-        <button class="mini-btn" onclick="abrirDetalhe('${c.id}')">Detalhes</button>
-        <button class="mini-btn" onclick="editarCondo('${c.id}')">Editar</button>
-        ${c.status === 'ativo'
-          ? `<button class="mini-btn" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A"
-               onclick="confirmarAcao('bloquear','${c.id}','${c.nome.replace(/'/g,"\\'")}')">Bloquear</button>`
-          : c.status === 'inativo'
-          ? `<button class="mini-btn primary"
-               onclick="confirmarAcao('ativar','${c.id}','${c.nome.replace(/'/g,"\\'")}')">Reativar</button>`
-          : `<button class="mini-btn primary"
-               onclick="confirmarAcao('ativar','${c.id}','${c.nome.replace(/'/g,"\\'")}')">Ativar</button>`}
-        <button class="mini-btn danger"
-          onclick="confirmarAcao('excluir','${c.id}','${c.nome.replace(/'/g,"\\'")}')">Excluir</button>
-      </div>`
+
+    // Textos inseridos via textContent — sem risco de XSS
+    const nomeEl  = document.createElement('div')
+    nomeEl.className = 'condo-card-name'
+    nomeEl.textContent = c.nome
+
+    const addrEl  = document.createElement('div')
+    addrEl.className = 'condo-card-addr'
+    addrEl.textContent = `${c.endereco} · ${c.cidade}/${c.uf}`
+
+    const pillEl  = document.createElement('span')
+    pillEl.className = `status-pill s-${c.status}`
+    pillEl.textContent = statusLabel(c.status)
+
+    const topDiv  = document.createElement('div')
+    topDiv.className = 'condo-card-top'
+    const topInfo = document.createElement('div')
+    topInfo.appendChild(nomeEl)
+    topInfo.appendChild(addrEl)
+    topDiv.appendChild(topInfo)
+    topDiv.appendChild(pillEl)
+
+    const statsDiv = document.createElement('div')
+    statsDiv.className = 'condo-stats'
+    statsDiv.innerHTML = `
+      <div class="condo-stat">${iconAptos()} <strong>${c.total_aptos}</strong> aptos</div>
+      <div class="condo-stat">${iconRelogio()} Criado: ${new Date(c.criado_em).toLocaleDateString('pt-BR')}</div>`
+
+    const footerDiv = document.createElement('div')
+    footerDiv.className = 'condo-footer'
+
+    const btnDetalhe = document.createElement('button')
+    btnDetalhe.className = 'mini-btn'
+    btnDetalhe.textContent = 'Detalhes'
+    btnDetalhe.addEventListener('click', () => abrirDetalhe(c.id))
+
+    const btnEditar = document.createElement('button')
+    btnEditar.className = 'mini-btn'
+    btnEditar.textContent = 'Editar'
+    btnEditar.addEventListener('click', () => editarCondo(c.id))
+
+    // Botão contextual: reenviar convite (pendente) ou acessar painel (ativo)
+    const btnAcao = document.createElement('button')
+    btnAcao.className = 'mini-btn primary'
+
+    if (c.status === 'pendente') {
+      btnAcao.textContent = 'Reenviar convite'
+      btnAcao.addEventListener('click', () => reenviarConvite(c.id, c.nome, btnAcao))
+    } else {
+      btnAcao.textContent = 'Acessar painel'
+      btnAcao.addEventListener('click', () => acessarPainelCondo(c.id, c.nome))
+    }
+
+    footerDiv.appendChild(btnDetalhe)
+    footerDiv.appendChild(btnEditar)
+    footerDiv.appendChild(btnAcao)
+
+    card.appendChild(topDiv)
+    card.appendChild(statsDiv)
+    card.appendChild(footerDiv)
+
     grid.insertBefore(card, addCard)
   })
 }
 
+// ── Reenviar convite ao síndico ───────────────────────────────
+async function reenviarConvite(condoId, condoNome, btn) {
+  const original = btn.textContent
+  btn.disabled    = true
+  btn.textContent = '...'
+
+  try {
+    const { data, error } = await db.functions.invoke('convidar-sindico', {
+      body: { condominio_id: condoId },
+    })
+
+    if (error || data?.error) {
+      mostrarToast(`Erro ao reenviar convite: ${data?.error || error?.message}`, 'erro')
+    } else {
+      mostrarToast(`Convite reenviado para ${condoNome}!`)
+    }
+  } catch (err) {
+    console.error('Erro ao reenviar convite:', err)
+    mostrarToast('Erro inesperado ao reenviar convite.', 'erro')
+  }
+
+  btn.disabled    = false
+  btn.textContent = original
+}
+
 // ── USUÁRIOS ─────────────────────────────────────────────────
+const USUARIOS_POR_PAGINA = 20
+let paginaAtualUsuarios   = 1
+let listaUsuariosFiltrada = []
+
 async function renderUsuarios(body) {
-  const { data } = await db
+  const { data, count } = await db
     .from('usuarios')
-    .select('*, condominios(nome)')
+    .select('*, condominios(nome)', { count: 'exact' })
     .order('criado_em', { ascending: false })
 
   const lista = data || []
+  listaUsuariosFiltrada = lista
+  paginaAtualUsuarios   = 1
 
   const perfilCores = {
     superadmin: { bg:'#EDE9FE', color:'#5B21B6' },
-    admin:      { bg:'#F3E8FF', color:'#6D28D9' },
+    sindico:    { bg:'#F3E8FF', color:'#6D28D9' },
     porteiro:   { bg:'#EFF6FF', color:'#1D4ED8' },
     morador:    { bg:'#F0FDFA', color:'#0F766E' },
   }
@@ -227,7 +315,7 @@ async function renderUsuarios(body) {
       <select class="search-box" id="filtro-perfil" style="flex:none;width:160px">
         <option value="">Todos os perfis</option>
         <option value="superadmin">Super Admin</option>
-        <option value="admin">Admin</option>
+        <option value="sindico">Síndico</option>
         <option value="porteiro">Porteiro</option>
         <option value="morador">Morador</option>
       </select>
@@ -235,24 +323,112 @@ async function renderUsuarios(body) {
     <div class="panel-card-sa" id="lista-usuarios">
       <div class="panel-card-sa-head">
         <span class="panel-card-sa-title">Usuários cadastrados</span>
-        <span style="font-size:11px;color:var(--n-400)">${lista.length} total</span>
+        <span style="font-size:11px;color:var(--n-400)" id="users-count">${lista.length} total</span>
       </div>
-      <div id="users-body">
-        ${lista.map(u => userRowHTML(u, perfilCores)).join('') || '<div class="panel-empty-sa">Nenhum usuário encontrado</div>'}
-      </div>
+      <div id="users-body"></div>
+      <div id="users-paginacao" style="display:flex;align-items:center;justify-content:space-between;
+           padding:12px 16px;border-top:1px solid var(--n-100);flex-wrap:wrap;gap:8px"></div>
     </div>
   `
 
-  // Filtros
-  const filtrar = () => {
-    const q     = document.getElementById('busca-user').value.toLowerCase()
-    const perf  = document.getElementById('filtro-perfil').value
-    const filt  = lista.filter(u =>
-      (!q    || u.nome.toLowerCase().includes(q)) &&
-      (!perf || u.perfil === perf))
-    document.getElementById('users-body').innerHTML =
-      filt.map(u => userRowHTML(u, perfilCores)).join('') ||
+  const bindAcoes = (container) => {
+    container.querySelectorAll('.sa-btn-acao').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const { acao, id, nome, perfil } = btn.dataset
+        if (acao === 'reset')    abrirResetSenha(id, nome, btn.dataset.authid)
+        if (acao === 'vincular') abrirVincular(id, nome, perfil)
+        if (acao === 'editar')   abrirEditarUsuario(id)
+        if (acao === 'inativar') abrirInativar(id, nome)
+        if (acao === 'reativar') reativarUsuario(id, nome)
+      })
+    })
+  }
+
+  const renderPagina = () => {
+    const inicio   = (paginaAtualUsuarios - 1) * USUARIOS_POR_PAGINA
+    const fim      = inicio + USUARIOS_POR_PAGINA
+    const pagina   = listaUsuariosFiltrada.slice(inicio, fim)
+    const total    = listaUsuariosFiltrada.length
+    const totalPag = Math.ceil(total / USUARIOS_POR_PAGINA)
+
+    const usersBody = document.getElementById('users-body')
+    usersBody.innerHTML = pagina.map(u => userRowHTML(u, perfilCores)).join('') ||
       '<div class="panel-empty-sa">Nenhum usuário encontrado</div>'
+    bindAcoes(usersBody)
+
+    // Contador
+    document.getElementById('users-count').textContent =
+      `${total} resultado${total !== 1 ? 's' : ''}`
+
+    // Paginação
+    const pagEl = document.getElementById('users-paginacao')
+    if (totalPag <= 1) { pagEl.innerHTML = ''; return }
+
+    pagEl.innerHTML = ''
+
+    // Info
+    const info = document.createElement('span')
+    info.style.cssText = 'font-size:12px;color:var(--n-400)'
+    info.textContent   = `Página ${paginaAtualUsuarios} de ${totalPag} · ${total} usuários`
+    pagEl.appendChild(info)
+
+    // Botões
+    const btns = document.createElement('div')
+    btns.style.cssText = 'display:flex;gap:6px'
+
+    const mkBtn = (label, disabled, onClick) => {
+      const b = document.createElement('button')
+      b.textContent  = label
+      b.disabled     = disabled
+      b.style.cssText = `
+        padding:5px 12px;border-radius:var(--radius-md);
+        border:1.5px solid ${disabled ? 'var(--n-200)' : 'var(--p-300)'};
+        background:${disabled ? 'var(--n-50)' : 'var(--p-50)'};
+        color:${disabled ? 'var(--n-300)' : 'var(--p-700)'};
+        font-size:12px;font-weight:600;cursor:${disabled ? 'not-allowed' : 'pointer'};
+        font-family:var(--font-sans);transition:all .12s;
+      `
+      if (!disabled) b.addEventListener('click', onClick)
+      return b
+    }
+
+    btns.appendChild(mkBtn('← Anterior', paginaAtualUsuarios === 1, () => {
+      paginaAtualUsuarios--; renderPagina()
+    }))
+
+    // Páginas numeradas (máximo 5 visíveis)
+    const inicio2 = Math.max(1, paginaAtualUsuarios - 2)
+    const fim2    = Math.min(totalPag, inicio2 + 4)
+    for (let i = inicio2; i <= fim2; i++) {
+      const atual = i === paginaAtualUsuarios
+      const nb = mkBtn(String(i), false, () => { paginaAtualUsuarios = i; renderPagina() })
+      if (atual) {
+        nb.style.background   = 'var(--p-600)'
+        nb.style.color        = '#fff'
+        nb.style.borderColor  = 'var(--p-600)'
+        nb.style.cursor       = 'default'
+      }
+      btns.appendChild(nb)
+    }
+
+    btns.appendChild(mkBtn('Próxima →', paginaAtualUsuarios === totalPag, () => {
+      paginaAtualUsuarios++; renderPagina()
+    }))
+
+    pagEl.appendChild(btns)
+  }
+
+  renderPagina()
+
+  // Filtros — reseta para página 1 ao filtrar
+  const filtrar = () => {
+    const q    = document.getElementById('busca-user').value.toLowerCase()
+    const perf = document.getElementById('filtro-perfil').value
+    listaUsuariosFiltrada = lista.filter(u =>
+      (!q    || u.nome.toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)) &&
+      (!perf || u.perfil === perf))
+    paginaAtualUsuarios = 1
+    renderPagina()
   }
 
   document.getElementById('busca-user')?.addEventListener('input', filtrar)
@@ -263,24 +439,335 @@ function userRowHTML(u, cores) {
   const cfg      = cores[u.perfil] || { bg:'#F8FAFC', color:'#64748B' }
   const iniciais = u.nome.split(' ').map(n => n[0]).slice(0,2).join('')
   const condo    = u.condominios?.nome || '—'
-  const email    = u.email || '—'
   const isMe     = u.auth_id === usuarioLogado?.auth_id
+  const inativo  = u.status !== 'ativo'
+
+  const perfilLabel = {
+    superadmin: 'Super Admin',
+    sindico:    'Síndico',
+    porteiro:   'Porteiro',
+    morador:    'Morador',
+  }
+
   return `
-    <div class="panel-row-sa">
+    <div class="panel-row-sa" style="${inativo ? 'opacity:.55' : ''}">
       <div class="panel-avatar-sa" style="background:${cfg.bg};color:${cfg.color}">${iniciais}</div>
       <div class="panel-row-info-sa">
         <div class="panel-row-name-sa">${u.nome}</div>
-        <div class="panel-row-sub-sa">${email} · ${condo} · ${new Date(u.criado_em).toLocaleDateString('pt-BR')}</div>
+        <div class="panel-row-sub-sa">${u.email || '—'} · ${condo}</div>
       </div>
-      <span class="panel-row-badge-sa" style="background:${cfg.bg};color:${cfg.color}">${u.perfil}</span>
-      <span class="panel-row-badge-sa" style="background:${u.status==='ativo'?'#F0FDF4':'#F8FAFC'};color:${u.status==='ativo'?'#166534':'#94A3B8'}">${u.status}</span>
-      ${!isMe && u.auth_id ? `
-        <button onclick="abrirResetSenha('${u.id}','${u.nome}','${u.auth_id}')"
-          style="background:#FEF3C7;color:#92400E;border:none;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-sans);white-space:nowrap"
-          title="Resetar senha">
-          🔑 Reset
-        </button>` : ''}
+
+      <!-- Badge de perfil legível -->
+      <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;
+                   background:${cfg.bg};color:${cfg.color};white-space:nowrap;flex-shrink:0">
+        ${perfilLabel[u.perfil] || u.perfil}
+      </span>
+
+      <!-- Badge de status -->
+      <span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;
+                   background:${inativo ? '#F4F4F5' : '#F0FDF4'};
+                   color:${inativo ? '#A1A1AA' : '#166534'};
+                   white-space:nowrap;flex-shrink:0">
+        ${inativo ? 'Inativo' : 'Ativo'}
+      </span>
+
+      <!-- Ações (ocultas para o próprio usuário logado) -->
+      ${!isMe ? `
+        <div style="display:flex;gap:5px;flex-shrink:0">
+          <!-- Roxo: reset de senha -->
+          <button class="sa-btn-acao"
+                  data-acao="reset" data-id="${u.id}" data-nome="${u.nome.replace(/"/g,'&quot;')}" data-authid="${u.auth_id}"
+                  title="Resetar senha"
+                  style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
+                         background:#EDE9FE;color:#5B21B6;display:flex;align-items:center;
+                         justify-content:center;transition:background .12s;flex-shrink:0"
+                  onmouseenter="this.style.background='#DDD6FE'"
+                  onmouseleave="this.style.background='#EDE9FE'">
+            <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+                 style="width:13px;height:13px">
+              <rect x="3" y="11" width="18" height="11" rx="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </button>
+          <!-- Amarelo: vincular condomínios -->
+          <button class="sa-btn-acao"
+                  data-acao="vincular" data-id="${u.id}" data-nome="${u.nome.replace(/"/g,'&quot;')}" data-perfil="${u.perfil}"
+                  title="Vincular condomínios"
+                  style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
+                         background:#FEF3C7;color:#92400E;display:flex;align-items:center;
+                         justify-content:center;transition:background .12s;flex-shrink:0"
+                  onmouseenter="this.style.background='#FDE68A'"
+                  onmouseleave="this.style.background='#FEF3C7'">
+            <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+                 style="width:13px;height:13px">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+          </button>
+          <!-- Azul: visualizar / editar -->
+          <button class="sa-btn-acao"
+                  data-acao="editar" data-id="${u.id}"
+                  title="Visualizar / Editar perfil"
+                  style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
+                         background:#EFF6FF;color:#1D4ED8;display:flex;align-items:center;
+                         justify-content:center;transition:background .12s;flex-shrink:0"
+                  onmouseenter="this.style.background='#DBEAFE'"
+                  onmouseleave="this.style.background='#EFF6FF'">
+            <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+                 style="width:13px;height:13px">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </button>
+          <!-- Vermelho: inativar / Verde: reativar -->
+          ${!inativo ? `
+          <button class="sa-btn-acao"
+                  data-acao="inativar" data-id="${u.id}" data-nome="${u.nome.replace(/"/g,'&quot;')}"
+                  title="Inativar usuário"
+                  style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
+                         background:#FEF2F2;color:#DC2626;display:flex;align-items:center;
+                         justify-content:center;transition:background .12s;flex-shrink:0"
+                  onmouseenter="this.style.background='#FECACA'"
+                  onmouseleave="this.style.background='#FEF2F2'">
+            <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+                 style="width:13px;height:13px">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="15" y1="9" x2="9" y2="15" stroke-linecap="round"/>
+              <line x1="9" y1="9" x2="15" y2="15" stroke-linecap="round"/>
+            </svg>
+          </button>` : `
+          <button class="sa-btn-acao"
+                  data-acao="reativar" data-id="${u.id}" data-nome="${u.nome.replace(/"/g,'&quot;')}"
+                  title="Reativar usuário"
+                  style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
+                         background:#F0FDF4;color:#166534;display:flex;align-items:center;
+                         justify-content:center;transition:background .12s;flex-shrink:0"
+                  onmouseenter="this.style.background='#BBF7D0'"
+                  onmouseleave="this.style.background='#F0FDF4'">
+            <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+                 style="width:13px;height:13px">
+              <polyline points="23 4 23 10 17 10"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke-linecap="round"/>
+            </svg>
+          </button>`}
+        </div>` : ''}
     </div>`
+}
+
+// ── Vincular condomínios (amarelo) ────────────────────────────
+let vincularUsuarioId = null
+
+async function abrirVincular(userId, nome, perfil) {
+  vincularUsuarioId = userId
+  const perfilLabel = { superadmin:'Super Admin', sindico:'Síndico', porteiro:'Porteiro', morador:'Morador' }
+  const iniciais = nome.split(' ').map(n => n[0]).slice(0,2).join('')
+
+  document.getElementById('vinc-avatar').textContent  = iniciais
+  document.getElementById('vinc-nome').textContent    = nome
+  document.getElementById('vinc-perfil-label').textContent = perfilLabel[perfil] || perfil
+  document.getElementById('vinc-err').style.display   = 'none'
+
+  // Carrega condomínios já vinculados (tabela usuario_condominios)
+  const [{ data: vinculos }, { data: condos }] = await Promise.all([
+    db.from('usuario_condominios')
+      .select('condominio_id, condominios(nome)')
+      .eq('usuario_id', userId),
+    db.from('condominios')
+      .select('id, nome')
+      .eq('status', 'ativo')
+      .order('nome'),
+  ])
+
+  // Lista de vinculados
+  const listaEl = document.getElementById('vinc-lista')
+  const vincIds = new Set((vinculos || []).map(v => v.condominio_id))
+
+  if (!vinculos?.length) {
+    listaEl.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:var(--n-400)">Nenhum condomínio vinculado</div>'
+  } else {
+    listaEl.innerHTML = (vinculos || []).map((v, i) => {
+      const borda = i < vinculos.length - 1 ? 'border-bottom:1px solid var(--n-100);' : ''
+      return `
+        <div style="display:flex;align-items:center;justify-content:space-between;
+                    padding:9px 14px;${borda}">
+          <span style="font-size:13px;font-weight:600;color:var(--n-900)">${v.condominios?.nome || '—'}</span>
+          <button onclick="removerVinculo('${userId}','${v.condominio_id}', this)"
+                  style="font-size:11px;color:#DC2626;background:#FEF2F2;border:none;
+                         border-radius:6px;padding:3px 8px;cursor:pointer;font-family:var(--font-sans);
+                         font-weight:600">
+            Remover
+          </button>
+        </div>`
+    }).join('')
+  }
+
+  // Popula select com condos ainda não vinculados
+  const select = document.getElementById('vinc-select')
+  select.innerHTML = '<option value="">Selecione um condomínio...</option>' +
+    (condos || [])
+      .filter(c => !vincIds.has(c.id))
+      .map(c => `<option value="${c.id}">${c.nome}</option>`)
+      .join('')
+
+  document.getElementById('modal-vincular').classList.add('open')
+}
+
+async function salvarVinculo() {
+  const condoId = document.getElementById('vinc-select').value
+  limparErro('vinc-err')
+  if (!condoId) { mostrarErro('vinc-err', 'Selecione um condomínio.'); return }
+
+  const { error } = await db.from('usuario_condominios').insert({
+    usuario_id:    vincularUsuarioId,
+    condominio_id: condoId,
+  })
+
+  if (error) {
+    mostrarErro('vinc-err', 'Erro ao vincular. Tente novamente.')
+    return
+  }
+  // Reabre o modal com dados atualizados
+  const nome   = document.getElementById('vinc-nome').textContent
+  const perfil = document.getElementById('vinc-perfil-label').textContent
+  fecharModal()
+  setTimeout(() => abrirVincular(vincularUsuarioId, nome, perfil), 150)
+}
+
+async function removerVinculo(userId, condoId, btn) {
+  btn.disabled = true
+  btn.textContent = '...'
+  const { error } = await db.from('usuario_condominios')
+    .delete()
+    .eq('usuario_id', userId)
+    .eq('condominio_id', condoId)
+  if (!error) {
+    btn.closest('div').remove()
+  } else {
+    btn.disabled = false
+    btn.textContent = 'Remover'
+  }
+}
+
+// ── Editar perfil do usuário (azul) ──────────────────────────
+let editUsuarioId = null
+
+async function abrirEditarUsuario(userId) {
+  const { data: u } = await db
+    .from('usuarios')
+    .select('id, nome, email, telefone, perfil')
+    .eq('id', userId)
+    .single()
+
+  if (!u) return
+  editUsuarioId = userId
+
+  document.getElementById('edit-user-titulo').textContent = `Editar — ${u.nome}`
+  document.getElementById('edit-user-nome').value         = u.nome   || ''
+  document.getElementById('edit-user-email').value        = u.email  || ''
+  document.getElementById('edit-user-tel').value          = u.telefone || ''
+  document.getElementById('edit-user-perfil').value       = u.perfil || 'morador'
+  limparTodosErros('err-edit-user-nome', 'err-edit-user-email')
+  aplicarMascaraTelefone('edit-user-tel')
+
+  document.getElementById('modal-editar-usuario').classList.add('open')
+}
+
+async function salvarEdicaoUsuario() {
+  limparTodosErros('err-edit-user-nome', 'err-edit-user-email')
+  const nome   = document.getElementById('edit-user-nome').value.trim()
+  const email  = document.getElementById('edit-user-email').value.trim()
+  const tel    = document.getElementById('edit-user-tel').value.trim()
+  const perfil = document.getElementById('edit-user-perfil').value
+  let ok = true
+
+  if (!nome)                { mostrarErro('err-edit-user-nome',  'Informe o nome.'); ok = false }
+  if (!isEmailValido(email)){ mostrarErro('err-edit-user-email', 'E-mail inválido.'); ok = false }
+  if (!ok) return
+
+  const btn = document.getElementById('btn-salvar-edit-user')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
+  const { error } = await db
+    .from('usuarios')
+    .update({ nome, email, telefone: tel, perfil })
+    .eq('id', editUsuarioId)
+
+  if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar alterações' }
+
+  if (error) {
+    mostrarErro('err-edit-user-nome', 'Erro ao salvar. Tente novamente.')
+    return
+  }
+
+  fecharModal()
+  mostrarToast('Perfil atualizado com sucesso!')
+  // Se editou o próprio usuário logado, invalida o cache
+  if (editUsuarioId === usuarioLogado?.id) invalidarCacheUsuario()
+  registrarAudit({
+    acao:       'editar',
+    tabela:     'usuarios',
+    registroId: editUsuarioId,
+    descricao:  `Perfil de ${nome} editado`,
+    valorDepois: { nome, email, perfil },
+  })
+  renderTab(tabAtiva)
+}
+
+// ── Inativar usuário (vermelho) ───────────────────────────────
+let inativarUsuarioId   = null
+let inativarUsuarioNome = null
+
+function abrirInativar(userId, nome) {
+  inativarUsuarioId   = userId
+  inativarUsuarioNome = nome
+  document.getElementById('inativ-nome').textContent = nome
+  document.getElementById('modal-inativar').classList.add('open')
+}
+
+async function confirmarInativacao() {
+  const btn = document.getElementById('btn-confirmar-inativ')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
+  const { error } = await db
+    .from('usuarios')
+    .update({ status: 'inativo' })
+    .eq('id', inativarUsuarioId)
+
+  if (btn) { btn.disabled = false; btn.innerHTML = 'Inativar usuário' }
+
+  if (error) {
+    mostrarToast('Erro ao inativar. Tente novamente.', 'erro')
+    return
+  }
+
+  fecharModal()
+  mostrarToast(`${inativarUsuarioNome} foi inativado.`, 'aviso')
+  registrarAudit({
+    acao:       'inativar',
+    tabela:     'usuarios',
+    registroId: inativarUsuarioId,
+    descricao:  `Usuário ${inativarUsuarioNome} inativado`,
+    valorDepois: { status: 'inativo' },
+  })
+  renderTab(tabAtiva)
+}
+
+async function reativarUsuario(userId, nome) {
+  const { error } = await db
+    .from('usuarios')
+    .update({ status: 'ativo' })
+    .eq('id', userId)
+
+  if (error) { mostrarToast('Erro ao reativar. Tente novamente.', 'erro'); return }
+  mostrarToast(`${nome} foi reativado!`)
+  registrarAudit({
+    acao:       'reativar',
+    tabela:     'usuarios',
+    registroId: userId,
+    descricao:  `Usuário ${nome} reativado`,
+    valorDepois: { status: 'ativo' },
+  })
+  renderTab(tabAtiva)
 }
 
 // ── Reset de senha ────────────────────────────────────────────
@@ -292,6 +779,14 @@ function abrirResetSenha(userId, nome, authId) {
   resetUsuarioId   = userId
   resetUsuarioNome = nome
   resetAuthId      = authId
+
+  // Debug — confirma que auth_id chegou
+  console.log('[reset-senha] userId:', userId, '| auth_id:', authId, '| nome:', nome)
+
+  if (!authId || authId === 'undefined' || authId === 'null') {
+    mostrarToast('Este usuário não possui auth_id vinculado. Verifique o banco.', 'erro')
+    return
+  }
   document.getElementById('reset-nome').textContent = nome
   document.getElementById('reset-nova').value    = ''
   document.getElementById('reset-confirma').value = ''
@@ -316,97 +811,593 @@ async function salvarResetSenha(e) {
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
 
   try {
-    // Usa a Admin API do Supabase para atualizar a senha
-    const { error } = await db.auth.admin.updateUserById(resetAuthId, {
-      password: nova
-    })
+    // Usa fetch direto para ter controle total da resposta (invoke zera data em erros não-2xx)
+    // JWT do superadmin logado é enviado no header — a Edge Function valida quem está chamando
+    // Passa o auth_id do superadmin logado como solicitante — a Edge Function valida no banco
+    const resetResp = await fetch(
+      `${SUPABASE_URL}/functions/v1/reset-senha`,
+      {
+        method:  'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey':       SUPABASE_KEY,
+        },
+        body: JSON.stringify({
+          auth_id:              resetAuthId,
+          nova_senha:           nova,
+          solicitante_auth_id:  usuarioLogado.auth_id,
+        }),
+      }
+    )
 
-    if (error) {
-      // Fallback: atualiza via rpc se admin não disponível no frontend
-      mostrarErro('err-reset-nova', 'Erro: ' + error.message + '. Use o Supabase Dashboard para resetar.')
+    const resetResultado = await resetResp.json().catch(() => ({}))
+
+    if (!resetResp.ok) {
+      const msg = resetResultado?.error || 'Erro ao resetar senha.'
+      mostrarErro('err-reset-nova', msg)
       if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar nova senha' }
       return
     }
 
-    // Mostra sucesso
+    // Sucesso
     document.getElementById('reset-form').style.display      = 'none'
     document.getElementById('reset-resultado').style.display = 'block'
     document.getElementById('reset-resultado').innerHTML = `
       <div style="text-align:center;padding:16px 0">
-        <div style="width:56px;height:56px;background:#F0FDF4;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
-          <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="#16A34A" style="width:28px;height:28px">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+        <div style="width:56px;height:56px;background:#F0FDF4;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+          <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round"
+               stroke-linejoin="round" fill="none" stroke="#16A34A" style="width:28px;height:28px">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
           </svg>
         </div>
         <div style="font-size:16px;font-weight:700;color:var(--n-900);margin-bottom:6px">Senha alterada!</div>
-        <div style="font-size:13px;color:var(--n-500);margin-bottom:18px">A nova senha de <strong>${resetUsuarioNome}</strong> foi definida com sucesso.</div>
+        <div style="font-size:13px;color:var(--n-500);margin-bottom:18px">
+          A nova senha de <strong>${resetUsuarioNome}</strong> foi definida com sucesso.
+        </div>
         <button onclick="fecharModal()" class="ct-btn-primary" style="width:auto;padding:9px 24px">Fechar</button>
       </div>`
 
   } catch (err) {
-    console.error(err)
-    mostrarErro('err-reset-nova', 'Erro inesperado ao resetar senha.')
+    console.error('Erro inesperado ao resetar senha:', err)
+    mostrarErro('err-reset-nova', 'Erro inesperado. Tente novamente.')
     if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar nova senha' }
   }
 }
 
 // ── RELATÓRIOS ────────────────────────────────────────────────
 async function renderRelatorios(body) {
+  body.innerHTML = `<div style="text-align:center;padding:40px;color:var(--n-400)">Carregando relatórios...</div>`
+
+  const hoje      = new Date()
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString()
+
   const [condos, users, entregas] = await Promise.all([
-    db.from('condominios').select('id, nome, status, total_aptos'),
-    db.from('usuarios').select('id, perfil, status'),
-    db.from('entregas').select('id, status, recebido_em'),
+    db.from('condominios').select('id, nome, status, total_aptos, cidade, uf'),
+    db.from('usuarios').select('id, perfil, status, condominio_id'),
+    db.from('entregas').select('id, status, recebido_em, condominio_id'),
   ])
 
-  const condoData    = condos.data  || []
-  const userData     = users.data   || []
-  const entregaData  = entregas.data || []
+  const condoData   = condos.data   || []
+  const userData    = users.data    || []
+  const entregaData = entregas.data || []
 
-  const hoje     = new Date()
-  const mesAtual = hoje.getMonth()
-  const anoAtual = hoje.getFullYear()
-  const entMes   = entregaData.filter(e => {
-    const d = new Date(e.recebido_em)
-    return d.getMonth() === mesAtual && d.getFullYear() === anoAtual
-  })
+  const entMes  = entregaData.filter(e => e.recebido_em >= inicioMes)
+  const eAguar  = entregaData.filter(e => ['aguardando','notificado'].includes(e.status))
+  const eRetir  = entregaData.filter(e => e.status === 'retirado')
+
+  // Entregas por condomínio (top 5)
+  const entPorCondo = {}
+  entregaData.forEach(e => { entPorCondo[e.condominio_id] = (entPorCondo[e.condominio_id] || 0) + 1 })
+  const topCondos = condoData
+    .map(c => ({ ...c, totalEntregas: entPorCondo[c.id] || 0 }))
+    .sort((a, b) => b.totalEntregas - a.totalEntregas)
+    .slice(0, 5)
+
+  const maxEntregas = Math.max(...topCondos.map(c => c.totalEntregas), 1)
+
+  const bar = (v, max, color = 'var(--p-500)') =>
+    `<div style="height:8px;border-radius:99px;background:var(--n-100);overflow:hidden;margin-top:4px;flex:1">
+       <div style="height:100%;width:${Math.round(v/max*100)}%;background:${color};border-radius:99px;
+                   transition:width .4s ease"></div>
+     </div>`
 
   body.innerHTML = `
+    <!-- Stats globais -->
     <div class="stats-grid" style="margin-bottom:20px">
-      ${statCard(condoData.filter(c=>c.status==='ativo').length, 'Condomínios ativos', '#EDE9FE','#5B21B6', iconPredio())}
-      ${statCard(userData.filter(u=>u.perfil==='morador').length, 'Moradores', '#EFF6FF','#1D4ED8', iconPessoas())}
-      ${statCard(entMes.length, 'Entregas este mês', '#FEF3C7','#92400E', iconCaixa())}
-      ${statCard(entregaData.filter(e=>e.status==='aguardando').length, 'Pendentes agora', '#FEF2F2','#991B1B', iconAlerta())}
+      ${statCard(condoData.filter(c=>c.status==='ativo').length,   'Condomínios ativos',  '#EDE9FE','#5B21B6', iconPredio())}
+      ${statCard(userData.filter(u=>u.perfil==='morador').length,  'Moradores totais',    '#EFF6FF','#1D4ED8', iconPessoas())}
+      ${statCard(entMes.length,                                    'Entregas este mês',   '#FEF3C7','#92400E', iconCaixa())}
+      ${statCard(eAguar.length,                                    'Pendentes agora',     '#FEF2F2','#991B1B', iconAlerta())}
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+
+      <!-- Condomínios com mais entregas -->
       <div class="panel-card-sa">
-        <div class="panel-card-sa-head"><span class="panel-card-sa-title">Condomínios</span></div>
-        <div style="padding:4px 0">
-          ${condoData.map(c => `
-            <div class="panel-row-sa">
-              <div style="width:8px;height:8px;border-radius:50%;background:${c.status==='ativo'?'#34D399':'#F59E0B'};flex-shrink:0"></div>
-              <div class="panel-row-info-sa">
-                <div class="panel-row-name-sa">${c.nome}</div>
-                <div class="panel-row-sub-sa">${c.total_aptos} aptos</div>
+        <div class="panel-card-sa-head">
+          <span class="panel-card-sa-title">Condomínios — entregas totais</span>
+        </div>
+        <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+          ${topCondos.map(c => `
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px">
+                <span style="font-weight:600;color:var(--n-900)">${_escaparHTMLsa(c.nome)}</span>
+                <span style="color:var(--n-500)">${c.totalEntregas}</span>
               </div>
-              <span class="panel-row-badge-sa" style="background:${c.status==='ativo'?'#F0FDF4':'#FEF3C7'};color:${c.status==='ativo'?'#166534':'#92400E'}">${statusLabel(c.status)}</span>
-            </div>`).join('') || '<div class="panel-empty-sa">Nenhum condomínio</div>'}
+              <div style="display:flex;align-items:center;gap:8px">
+                ${bar(c.totalEntregas, maxEntregas)}
+              </div>
+            </div>`).join('') || '<div style="font-size:12px;color:var(--n-400)">Sem dados</div>'}
         </div>
       </div>
 
+      <!-- Usuários por perfil -->
       <div class="panel-card-sa">
-        <div class="panel-card-sa-head"><span class="panel-card-sa-title">Usuários por perfil</span></div>
-        <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
-          ${['superadmin','admin','porteiro','morador'].map(p => {
+        <div class="panel-card-sa-head">
+          <span class="panel-card-sa-title">Usuários por perfil</span>
+          <span style="font-size:11px;color:var(--n-400)">${userData.length} total</span>
+        </div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+          ${[
+            ['Super Admin', 'superadmin', '#EDE9FE','#5B21B6'],
+            ['Síndicos',    'sindico',    '#F3E8FF','#6D28D9'],
+            ['Porteiros',   'porteiro',   '#EFF6FF','#1D4ED8'],
+            ['Moradores',   'morador',    '#F0FDFA','#0F766E'],
+          ].map(([l, p, bg, c]) => {
             const qtd   = userData.filter(u => u.perfil === p).length
-            const total = userData.length || 1
-            const cores = { superadmin:['#EDE9FE','#5B21B6'], admin:['#F3E8FF','#6D28D9'], porteiro:['#EFF6FF','#1D4ED8'], morador:['#F0FDFA','#0F766E'] }
-            return statusBar(p.charAt(0).toUpperCase()+p.slice(1), qtd, total, cores[p][1], cores[p][0])
+            const ativos = userData.filter(u => u.perfil === p && u.status === 'ativo').length
+            return `
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
+                  <span style="font-weight:600;color:var(--n-900)">${l}</span>
+                  <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;
+                               background:${bg};color:${c}">${qtd}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  ${bar(ativos, qtd || 1, c)}
+                  <span style="font-size:11px;color:var(--n-400);white-space:nowrap">${ativos} ativos</span>
+                </div>
+              </div>`
           }).join('')}
         </div>
       </div>
     </div>
+
+    <!-- Resumo de condomínios -->
+    <div class="panel-card-sa">
+      <div class="panel-card-sa-head">
+        <span class="panel-card-sa-title">Todos os condomínios</span>
+        <span style="font-size:11px;color:var(--n-400)">${condoData.length} cadastrados</span>
+      </div>
+      <div>
+        ${condoData.map((c, i) => {
+          const moradores  = userData.filter(u => u.condominio_id === c.id && u.perfil === 'morador').length
+          const porteiros  = userData.filter(u => u.condominio_id === c.id && u.perfil === 'porteiro').length
+          const entTotal   = entPorCondo[c.id] || 0
+          const entPend    = entregaData.filter(e => e.condominio_id === c.id &&
+            ['aguardando','notificado'].includes(e.status)).length
+          const borda = i < condoData.length - 1 ? 'border-bottom:1px solid var(--n-100);' : ''
+          return `
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;${borda}">
+              <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;
+                          background:${c.status==='ativo'?'#34D399':'#F59E0B'}"></div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:600;color:var(--n-900)">${_escaparHTMLsa(c.nome)}</div>
+                <div style="font-size:11px;color:var(--n-500);margin-top:1px">
+                  ${_escaparHTMLsa(c.cidade)}/${_escaparHTMLsa(c.uf)} ·
+                  ${moradores} morador${moradores!==1?'es':''} ·
+                  ${porteiros} porteiro${porteiros!==1?'s':''}
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;flex-shrink:0">
+                <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;
+                             background:#FEF3C7;color:#92400E">${entPend} pendente${entPend!==1?'s':''}</span>
+                <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;
+                             background:var(--n-100);color:var(--n-600)">${entTotal} entrega${entTotal!==1?'s':''}</span>
+              </div>
+            </div>`
+        }).join('') || '<div class="panel-empty-sa">Nenhum condomínio cadastrado</div>'}
+      </div>
+    </div>
+
+    <!-- Resumo global -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px">
+      ${[
+        ['Total de entregas',     entregaData.length],
+        ['Retiradas com sucesso', eRetir.length],
+        ['Taxa de retirada',      entregaData.length ? Math.round(eRetir.length/entregaData.length*100)+'%' : '—'],
+        ['Aptos cadastrados',     condoData.reduce((s,c) => s + (c.total_aptos||0), 0)],
+      ].map(([l,v]) => `
+        <div style="background:var(--n-0);border:1px solid var(--n-200);
+                    border-radius:var(--radius-lg);padding:14px 16px">
+          <div style="font-size:22px;font-weight:700;color:var(--n-900)">${v}</div>
+          <div style="font-size:12px;color:var(--n-500);margin-top:3px">${l}</div>
+        </div>`).join('')}
+    </div>
   `
+}
+
+// ── ALERTAS DE ATUALIZAÇÃO ────────────────────────────────────
+async function renderAlertas(body) {
+  const { data: alertas } = await db
+    .from('alertas_sistema')
+    .select('id, versao, titulo, descricao, tipo, ativo, criado_em')
+    .order('criado_em', { ascending: false })
+
+  const lista = alertas || []
+
+  const TIPO_CFG = {
+    info:    { label: 'Atualização', bg: 'var(--p-100)',  color: 'var(--p-700)' },
+    aviso:   { label: 'Aviso',       bg: '#FEF3C7',       color: '#92400E'       },
+    critico: { label: 'Crítico',     bg: '#FEF2F2',       color: '#DC2626'       },
+  }
+
+  body.innerHTML = `
+    <div style="max-width:680px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--n-900)">Alertas de atualização</div>
+          <div style="font-size:12px;color:var(--n-500);margin-top:2px">
+            Gerencie os alertas exibidos a todos os usuários do sistema
+          </div>
+        </div>
+        <button id="btn-novo-alerta"
+                style="display:flex;align-items:center;gap:6px;
+                       background:var(--p-600);color:#fff;border:none;
+                       border-radius:var(--radius-md);padding:8px 16px;
+                       font-size:12px;font-weight:600;cursor:pointer;
+                       font-family:var(--font-sans);
+                       box-shadow:0 2px 8px rgba(124,58,237,.35);
+                       transition:background .15s">
+          <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" fill="none"
+               stroke="currentColor" style="width:13px;height:13px">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Novo alerta
+        </button>
+      </div>
+
+      ${lista.length === 0
+        ? `<div class="panel-card-sa" style="padding:40px;text-align:center;color:var(--n-400)">
+             Nenhum alerta criado ainda.
+           </div>`
+        : lista.map(a => {
+            const cfg  = TIPO_CFG[a.tipo] || TIPO_CFG.info
+            const data = new Date(a.criado_em).toLocaleDateString('pt-BR')
+            return `
+              <div class="panel-card-sa" style="margin-bottom:10px;${!a.ativo ? 'opacity:.55' : ''}">
+                <div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px">
+                  <div style="flex:1;min-width:0">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+                      <span style="font-size:14px;font-weight:700;color:var(--n-900)">${_escaparHTMLsa(a.titulo)}</span>
+                      <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;
+                                   background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>
+                      <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;
+                                   background:var(--p-50);color:var(--p-700)">v${_escaparHTMLsa(a.versao)}</span>
+                      ${!a.ativo
+                        ? `<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;
+                                        background:var(--n-100);color:var(--n-500)">Inativo</span>`
+                        : `<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;
+                                        background:#F0FDF4;color:#166534">Ativo</span>`}
+                    </div>
+                    <div style="font-size:12px;color:var(--n-500);line-height:1.5;
+                                white-space:pre-line;margin-bottom:6px">${_escaparHTMLsa(a.descricao)}</div>
+                    <div style="font-size:11px;color:var(--n-400)">Criado em ${data}</div>
+                  </div>
+                  <div style="display:flex;gap:6px;flex-shrink:0;margin-top:2px">
+                    <button data-alerta-preview="${a.id}"
+                            title="Visualizar pop-up"
+                            style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
+                                   background:var(--p-100);color:var(--p-700);display:flex;
+                                   align-items:center;justify-content:center">
+                      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+                           style="width:13px;height:13px">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    </button>
+                    <button data-alerta-toggle="${a.id}" data-ativo="${a.ativo}"
+                            title="${a.ativo ? 'Desativar' : 'Ativar'}"
+                            style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
+                                   background:${a.ativo ? '#FEF3C7' : '#F0FDF4'};
+                                   color:${a.ativo ? '#92400E' : '#166534'};display:flex;
+                                   align-items:center;justify-content:center">
+                      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+                           style="width:13px;height:13px">
+                        ${a.ativo
+                          ? '<path d="M18 6 6 18M6 6l12 12" stroke-linecap="round"/>'
+                          : '<polyline points="20 6 9 17 4 12"/>'}
+                      </svg>
+                    </button>
+                    <button data-alerta-del="${a.id}"
+                            title="Excluir alerta"
+                            style="width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;
+                                   background:#FEF2F2;color:#DC2626;display:flex;
+                                   align-items:center;justify-content:center">
+                      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
+                           style="width:13px;height:13px">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                        <path d="M10 11v6M14 11v6"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>`
+          }).join('')
+      }
+    </div>
+  `
+
+  // Bind botão novo alerta
+  document.getElementById('btn-novo-alerta')
+    ?.addEventListener('click', () => abrirModalAlerta())
+
+  // Bind ações dos alertas existentes
+  body.querySelectorAll('[data-alerta-preview]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const a = lista.find(x => x.id === btn.dataset.alertaPreview)
+      if (a) exibirAlerta(a, new Set(), () => {})
+    })
+  )
+  body.querySelectorAll('[data-alerta-toggle]').forEach(btn =>
+    btn.addEventListener('click', () =>
+      toggleAlerta(btn.dataset.alertaToggle, btn.dataset.ativo === 'true')
+    )
+  )
+  body.querySelectorAll('[data-alerta-del]').forEach(btn =>
+    btn.addEventListener('click', () => deletarAlerta(btn.dataset.alertaDel))
+  )
+}
+
+function _escaparHTMLsa(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
+// ── Modal novo alerta ─────────────────────────────────────────
+function abrirModalAlerta() {
+  document.getElementById('modal-alerta').classList.add('open')
+  document.getElementById('alerta-titulo').value   = ''
+  document.getElementById('alerta-versao').value   = ''
+  document.getElementById('alerta-tipo').value     = 'info'
+  document.getElementById('alerta-descricao').value= ''
+  limparTodosErros('err-alerta-titulo','err-alerta-versao','err-alerta-desc')
+}
+
+async function salvarAlerta() {
+  limparTodosErros('err-alerta-titulo','err-alerta-versao','err-alerta-desc')
+  const titulo    = document.getElementById('alerta-titulo').value.trim()
+  const versao    = document.getElementById('alerta-versao').value.trim()
+  const tipo      = document.getElementById('alerta-tipo').value
+  const descricao = document.getElementById('alerta-descricao').value.trim()
+  let ok = true
+
+  if (!titulo)    { mostrarErro('err-alerta-titulo', 'Informe o título.'); ok = false }
+  if (!versao)    { mostrarErro('err-alerta-versao', 'Informe a versão (ex: 1.2.0).'); ok = false }
+  if (!descricao) { mostrarErro('err-alerta-desc',   'Informe a descrição.'); ok = false }
+  if (!ok) return
+
+  const btn = document.getElementById('btn-salvar-alerta')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
+
+  const { error } = await db.from('alertas_sistema').insert({
+    titulo, versao, tipo, descricao,
+    ativo:      true,
+    criado_por: usuarioLogado.id,
+  })
+
+  if (btn) { btn.disabled = false; btn.innerHTML = 'Publicar alerta' }
+
+  if (error) {
+    mostrarErro('err-alerta-titulo', 'Erro ao criar alerta. Tente novamente.')
+    return
+  }
+
+  fecharModal()
+  mostrarToast('Alerta publicado! Todos os usuários verão ao entrar.')
+  mudarTab('alertas')
+}
+
+async function toggleAlerta(id, ativoAtual) {
+  const { error } = await db
+    .from('alertas_sistema')
+    .update({ ativo: !ativoAtual })
+    .eq('id', id)
+
+  if (error) { mostrarToast('Erro ao atualizar alerta.', 'erro'); return }
+  mostrarToast(ativoAtual ? 'Alerta desativado.' : 'Alerta ativado!', ativoAtual ? 'aviso' : 'sucesso')
+  mudarTab('alertas')
+}
+
+async function deletarAlerta(id) {
+  if (!confirm('Excluir este alerta permanentemente?')) return
+  const { error } = await db.from('alertas_sistema').delete().eq('id', id)
+  if (error) { mostrarToast('Erro ao excluir alerta.', 'erro'); return }
+  mostrarToast('Alerta excluído.')
+  mudarTab('alertas')
+}
+
+// ── AUDIT LOG ────────────────────────────────────────────────
+const AUDIT_POR_PAGINA = 25
+let paginaAudit = 1
+let totalAudit  = 0
+
+async function renderAuditLog(body) {
+  paginaAudit = 1
+  body.innerHTML = `<div style="text-align:center;padding:40px;color:var(--n-400)">Carregando logs...</div>`
+  await carregarPaginaAudit(body)
+}
+
+async function carregarPaginaAudit(body, acao = '', busca = '') {
+  const offset = (paginaAudit - 1) * AUDIT_POR_PAGINA
+
+  let query = db
+    .from('audit_log')
+    .select('*', { count: 'exact' })
+    .order('criado_em', { ascending: false })
+    .range(offset, offset + AUDIT_POR_PAGINA - 1)
+
+  if (acao)  query = query.eq('acao', acao)
+  if (busca) query = query.ilike('descricao', `%${busca}%`)
+
+  const { data: logs, count, error } = await query
+
+  if (error) {
+    body.innerHTML = `<div style="text-align:center;padding:40px;color:var(--c-danger)">Erro ao carregar logs.</div>`
+    return
+  }
+
+  totalAudit = count || 0
+  const totalPag = Math.ceil(totalAudit / AUDIT_POR_PAGINA)
+  const lista    = logs || []
+
+  const ACAO_CFG = {
+    login_sucesso: { label: 'Login',      bg: '#F0FDF4', color: '#166534', icon: '→' },
+    login_falha:   { label: 'Login falha',bg: '#FEF2F2', color: '#991B1B', icon: '✕' },
+    logout:        { label: 'Logout',     bg: '#F5F5F5', color: '#737373', icon: '←' },
+    criar:         { label: 'Criação',    bg: '#EFF6FF', color: '#1D4ED8', icon: '+' },
+    editar:        { label: 'Edição',     bg: '#FEF3C7', color: '#92400E', icon: '✎' },
+    inativar:      { label: 'Inativação', bg: '#FEF2F2', color: '#DC2626', icon: '○' },
+    reativar:      { label: 'Reativação', bg: '#F0FDF4', color: '#166534', icon: '●' },
+    deletar:       { label: 'Exclusão',   bg: '#FEF2F2', color: '#991B1B', icon: '✕' },
+  }
+
+  body.innerHTML = `
+    <div style="max-width:900px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--n-900)">Audit Log</div>
+          <div style="font-size:12px;color:var(--n-500);margin-top:2px">
+            Histórico completo de ações no sistema · ${totalAudit} registros
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <input class="search-box" type="text" id="audit-busca"
+               placeholder="Buscar na descrição..." style="flex:1;min-width:200px" />
+        <select class="search-box" id="audit-acao" style="flex:none;width:160px">
+          <option value="">Todas as ações</option>
+          <option value="login_sucesso">Login</option>
+          <option value="login_falha">Login falha</option>
+          <option value="logout">Logout</option>
+          <option value="criar">Criação</option>
+          <option value="editar">Edição</option>
+          <option value="inativar">Inativação</option>
+          <option value="reativar">Reativação</option>
+          <option value="deletar">Exclusão</option>
+        </select>
+      </div>
+
+      <!-- Lista -->
+      <div class="panel-card-sa" id="audit-lista" style="margin-bottom:12px">
+        ${lista.length === 0
+          ? '<div class="panel-empty-sa" style="padding:32px">Nenhum registro encontrado</div>'
+          : lista.map((l, i) => {
+              const cfg  = ACAO_CFG[l.acao] || { label: l.acao, bg:'#F5F5F5', color:'#737373', icon:'•' }
+              const data = new Date(l.criado_em).toLocaleString('pt-BR', {
+                day:'2-digit', month:'2-digit', year:'2-digit',
+                hour:'2-digit', minute:'2-digit'
+              })
+              const borda = i < lista.length - 1 ? 'border-bottom:1px solid var(--n-100);' : ''
+              return `
+                <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 16px;${borda}">
+                  <span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;
+                               background:${cfg.bg};color:${cfg.color};flex-shrink:0;margin-top:1px">
+                    ${cfg.label}
+                  </span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:13px;font-weight:600;color:var(--n-900)">
+                      ${_escaparHTMLsa(l.descricao || l.acao)}
+                    </div>
+                    <div style="font-size:11px;color:var(--n-500);margin-top:2px;display:flex;gap:10px;flex-wrap:wrap">
+                      ${l.usuario_nome
+                        ? `<span>👤 ${_escaparHTMLsa(l.usuario_nome)} (${l.usuario_perfil || '—'})</span>`
+                        : '<span style="color:var(--n-300)">Anônimo</span>'}
+                      ${l.tabela ? `<span>🗄 ${l.tabela}</span>` : ''}
+                      <span>🕐 ${data}</span>
+                    </div>
+                  </div>
+                </div>`
+            }).join('')}
+      </div>
+
+      <!-- Paginação -->
+      ${totalPag > 1 ? `
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <span style="font-size:12px;color:var(--n-400)">
+            Página ${paginaAudit} de ${totalPag} · ${totalAudit} registros
+          </span>
+          <div style="display:flex;gap:6px" id="audit-pagbtns"></div>
+        </div>` : ''}
+    </div>
+  `
+
+  // Bind filtros
+  let timerBusca = null
+  const filtrar = () => {
+    clearTimeout(timerBusca)
+    timerBusca = setTimeout(() => {
+      paginaAudit = 1
+      carregarPaginaAudit(
+        body,
+        document.getElementById('audit-acao')?.value  || '',
+        document.getElementById('audit-busca')?.value || '',
+      )
+    }, 350)
+  }
+  document.getElementById('audit-busca')?.addEventListener('input', filtrar)
+  document.getElementById('audit-acao')?.addEventListener('change', () => {
+    paginaAudit = 1
+    carregarPaginaAudit(
+      body,
+      document.getElementById('audit-acao')?.value  || '',
+      document.getElementById('audit-busca')?.value || '',
+    )
+  })
+
+  // Bind paginação
+  const pagBtns = document.getElementById('audit-pagbtns')
+  if (pagBtns) {
+    const mkBtn = (label, disabled, onClick) => {
+      const b = document.createElement('button')
+      b.textContent   = label
+      b.disabled      = disabled
+      b.style.cssText = `
+        padding:5px 12px;border-radius:var(--radius-md);
+        border:1.5px solid ${disabled ? 'var(--n-200)' : 'var(--p-300)'};
+        background:${disabled ? 'var(--n-50)' : 'var(--p-50)'};
+        color:${disabled ? 'var(--n-300)' : 'var(--p-700)'};
+        font-size:12px;font-weight:600;
+        cursor:${disabled ? 'not-allowed' : 'pointer'};
+        font-family:var(--font-sans);
+      `
+      if (!disabled) b.addEventListener('click', onClick)
+      return b
+    }
+
+    pagBtns.appendChild(mkBtn('← Anterior', paginaAudit === 1, () => {
+      paginaAudit--
+      carregarPaginaAudit(
+        body,
+        document.getElementById('audit-acao')?.value  || '',
+        document.getElementById('audit-busca')?.value || '',
+      )
+    }))
+    pagBtns.appendChild(mkBtn('Próxima →', paginaAudit >= totalPag, () => {
+      paginaAudit++
+      carregarPaginaAudit(
+        body,
+        document.getElementById('audit-acao')?.value  || '',
+        document.getElementById('audit-busca')?.value || '',
+      )
+    }))
+  }
 }
 
 // ── EQUIPE INTERNA ────────────────────────────────────────────
@@ -556,248 +1547,48 @@ async function salvarSuperAdmin(e) {
   }
 }
 
+// ── Toast de feedback ─────────────────────────────────────────
+function mostrarToast(msg, tipo = 'sucesso') {
+  const cores = {
+    sucesso: { bg: '#F0FDF4', border: '#BBF7D0', color: '#166534', icon: '✓' },
+    erro:    { bg: '#FEF2F2', border: '#FECACA', color: '#991B1B', icon: '✕' },
+    aviso:   { bg: '#FFFBEB', border: '#FDE68A', color: '#92400E', icon: '!' },
+  }
+  const c = cores[tipo] || cores.sucesso
+  const toast = document.createElement('div')
+  toast.style.cssText = `
+    position:fixed;bottom:24px;right:24px;z-index:9999;
+    background:${c.bg};border:1.5px solid ${c.border};color:${c.color};
+    padding:12px 18px;border-radius:var(--radius-md);
+    font-size:13px;font-weight:600;font-family:var(--font-sans);
+    display:flex;align-items:center;gap:8px;
+    box-shadow:0 4px 16px rgba(0,0,0,.12);
+    animation:fadeUp .2s ease both;
+  `
+  toast.innerHTML = `<span>${c.icon}</span><span>${msg}</span>`
+  document.body.appendChild(toast)
+  setTimeout(() => toast.remove(), 3000)
+}
+
 // ── Modal: novo/editar condomínio ─────────────────────────────
-// ── Confirmar ação crítica ─────────────────────────────────────
-function confirmarAcao(tipo, condoId, condoNome) {
-  const cfg = {
-    bloquear: {
-      titulo:  'Bloquear condomínio',
-      msg:     `O condomínio <strong>${condoNome}</strong> será bloqueado. Os usuários não conseguirão fazer login até ser reativado.`,
-      btn:     'Bloquear',
-      estilo:  'background:#FEF3C7;color:#92400E;border:none',
-    },
-    ativar: {
-      titulo:  'Reativar condomínio',
-      msg:     `O condomínio <strong>${condoNome}</strong> será reativado e os usuários poderão fazer login novamente.`,
-      btn:     'Reativar',
-      estilo:  'background:var(--p-600);color:#fff;border:none',
-    },
-    excluir: {
-      titulo:  'Excluir condomínio',
-      msg:     `<span style="color:#991B1B;font-weight:700">Atenção: esta ação é irreversível!</span><br><br>
-                O condomínio <strong>${condoNome}</strong> e todos os seus dados
-                (moradores, porteiros, apartamentos e entregas) serão excluídos permanentemente.`,
-      btn:     'Excluir permanentemente',
-      estilo:  'background:#DC2626;color:#fff;border:none',
-    },
-  }
-
-  const c = cfg[tipo]
-  if (!c) return
-
-  // Reutiliza o modal de detalhe como modal de confirmação
-  document.getElementById('modal-detalhe').classList.add('open')
-  document.getElementById('modal-detalhe').querySelector('.modal').innerHTML = `
-    <div class="modal-header">
-      <div class="modal-title">${c.titulo}</div>
-      <button class="modal-close" onclick="fecharModal()">
-        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      </button>
-    </div>
-    <p style="font-size:13px;color:var(--n-600);line-height:1.7;margin-bottom:20px">${c.msg}</p>
-    <div class="modal-actions">
-      <button class="ct-btn-ghost" onclick="fecharModal()">Cancelar</button>
-      <button id="btn-confirmar-acao" style="${c.estilo};padding:10px 20px;border-radius:var(--radius-md);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-sans)"
-        onclick="executarAcao('${tipo}','${condoId}')">
-        ${c.btn}
-      </button>
-    </div>
-  `
-}
-
-async function executarAcao(tipo, condoId) {
-  const btn = document.getElementById('btn-confirmar-acao')
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner" style="border-top-color:#fff"></span>' }
-
-  try {
-    if (tipo === 'bloquear') {
-      await db.from('condominios').update({ status: 'inativo' }).eq('id', condoId)
-
-    } else if (tipo === 'ativar') {
-      await db.from('condominios').update({ status: 'ativo' }).eq('id', condoId)
-
-    } else if (tipo === 'excluir') {
-      // A cascade do banco cuida de apagar apartamentos e entregas vinculados
-      await db.from('condominios').delete().eq('id', condoId)
-    }
-
-    fecharModal()
-    mudarTab(tabAtiva)
-
-  } catch (err) {
-    console.error(err)
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Tentar novamente' }
-  }
-}
-
-// ── Modal: senha temporária do síndico ───────────────────────
-function mostrarSenhaSindico(nomeSindico, email, senha, nomeCondo) {
-  // Reutiliza o modal de detalhe
-  const modal = document.getElementById('modal-detalhe')
-  modal.querySelector('.modal').innerHTML = `
-    <div class="modal-header">
-      <div class="modal-title">Condomínio criado! 🎉</div>
-    </div>
-
-    <div style="background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:var(--radius-md);
-                padding:14px 16px;margin-bottom:18px;display:flex;align-items:flex-start;gap:10px">
-      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="#16A34A"
-           style="width:18px;height:18px;flex-shrink:0;margin-top:1px">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-        <polyline points="22 4 12 14.01 9 11.01"/>
-      </svg>
-      <div>
-        <div style="font-size:13px;font-weight:700;color:#166534;margin-bottom:2px">
-          ${nomeCondo} criado com sucesso!
-        </div>
-        <div style="font-size:12px;color:#15803D;line-height:1.5">
-          O síndico já pode acessar o painel com as credenciais abaixo.
-        </div>
-      </div>
-    </div>
-
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
-                color:var(--n-400);margin-bottom:10px">Credenciais de acesso do síndico</div>
-
-    <div style="background:var(--n-50);border:1px solid var(--n-200);border-radius:var(--radius-md);
-                padding:14px 16px;margin-bottom:18px">
-      ${[
-        ['Síndico', nomeSindico],
-        ['E-mail',  email],
-      ].map(([l, v]) => `
-        <div style="display:flex;justify-content:space-between;align-items:center;
-                    padding:7px 0;border-bottom:1px solid var(--n-100)">
-          <span style="font-size:12px;color:var(--n-500)">${l}</span>
-          <span style="font-size:13px;font-weight:600;color:var(--n-900)">${v}</span>
-        </div>`).join('')}
-
-      <!-- Senha destacada -->
-      <div style="padding:10px 0 2px">
-        <div style="font-size:12px;color:var(--n-500);margin-bottom:6px">Senha temporária</div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div id="senha-temp-box" style="flex:1;background:var(--p-50);border:1.5px solid var(--p-300);
-               border-radius:var(--radius-md);padding:10px 14px;font-size:16px;font-weight:700;
-               color:var(--p-800);letter-spacing:.1em;font-family:monospace">
-            ${senha}
-          </div>
-          <button onclick="copiarSenha('${senha}')" id="btn-copiar"
-            style="background:var(--p-600);color:#fff;border:none;border-radius:var(--radius-md);
-                   padding:10px 14px;font-size:12px;font-weight:600;cursor:pointer;
-                   font-family:var(--font-sans);white-space:nowrap;transition:background .12s"
-            onmouseenter="this.style.background='var(--p-700)'"
-            onmouseleave="this.style.background='var(--p-600)'">
-            Copiar
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:var(--radius-md);
-                padding:10px 14px;font-size:12px;color:#92400E;margin-bottom:20px;
-                display:flex;gap:8px;align-items:flex-start">
-      <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="#92400E"
-           style="width:14px;height:14px;flex-shrink:0;margin-top:1px">
-        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-      </svg>
-      Anote ou copie a senha agora. Por segurança ela não será exibida novamente.
-    </div>
-
-    <div class="modal-actions">
-      <button class="ct-btn-ghost" onclick="fecharModal();mudarTab(tabAtiva)">Fechar</button>
-      <button class="ct-btn-primary" onclick="copiarTudo(this)" data-email="${email}" data-senha="${senha}" data-sindico="${nomeSindico}" data-condo="${nomeCondo}" style="flex:2">
-        <svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor"
-             style="width:14px;height:14px" stroke-linecap="round">
-          <rect x="9" y="9" width="13" height="13" rx="2"/>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-        </svg>
-        Copiar e-mail + senha
-      </button>
-    </div>
-  `
-  modal.classList.add('open')
-}
-
-function copiarSenha(senha) {
-  navigator.clipboard.writeText(senha).then(() => {
-    const btn = document.getElementById('btn-copiar')
-    if (btn) {
-      btn.textContent = '✓ Copiado!'
-      btn.style.background = '#16A34A'
-      setTimeout(() => {
-        btn.textContent = 'Copiar'
-        btn.style.background = 'var(--p-600)'
-      }, 2000)
-    }
-  })
-}
-
-function copiarTudo(btn) {
-  const email       = btn.dataset.email
-  const senha       = btn.dataset.senha
-  const nomeSindico = btn.dataset.sindico
-  const nomeCondo   = btn.dataset.condo
-
-  const texto = `Olá, ${nomeSindico}! 👋
-
-Seu acesso ao CondoTrack foi criado com sucesso.
-
-🏢 Condomínio: ${nomeCondo}
-📧 E-mail: ${email}
-🔑 Senha temporária: ${senha}
-
-🔗 Acesse agora: ${window.location.origin}/pages/login.html
-
-⚠️ Por segurança, recomendamos alterar sua senha no primeiro acesso.
-
-Qualquer dúvida, entre em contato com o administrador.
-— CondoTrack`
-
-  navigator.clipboard.writeText(texto).then(() => {
-    btn.innerHTML = `<svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:14px;height:14px" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Copiado!`
-    btn.style.background = '#16A34A'
-    setTimeout(() => {
-      btn.innerHTML = `<svg viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" style="width:14px;height:14px" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copiar e-mail + senha`
-      btn.style.background = 'var(--p-600)'
-    }, 2000)
-  })
-}
-
-// ── Gera apartamentos automaticamente ────────────────────────
-async function gerarApartamentos(condoId, numBlocos, totalAptos) {
-  const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  const aptosPorBloco = Math.ceil(totalAptos / numBlocos)
-  const andares       = Math.ceil(aptosPorBloco / 4) // 4 aptos por andar por padrão
-  const aptosPorAndar = Math.ceil(aptosPorBloco / andares)
-
-  const lista = []
-  for (let b = 0; b < numBlocos; b++) {
-    const bloco = LETRAS[b]
-    for (let a = 1; a <= andares; a++) {
-      for (let u = 1; u <= aptosPorAndar; u++) {
-        const numero = String(a).padStart(1, '0') + String(u).padStart(2, '0')
-        lista.push({ condominio_id: condoId, bloco, numero, status: 'disponivel' })
-        if (lista.length >= totalAptos) break
-      }
-      if (lista.length >= totalAptos) break
-    }
-    if (lista.length >= totalAptos) break
-  }
-
-  // Insere em lotes de 50
-  for (let i = 0; i < lista.length; i += 50) {
-    await db.from('apartamentos').insert(lista.slice(i, i + 50))
-  }
+function acessarPainelCondo(condoId, condoNome) {
+  sessionStorage.setItem('sa_impersonate_condo_id',   condoId)
+  sessionStorage.setItem('sa_impersonate_condo_nome', condoNome)
+  window.location.href = 'admin.html'
 }
 
 function abrirModalNovo() {
   condominioEditando = null
   document.getElementById('modal-title').textContent = 'Novo condomínio'
   document.getElementById('form-condo').reset()
-  limparTodosErros('err-nome-c','err-end-c','err-sindico','err-email-s')
+  limparTodosErros('err-nome-c','err-end-c','err-sindico','err-email-s','err-cnpj')
   document.getElementById('modal-condo').classList.add('open')
+  // Reseta modo após abrir para garantir que os elementos existem no DOM
+  setTimeout(() => {
+    alternarModoApto('auto')
+    const preview = document.getElementById('preview-aptos')
+    if (preview) preview.style.display = 'none'
+  }, 50)
 }
 
 async function editarCondo(id) {
@@ -815,7 +1606,26 @@ async function editarCondo(id) {
   document.getElementById('modal-condo').classList.add('open')
 }
 
-function abrirModalSA() { mudarTab('equipe') }
+async function abrirModalSA() {
+  // Se já está na aba equipe, só rola até o formulário
+  if (tabAtiva === 'equipe') {
+    const form = document.getElementById('form-sa')
+    if (form) {
+      form.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setTimeout(() => document.getElementById('sa-nome')?.focus(), 350)
+    }
+    return
+  }
+  // Caso contrário, navega para a aba e depois foca
+  await mudarTab('equipe')
+  setTimeout(() => {
+    const form = document.getElementById('form-sa')
+    if (form) {
+      form.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      document.getElementById('sa-nome')?.focus()
+    }
+  }, 150)
+}
 
 function fecharModal() {
   document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open'))
@@ -823,14 +1633,16 @@ function fecharModal() {
 
 async function salvarCondo(e) {
   e.preventDefault()
-  limparTodosErros('err-nome-c','err-end-c','err-sindico','err-email-s')
+  limparTodosErros('err-nome-c','err-end-c','err-sindico','err-email-s','err-cnpj')
 
   const nome    = document.getElementById('c-nome').value.trim()
+  const cnpj    = document.getElementById('c-cnpj')?.value.trim() || ''
+  const razao   = document.getElementById('c-razao')?.value.trim() || ''
   const end     = document.getElementById('c-end').value.trim()
   const cidade  = document.getElementById('c-cidade').value.trim()
   const uf      = document.getElementById('c-uf').value.trim()
   const cep     = document.getElementById('c-cep').value.trim()
-  const blocos  = parseInt(document.getElementById('c-blocos').value) || 1
+  const torres  = parseInt(document.getElementById('c-blocos').value) || 1
   const aptos   = parseInt(document.getElementById('c-aptos').value)  || 0
   const sindico = document.getElementById('c-sindico')?.value.trim() || ''
   const emailS  = document.getElementById('c-email-s')?.value.trim() || ''
@@ -838,72 +1650,85 @@ async function salvarCondo(e) {
   let ok = true
   if (!nome) { mostrarErro('err-nome-c', 'Informe o nome.'); ok = false }
   if (!end)  { mostrarErro('err-end-c',  'Informe o endereço.'); ok = false }
-  if (!condominioEditando && !sindico)               { mostrarErro('err-sindico', 'Informe o síndico.'); ok = false }
+  if (!condominioEditando && !sindico)               { mostrarErro('err-sindico',  'Informe o síndico.'); ok = false }
   if (!condominioEditando && !isEmailValido(emailS)) { mostrarErro('err-email-s', 'E-mail inválido.'); ok = false }
   if (!ok) return
 
-  const btn = e.submitter
+  const btn = document.querySelector('#modal-condo .ct-btn-primary[type="submit"]')
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' }
 
   try {
     if (condominioEditando) {
-      // Apenas atualiza os dados do condomínio
-      await db.from('condominios')
-        .update({ nome, endereco: end, cidade, uf, cep, blocos, total_aptos: aptos })
-        .eq('id', condominioEditando)
-
+      await db.from('condominios').update({
+        nome, cnpj: cnpj || null, razao_social: razao || null,
+        endereco: end, cidade, uf, cep, blocos: torres, total_aptos: aptos
+      }).eq('id', condominioEditando)
     } else {
-      // 1. Gera senha temporária para o síndico
-      const senhaTemp = Math.random().toString(36).slice(-8) + 'Aa1!'
-
-      // 2. Cria o condomínio primeiro (status pendente até síndico ser criado)
-      const { data: condoData, error: condoError } = await db
+      // Cria o condomínio
+      const { data: novoCondo, error: errCondo } = await db
         .from('condominios')
-        .insert({ nome, endereco: end, cidade, uf, cep, blocos, total_aptos: aptos, status: 'pendente' })
-        .select('id')
-        .single()
+        .insert({
+          nome, cnpj: cnpj || null, razao_social: razao || null,
+          endereco: end, cidade, uf, cep,
+          blocos: torres, total_aptos: aptos, status: 'ativo'
+        })
+        .select('id').single()
 
-      if (condoError || !condoData) {
+      if (errCondo || !novoCondo) {
         mostrarErro('err-nome-c', 'Erro ao criar condomínio.')
         if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar condomínio' }
         return
       }
 
-      // 3. Chama a Edge Function para criar o síndico sem confirmação de e-mail
-      const { data: fnData, error: fnError } = await db.functions.invoke('criar-sindico', {
-        body: {
-          nome:          sindico,
-          email:         emailS,
-          senha:         senhaTemp,
-          condominio_id: condoData.id,
-        },
+      const condoId = novoCondo.id
+
+      // Gera apartamentos conforme modo selecionado
+      let listaAptos = []
+
+      if (modoApto === 'auto') {
+        const andares    = parseInt(document.getElementById('c-andares')?.value) || 0
+        const porAndar   = parseInt(document.getElementById('c-aptos-andar')?.value) || 0
+        const numInicial = parseInt(document.getElementById('c-num-inicial')?.value) ?? 1
+        const formato    = document.getElementById('c-formato')?.value || 'numerico'
+        if (andares && porAndar) {
+          listaAptos = gerarListaAptos(torres, andares, porAndar, numInicial, formato)
+        }
+      } else {
+        const texto = document.getElementById('c-lista-aptos')?.value || ''
+        const nums  = texto.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
+        listaAptos  = nums.map(n => ({ bloco: 'A', numero: n }))
+      }
+
+      // Insere apartamentos em lotes de 50
+      if (listaAptos.length > 0) {
+        const rows = listaAptos.map(a => ({
+          condominio_id: condoId,
+          numero: a.numero,
+          bloco:  a.bloco,
+          status: 'disponivel',
+        }))
+        for (let i = 0; i < rows.length; i += 50) {
+          await db.from('apartamentos').insert(rows.slice(i, i + 50))
+        }
+      }
+
+      // Cria o síndico com status pendente para completar o cadastro
+      await db.from('usuarios').insert({
+        condominio_id: condoId,
+        perfil:        'sindico',
+        nome:          sindico,
+        email:         emailS,
+        status:        'pendente',
       })
-
-      if (fnError || !fnData?.ok) {
-        // Remove o condomínio criado se o síndico falhou
-        await db.from('condominios').delete().eq('id', condoData.id)
-        mostrarErro('err-email-s', fnData?.error || 'Erro ao criar síndico.')
-        if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar condomínio' }
-        return
-      }
-
-      // 4. Gera os apartamentos automaticamente
-      if (aptos > 0 && blocos > 0) {
-        await gerarApartamentos(condoData.id, blocos, aptos)
-      }
-
-      // 5. Exibe modal com a senha temporária do síndico
-      fecharModal()
-      mostrarSenhaSindico(sindico, emailS, senhaTemp, nome)
-      return
     }
 
     fecharModal()
     mudarTab(tabAtiva)
 
   } catch (err) {
-    console.error(err)
+    console.error('Erro ao salvar condomínio:', err)
     mostrarErro('err-nome-c', 'Erro inesperado. Tente novamente.')
+  } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar condomínio' }
   }
 }
@@ -919,11 +1744,40 @@ async function abrirDetalhe(id) {
   document.getElementById('det-end').textContent    = `${c.endereco}, ${c.cidade} — ${c.uf}`
   document.getElementById('det-blocos').textContent = c.blocos
   document.getElementById('det-aptos').textContent  = c.total_aptos
-  document.getElementById('det-sindico').textContent = '—'
-  document.getElementById('det-email').textContent  = '—'
-  document.getElementById('det-mord').textContent   = '—'
-  document.getElementById('det-port').textContent   = '—'
+
+  // Valores provisórios enquanto carrega
+  document.getElementById('det-sindico').textContent = '...'
+  document.getElementById('det-email').textContent   = '...'
+  document.getElementById('det-mord').textContent    = '...'
+  document.getElementById('det-port').textContent    = '...'
+
   document.getElementById('modal-detalhe').classList.add('open')
+
+  // Busca síndico, moradores e porteiros em paralelo
+  const [sindRes, usersRes] = await Promise.all([
+    db.from('usuarios')
+      .select('nome, email')
+      .eq('condominio_id', id)
+      .eq('perfil', 'sindico')
+      .limit(1)
+      .single(),
+    db.from('usuarios')
+      .select('perfil', { count: 'exact' })
+      .eq('condominio_id', id)
+      .in('perfil', ['morador', 'porteiro']),
+  ])
+
+  const sindico  = sindRes.data
+  const usuarios = usersRes.data || []
+
+  document.getElementById('det-sindico').textContent =
+    sindico?.nome  || '—'
+  document.getElementById('det-email').textContent   =
+    sindico?.email || '—'
+  document.getElementById('det-mord').textContent    =
+    usuarios.filter(u => u.perfil === 'morador').length
+  document.getElementById('det-port').textContent    =
+    usuarios.filter(u => u.perfil === 'porteiro').length
 }
 
 // ── Helpers visuais ───────────────────────────────────────────
@@ -979,6 +1833,111 @@ function ativarSidebar(item) {
   item.classList.add('active')
 }
 
+// ── Configuração de apartamentos ─────────────────────────────
+let modoApto = 'auto'
+
+function alternarModoApto(modo) {
+  modoApto = modo
+  document.getElementById('modo-auto').style.display   = modo === 'auto'   ? 'block' : 'none'
+  document.getElementById('modo-manual').style.display = modo === 'manual' ? 'block' : 'none'
+
+  const btnAuto   = document.getElementById('tab-auto')
+  const btnManual = document.getElementById('tab-manual')
+  if (btnAuto && btnManual) {
+    btnAuto.style.background   = modo === 'auto'   ? 'var(--p-100)' : 'var(--n-0)'
+    btnAuto.style.color        = modo === 'auto'   ? 'var(--p-700)' : 'var(--n-500)'
+    btnAuto.style.borderColor  = modo === 'auto'   ? 'var(--p-300)' : 'var(--n-200)'
+    btnManual.style.background = modo === 'manual' ? 'var(--p-100)' : 'var(--n-0)'
+    btnManual.style.color      = modo === 'manual' ? 'var(--p-700)' : 'var(--n-500)'
+    btnManual.style.borderColor= modo === 'manual' ? 'var(--p-300)' : 'var(--n-200)'
+  }
+}
+
+function previewApartamentos() {
+  const torres   = parseInt(document.getElementById('c-blocos')?.value) || 1
+  const andares  = parseInt(document.getElementById('c-andares')?.value) || 0
+  const porAndar = parseInt(document.getElementById('c-aptos-andar')?.value) || 0
+  const numInicial = parseInt(document.getElementById('c-num-inicial')?.value) ?? 1
+  const formato  = document.getElementById('c-formato')?.value || 'numerico'
+  const preview  = document.getElementById('preview-aptos')
+  const inicio   = document.getElementById('preview-inicio')
+
+  if (inicio) {
+    const primeiroNum = formato === 'simples' ? numInicial : (1 * 100) + numInicial
+    inicio.textContent = String(primeiroNum)
+  }
+
+  if (!preview || !andares || !porAndar) {
+    if (preview) preview.style.display = 'none'
+    return
+  }
+
+  const aptos = gerarListaAptos(torres, andares, porAndar, numInicial, formato)
+  const total = aptos.length
+
+  // Atualiza campo total_aptos
+  const campoTotal = document.getElementById('c-aptos')
+  if (campoTotal) campoTotal.value = total
+
+  // Preview dos primeiros aptos de cada torre
+  const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  let previewTexto = ''
+  for (let t = 0; t < Math.min(torres, 4); t++) {
+    const bloco      = torres > 1 ? `Torre ${LETRAS[t]}` : 'Bloco A'
+    const aptosTorre = aptos.filter(a => a.bloco === LETRAS[t])
+    const primeiros  = aptosTorre.slice(0, 3).map(a => a.numero).join(', ')
+    const ultimos    = aptosTorre.length > 3 ? `... ${aptosTorre.slice(-1)[0].numero}` : ''
+    previewTexto    += `<div style="margin-bottom:4px"><strong style="color:var(--p-700)">${bloco}:</strong> ${primeiros}${ultimos} <span style="color:var(--p-500)">(${aptosTorre.length} aptos)</span></div>`
+  }
+  if (torres > 4) previewTexto += `<div style="color:var(--p-500)">... e mais ${torres - 4} torre${torres - 4 > 1 ? 's' : ''}</div>`
+
+  preview.innerHTML = `<strong>${total} apartamentos</strong> no total · ${torres} torre${torres > 1 ? 's' : ''} · ${andares} andar${andares > 1 ? 'es' : ''} · ${porAndar} apto${porAndar > 1 ? 's' : ''}/andar<br><div style="margin-top:8px">${previewTexto}</div>`
+  preview.style.display = 'block'
+}
+
+function gerarListaAptos(torres, andares, porAndar, numInicial, formato) {
+  const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  const lista  = []
+
+  for (let t = 0; t < torres; t++) {
+    const bloco = LETRAS[t]
+    for (let a = 1; a <= andares; a++) {
+      for (let u = 0; u < porAndar; u++) {
+        let numero
+        if (formato === 'simples') {
+          // Sequencial global: 1, 2, 3, 4, 5...
+          numero = String(numInicial + (t * andares * porAndar) + ((a - 1) * porAndar) + u)
+        } else if (formato === 'dezena') {
+          // Por dezena: andar 1 → 1,2,3,4 / andar 2 → 11,12,13,14 / andar 3 → 21,22,23,24
+          numero = String(((a - 1) * 10) + numInicial + u)
+        } else if (formato === 'letra') {
+          // Com letra: 101A, 101B, 201A...
+          const base = (a * 100) + numInicial
+          numero = String(base) + LETRAS[u]
+        } else {
+          // Numérico padrão: andar 1 → 101,102 / andar 2 → 201,202...
+          numero = String((a * 100) + numInicial + u)
+        }
+        lista.push({ bloco, numero })
+      }
+    }
+  }
+  return lista
+}
+
+function contarManual() {
+  const texto = document.getElementById('c-lista-aptos')?.value || ''
+  const aptos = texto.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
+  const el    = document.getElementById('count-manual')
+  if (el) el.textContent = aptos.length
+  const campoTotal = document.getElementById('c-aptos')
+  if (campoTotal) campoTotal.value = aptos.length
+}
+
+// aplicarMascaraCNPJ já definida em utils.js — não duplicar aqui
+
+
+
 // ── Máscara CEP ───────────────────────────────────────────────
 function aplicarMascaraCEP() {
   document.addEventListener('input', async function(e) {
@@ -1009,6 +1968,7 @@ function bindEvents() {
     m.addEventListener('click', e => { if (e.target === m) fecharModal() })
   })
   document.getElementById('form-condo')?.addEventListener('submit', salvarCondo)
+  document.getElementById('c-lista-aptos')?.addEventListener('input', contarManual)
   document.getElementById('modal-reset')?.addEventListener('click', e => {
     if (e.target === document.getElementById('modal-reset')) fecharModal()
   })

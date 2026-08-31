@@ -14,8 +14,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')                ?? ''
 const SUPABASE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')   ?? ''
 
+const APP_URL = Deno.env.get('APP_URL') ?? '*'
+
 const CORS_HEADERS = {
-  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Origin':  APP_URL,
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
@@ -78,9 +80,25 @@ serve(async (req: Request) => {
     }
 
     // 3. Atualiza o condomínio para status 'ativo'
-    await db.from('condominios')
+    // Não faz rollback aqui: o usuário já foi criado com sucesso.
+    // Se este update falhar, o condomínio ficará como 'pendente' mas o
+    // síndico ainda poderá logar — o superadmin pode corrigir manualmente.
+    const { error: condoError } = await db.from('condominios')
       .update({ status: 'ativo' })
       .eq('id', condominio_id)
+
+    if (condoError) {
+      console.error('Aviso: falha ao ativar condomínio (usuário criado com sucesso):', condoError)
+      // Retorna sucesso parcial — síndico criado, mas condomínio pode precisar de ajuste manual
+      return new Response(JSON.stringify({
+        ok:      true,
+        user_id: authData.user.id,
+        aviso:   'Síndico criado, mas o condomínio não foi ativado automaticamente. Verifique o painel.',
+      }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      })
+    }
 
     return new Response(JSON.stringify({ ok: true, user_id: authData.user.id }), {
       status: 200,

@@ -4,7 +4,7 @@
 // ============================================================
 
 const SUPABASE_URL = 'https://ihaeqbtoylxcfwmdcjfg.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImloYWVxYnRveWx4Y2Z3bWRjamZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNTA4NTUsImV4cCI6MjA5MjgyNjg1NX0.Tyn5D4LeCsPWMFh8Crk6zb9gQD9IlR4fjG_v_xfnMPE'
+const SUPABASE_KEY = 'sb_publishable_tkRXIWO0dgIArNRHZ9RyGw_ewcUlAzD'
 
 const { createClient } = supabase
 const db = createClient(SUPABASE_URL, SUPABASE_KEY)
@@ -16,40 +16,111 @@ async function getSession() {
   return session
 }
 
+// ── Cache do usuário logado (TTL: 5 minutos) ─────────────────
+const CACHE_KEY = 'ct_usuario_cache'
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutos em ms
+
+function _lerCacheUsuario() {
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY)
+    if (!raw) return null
+    const { data, expiresAt } = JSON.parse(raw)
+    if (Date.now() > expiresAt) {
+      sessionStorage.removeItem(CACHE_KEY)
+      return null
+    }
+    return data
+  } catch {
+    return null
+  }
+}
+
+function _gravarCacheUsuario(data) {
+  try {
+    // Remove campos sensíveis antes de gravar no cache do browser
+    const { cpf, ...dadosSeguros } = data
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+      data:      dadosSeguros,
+      expiresAt: Date.now() + CACHE_TTL,
+    }))
+  } catch { /* sessionStorage indisponível — sem cache */ }
+}
+
+function invalidarCacheUsuario() {
+  sessionStorage.removeItem(CACHE_KEY)
+}
+
 async function getUsuarioLogado() {
+  // Retorna do cache se ainda válido
+  const cached = _lerCacheUsuario()
+  if (cached) return cached
+
+  // Tenta obter a sessão — o Supabase pode demorar alguns ms
+  // para propagar após um redirect de login
   const session = await getSession()
-  if (!session) return null
+  if (!session?.user?.id) return null
 
   const { data, error } = await db
     .from('usuarios')
     .select(`
-      *,
-      condominios (*),
-      apartamentos (*)
+      id, auth_id, perfil, nome, email, telefone,
+      status, turno, periodo,
+      condominio_id, apartamento_id,
+      condominios ( id, nome, endereco, cidade, uf ),
+      apartamentos ( id, numero, bloco )
     `)
     .eq('auth_id', session.user.id)
     .single()
 
-  if (error) { console.error('Erro ao buscar usuário:', error); return null }
+  if (error || !data) {
+    console.error('Erro ao buscar usuário:', error)
+    return null
+  }
+
+  _gravarCacheUsuario(data)
   return data
 }
 
+// ── Caminho absoluto para o login — funciona de qualquer pasta ─
+function rotaLogin() {
+  // Sempre usa caminho absoluto a partir da raiz do site
+  return window.location.origin + '/pages/login.html'
+}
+
 async function logout() {
+  sessionStorage.removeItem('sa_impersonate_condo_id')
+  sessionStorage.removeItem('sa_impersonate_condo_nome')
+  invalidarCacheUsuario()
+  await registrarLogout()
   await db.auth.signOut()
-  window.location.href = '../pages/login.html'
+  window.location.href = rotaLogin()
 }
 
 // ── Guard: redireciona se não estiver logado ─────────────────
 async function requireAuth(perfilEsperado = null) {
-  const usuario = await getUsuarioLogado()
+  // Tenta até 3 vezes com pequeno delay — garante que a sessão
+  // foi propagada após redirect do login (race condition comum no Supabase Auth).
+  //
+  // ATENÇÃO: invalidarCacheUsuario() é chamado intencionalmente em cada iteração.
+  // Isso força um re-fetch do banco mesmo que o cache ainda seja válido.
+  // O objetivo é garantir dados frescos logo após o login — não é um bug.
+  // Em uso normal (páginas já abertas), o cache de 5 min em getUsuarioLogado() é preservado.
+  let usuario = null
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
+    invalidarCacheUsuario() // intencional: força re-fetch após redirect de login
+    usuario = await getUsuarioLogado()
+    if (usuario) break
+    // Aguarda 500ms antes de tentar de novo
+    if (tentativa < 2) await new Promise(r => setTimeout(r, 500))
+  }
 
   if (!usuario) {
-    window.location.href = 'login.html'
+    window.location.href = rotaLogin()
     return null
   }
 
   if (perfilEsperado && !perfilEsperado.includes(usuario.perfil)) {
-    window.location.href = 'login.html'
+    window.location.href = rotaLogin()
     return null
   }
 

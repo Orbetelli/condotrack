@@ -63,12 +63,29 @@ async function buscarCondominios(q) {
     return
   }
 
-  lista.innerHTML = data.map(c => `
-    <div class="condo-option" onclick="selecionarCondo('${c.id}', '${c.nome.replace(/'/g, "\\'")}', '${c.cidade} — ${c.uf}')">
-      <div style="font-size:13px;font-weight:600;color:var(--n-900)">${c.nome}</div>
-      <div style="font-size:11px;color:var(--n-500);margin-top:2px">${c.endereco}, ${c.cidade} — ${c.uf}</div>
-    </div>
-  `).join('')
+  lista.innerHTML = ''
+  data.forEach(c => {
+    const div = document.createElement('div')
+    div.className = 'condo-option'
+    div.dataset.id    = c.id
+    div.dataset.nome  = c.nome
+    div.dataset.local = `${c.cidade} — ${c.uf}`
+
+    const titulo = document.createElement('div')
+    titulo.style.cssText = 'font-size:13px;font-weight:600;color:var(--n-900)'
+    titulo.textContent = c.nome
+
+    const sub = document.createElement('div')
+    sub.style.cssText = 'font-size:11px;color:var(--n-500);margin-top:2px'
+    sub.textContent = `${c.endereco}, ${c.cidade} — ${c.uf}`
+
+    div.appendChild(titulo)
+    div.appendChild(sub)
+    div.addEventListener('click', () =>
+      selecionarCondo(div.dataset.id, div.dataset.nome, div.dataset.local)
+    )
+    lista.appendChild(div)
+  })
 }
 
 function selecionarCondo(id, nome, local) {
@@ -91,6 +108,8 @@ function limparCondo() {
 }
 
 // ── Carrega apartamentos filtrados pelo condomínio ────────────
+let blocoAtivo = ''
+
 async function carregarApartamentos() {
   const grid = document.getElementById('apt-grid')
   if (!grid) return
@@ -98,7 +117,8 @@ async function carregarApartamentos() {
   TODOS_APTOS.length = 0
   OCUPADOS_SET.clear()
 
-  grid.innerHTML = '<div style="grid-column:span 5;text-align:center;font-size:12px;color:var(--n-400);padding:16px">Carregando apartamentos...</div>'
+  grid.innerHTML = '<div style="grid-column:span 6;text-align:center;font-size:12px;color:var(--n-400);padding:16px">Carregando apartamentos...</div>'
+  document.getElementById('apt-blocos').innerHTML = ''
 
   const { data, error } = await db
     .from('apartamentos')
@@ -107,7 +127,7 @@ async function carregarApartamentos() {
     .order('bloco').order('numero')
 
   if (error || !data?.length) {
-    grid.innerHTML = '<div style="grid-column:span 5;text-align:center;font-size:12px;color:var(--c-danger);padding:16px">Erro ao carregar apartamentos.</div>'
+    grid.innerHTML = '<div style="grid-column:span 6;text-align:center;font-size:12px;color:var(--c-danger);padding:16px">Erro ao carregar apartamentos.</div>'
     return
   }
 
@@ -116,53 +136,127 @@ async function carregarApartamentos() {
     if (a.status === 'ocupado') OCUPADOS_SET.add(a.id)
   })
 
+  // Detecta blocos disponíveis
+  const blocos = [...new Set(TODOS_APTOS.map(a => a.bloco))].sort()
+  // Mantém bloco ativo se ainda existe, senão usa o primeiro
+  if (!blocos.includes(blocoAtivo)) blocoAtivo = blocos[0] || ''
+
+  renderizarBlocos(blocos)
   renderizarGradeAptos()
   iniciarBuscaApto()
 }
 
+function renderizarBlocos(blocos) {
+  const container = document.getElementById('apt-blocos')
+  if (!container) return
+  container.innerHTML = ''
+
+  // Se só tem 1 bloco, não exibe as abas
+  if (blocos.length <= 1) return
+
+  blocos.forEach(b => {
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className = 'apt-bloco-btn' + (b === blocoAtivo ? ' active' : '')
+    btn.textContent = `Bloco ${b}`
+    btn.addEventListener('click', () => {
+      blocoAtivo = b
+      document.querySelectorAll('.apt-bloco-btn').forEach(el => el.classList.remove('active'))
+      btn.classList.add('active')
+      // Limpa busca ao trocar de bloco
+      const busca = document.getElementById('busca-apto')
+      if (busca) busca.value = ''
+      renderizarGradeAptos()
+    })
+    container.appendChild(btn)
+  })
+}
+
 function renderizarGradeAptos(filtro = '') {
   const grid = document.getElementById('apt-grid')
+  const info = document.getElementById('apt-bloco-info')
   if (!grid) return
-  grid.innerHTML = ''
+
+  const listaBloco = TODOS_APTOS.filter(a => a.bloco === blocoAtivo)
+
+  // Ordena naturalmente
+  const sorted = [...listaBloco].sort((a, b) =>
+    a.numero.localeCompare(b.numero, undefined, { numeric: true })
+  )
 
   const lista = filtro
-    ? TODOS_APTOS.filter(a => `${a.bloco}-${a.numero}`.toLowerCase().includes(filtro.toLowerCase()))
-    : TODOS_APTOS
+    ? sorted.filter(a => formatarApto(a).toLowerCase().includes(filtro.toLowerCase()))
+    : sorted
+
+  // Info do bloco
+  if (info) {
+    const livres = listaBloco.filter(a => !OCUPADOS_SET.has(a.id)).length
+    info.textContent = filtro
+      ? `${lista.length} resultado${lista.length !== 1 ? 's' : ''}`
+      : `Bloco ${blocoAtivo} · ${livres} disponíve${livres !== 1 ? 'is' : 'l'} de ${listaBloco.length}`
+  }
 
   if (!lista.length) {
-    grid.innerHTML = '<div style="grid-column:span 5;text-align:center;font-size:12px;color:var(--n-400);padding:16px">Nenhum apartamento encontrado.</div>'
+    grid.innerHTML = '<div style="grid-column:span 6;text-align:center;font-size:12px;color:var(--n-400);padding:16px">Nenhum apartamento encontrado.</div>'
     return
   }
 
+  grid.innerHTML = ''
   lista.forEach(a => {
+    const ocupado = OCUPADOS_SET.has(a.id)
+    const selecionado = estado.aptoId === a.id
     const btn = document.createElement('button')
     btn.type = 'button'
-    btn.className = 'apt-btn'
-    btn.textContent = `${a.bloco}-${a.numero}`
-    btn.title = `Bloco ${a.bloco} · Apto ${a.numero}`
+    btn.className = 'apt-btn' + (selecionado ? ' selected' : '')
+    btn.textContent = formatarApto(a)
+    btn.title = ocupado ? 'Ocupado' : `Selecionar ${formatarApto(a)}`
+    btn.disabled = ocupado
 
-    if (OCUPADOS_SET.has(a.id)) {
-      btn.disabled = true
-    } else {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.apt-btn').forEach(b => b.classList.remove('selected'))
-        btn.classList.add('selected')
-        estado.aptoSelecionado = `${a.bloco}-${a.numero}`
-        estado.aptoId          = a.id
-        limparErro('apto-err')
-      })
+    if (!ocupado) {
+      btn.addEventListener('click', () => selecionarApto(a, btn))
     }
     grid.appendChild(btn)
   })
 }
 
+function selecionarApto(a, btnClicado) {
+  // Desmarca visualmente todos
+  document.querySelectorAll('.apt-btn').forEach(b => b.classList.remove('selected'))
+  btnClicado.classList.add('selected')
+
+  estado.aptoSelecionado = formatarApto(a)
+  estado.aptoId          = a.id
+  limparErro('apto-err')
+
+  // Atualiza mini card
+  document.getElementById('apt-selecionado-txt').textContent =
+    `Apto ${estado.aptoSelecionado} selecionado`
+  document.getElementById('apt-selecionado-card').classList.add('visivel')
+}
+
+function desselecionarApto() {
+  estado.aptoSelecionado = ''
+  estado.aptoId          = ''
+  document.querySelectorAll('.apt-btn').forEach(b => b.classList.remove('selected'))
+  document.getElementById('apt-selecionado-card').classList.remove('visivel')
+}
+
+// Formata o apto de forma consistente:
+// Se o número já começa com a letra do bloco (ex: bloco "A", numero "A101") → mostra só numero
+// Caso contrário → mostra "Bloco-Numero" (ex: "A-101")
+function formatarApto(a) {
+  if (a.numero.toUpperCase().startsWith(a.bloco.toUpperCase())) return a.numero
+  return `${a.bloco}-${a.numero}`
+}
+
 function iniciarBuscaApto() {
   const input = document.getElementById('busca-apto')
   if (!input) return
-  input.addEventListener('input', () => {
-    estado.aptoSelecionado = ''
-    estado.aptoId          = ''
-    renderizarGradeAptos(input.value.trim())
+  // Remove listener anterior se existir
+  input.replaceWith(input.cloneNode(true))
+  const novoInput = document.getElementById('busca-apto')
+  novoInput.addEventListener('input', () => {
+    renderizarGradeAptos(novoInput.value.trim())
   })
 }
 
@@ -189,7 +283,16 @@ async function irPasso(destino) {
   document.getElementById('step-' + estado.stepAtual).style.display = 'block'
   atualizarStepper(estado.stepAtual)
 
-  if (estado.stepAtual === 2) await carregarApartamentos()
+  // Só recarrega apartamentos se chegou no passo 2 vindo de frente
+  // ou se o condomínio mudou (TODOS_APTOS vazio ou condoId diferente)
+  if (estado.stepAtual === 2) {
+    const condoMudou = TODOS_APTOS.length === 0 ||
+      TODOS_APTOS[0]?.condominio_id !== estado.condominioId
+    if (condoMudou) {
+      blocoAtivo = '' // reseta bloco ao trocar de condomínio
+      await carregarApartamentos()
+    }
+  }
 
   if (estado.stepAtual === 3) {
     const nome = document.getElementById('nome').value
@@ -241,52 +344,60 @@ async function finalizar() {
   setBtnCarregando('btn-finalizar', true)
 
   try {
-    // 1. Cria no Supabase Auth
-    const { data: authData, error: authError } = await db.auth.signUp({ email, password: senha })
+    // Chama a Edge Function cadastrar-morador com service role.
+    //
+    // Por que Edge Function e não INSERT direto?
+    // Após signUp() sem confirmação de e-mail, o cliente não tem JWT válido,
+    // então o RLS da tabela usuarios bloqueia qualquer INSERT direto.
+    // A Edge Function usa a service role key no backend, contornando o RLS
+    // com segurança — mesmo padrão do criar-sindico.
+    // Chama a Edge Function via fetch direto para ter controle total
+    // sobre o body da resposta — db.functions.invoke retorna null em data
+    // para respostas não-2xx, impedindo a leitura da mensagem de erro.
+    // SUPABASE_URL e SUPABASE_KEY são constantes globais definidas em supabase.js
+    // db.supabaseUrl não existe no cliente v2 — usa as constantes direto
+    const resp = await fetch(
+      `${SUPABASE_URL}/functions/v1/cadastrar-morador`,
+      {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'apikey':        SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+        },
+        body: JSON.stringify({
+          email,
+          senha,
+          nome,
+          cpf,
+          telefone:       tel,
+          condominio_id:  estado.condominioId,
+          apartamento_id: estado.aptoId,
+        }),
+      }
+    )
 
-    if (authError) {
-      mostrarErro('senha-err', authError.message === 'User already registered'
-        ? 'Este e-mail já está cadastrado.' : 'Erro ao criar conta: ' + authError.message)
+    const resultado = await resp.json().catch(() => ({}))
+
+    if (!resp.ok) {
+      const msg = resultado?.error || 'Erro ao criar conta. Tente novamente.'
+      mostrarErro('senha-err', msg)
       setBtnCarregando('btn-finalizar', false)
       return
     }
 
-    const userId = authData.user?.id ?? authData.session?.user?.id
-    if (!userId) {
-      mostrarErro('senha-err', 'Confirme seu e-mail antes de continuar.')
-      setBtnCarregando('btn-finalizar', false)
-      return
+    // Aviso não crítico (ex: apartamento não foi marcado como ocupado)
+    if (resultado?.aviso) {
+      console.warn('[cadastro] Aviso da Edge Function:', resultado.aviso)
     }
 
-    // 2. Insere na tabela usuarios
-    const { error: userError } = await db.from('usuarios').insert({
-      auth_id:        userId,
-      condominio_id:  estado.condominioId,
-      apartamento_id: estado.aptoId,
-      perfil:         'morador',
-      nome,
-      email,
-      cpf:            cpf.replace(/\D/g, ''),
-      telefone:       tel,
-      status:         'ativo',
-    })
-
-    if (userError) {
-      console.error('Erro ao salvar usuário:', userError)
-      mostrarErro('senha-err', 'Erro ao salvar dados. Tente novamente.')
-      setBtnCarregando('btn-finalizar', false)
-      return
-    }
-
-    // 3. Marca apartamento como ocupado
-    await db.from('apartamentos').update({ status: 'ocupado' }).eq('id', estado.aptoId)
-
-    // 4. Sucesso
-    document.getElementById('step-3').style.display     = 'none'
-    document.getElementById('stepper').style.display    = 'none'
-    document.getElementById('success-msg').innerHTML    =
+    // Sucesso
+    document.getElementById('step-3').style.display      = 'none'
+    document.getElementById('stepper').style.display     = 'none'
+    document.getElementById('reg-header').style.display  = 'none'
+    document.getElementById('success-msg').innerHTML     =
       `Sua conta foi criada para o <strong>Apto ${estado.aptoSelecionado}</strong>, ${nome}.<br>
-       Confirme seu e-mail se necessário e faça o login.`
+       Confirme seu e-mail e faça o login.`
     document.getElementById('success-screen').style.display = 'block'
 
   } catch (err) {
