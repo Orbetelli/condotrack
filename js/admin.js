@@ -47,10 +47,7 @@ function invalidarCaches() {
 
 // ── Init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-<<<<<<< HEAD
   usuarioLogado = await requireAuth(['admin', 'superadmin'])
-=======
->>>>>>> 5cefd62adfd9f9b53d20369b9dfcf3ccd455551e
   if (!usuarioLogado) return
 
   // Verifica impersonação do superadmin
